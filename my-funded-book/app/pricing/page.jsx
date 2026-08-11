@@ -41,7 +41,7 @@ export default function PricingPage() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-4 bg-ink p-5">
       <div className="font-mono text-[13px] font-extrabold tracking-[6px] text-muted2">
-        MY <span className="text-accent">FUNDED</span> BOOK
+        My<span className="text-accent">Trade</span>Book
       </div>
 
       <div className="grid w-full max-w-[720px] gap-4 sm:grid-cols-2">
