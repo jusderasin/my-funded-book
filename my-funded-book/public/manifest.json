@@ -1,6 +1,6 @@
 {
-  "name": "MY FUNDED BOOK",
-  "short_name": "FundedBook",
+  "name": "MyTradeBook",
+  "short_name": "MyTradeBook",
   "description": "Le livre de comptes du trader financé.",
   "start_url": "/dashboard",
   "scope": "/",
