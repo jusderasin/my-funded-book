@@ -52,7 +52,7 @@ export function AppShell({ children }) {
             <Menu size={20} />
           </button>
           <div className="font-mono text-[12px] font-extrabold tracking-[3px]">
-            MY <span className="text-accent">FUNDED</span> BOOK
+            My<span className="text-accent">Trade</span>Book
           </div>
           <div className="text-[12px] text-muted2">/ <b className="font-semibold text-muted">{NAV.find((n) => pathname.startsWith(n.href))?.label || "Dashboard"}</b></div>
           <div className="flex-1" />
@@ -103,7 +103,7 @@ export function AppShell({ children }) {
         {/* lock screen */}
         {locked && (
           <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-5 bg-ink">
-            <div className="font-mono text-[13px] font-extrabold tracking-[6px] text-muted2">FUNDEDBOOK</div>
+            <div className="font-mono text-[13px] font-extrabold tracking-[6px] text-muted2">MYTRADEBOOK</div>
             <div className="w-[min(340px,88vw)] rounded-2xl border border-line2 bg-panel p-6">
               <h2 className="text-[17px] font-extrabold">Welcome back, {profile.name}</h2>
               <p className="mb-4 mt-1 text-[12px] text-muted2">Entre ton code PIN pour déverrouiller.</p>
