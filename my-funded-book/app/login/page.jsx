@@ -48,7 +48,7 @@ export default function LoginPage() {
   return (
     <div className="flex min-h-screen flex-col items-center justify-center gap-5 bg-ink p-5">
       <div className="font-mono text-[13px] font-extrabold tracking-[6px] text-muted2">
-        MY <span className="text-accent">FUNDED</span> BOOK
+        My<span className="text-accent">Trade</span>Book
       </div>
       <div className="w-[min(380px,92vw)] rounded-2xl border border-line2 bg-panel p-6">
         <div className="mb-4 flex gap-1.5 rounded-xl bg-panel2 p-1">
