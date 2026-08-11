@@ -12,14 +12,14 @@ import { useBook } from "./BookProvider";
 import { LogTradeModal, SettingsModal } from "./modals";
 
 const NAV = [
-  { href: "/dashboard", label: "Dashboard", icon: LayoutGrid },
-  { href: "/accounts", label: "Accounts", icon: Table2 },
-  { href: "/journal", label: "Journal", icon: ListChecks },
-  { href: "/review", label: "Review", icon: PenLine },
-  { href: "/playbook", label: "Playbook", icon: BookOpen },
-  { href: "/breakdown", label: "Breakdown", icon: Grid3x3 },
-  { href: "/certificates", label: "Certificates", icon: Award },
-  { href: "/expenses", label: "Expenses", icon: Receipt },
+  { href: "/dashboard", key: "nav_dashboard", icon: LayoutGrid },
+  { href: "/accounts", key: "nav_accounts", icon: Table2 },
+  { href: "/journal", key: "nav_journal", icon: ListChecks },
+  { href: "/review", key: "nav_review", icon: PenLine },
+  { href: "/playbook", key: "nav_playbook", icon: BookOpen },
+  { href: "/breakdown", key: "nav_breakdown", icon: Grid3x3 },
+  { href: "/certificates", key: "nav_certificates", icon: Award },
+  { href: "/expenses", key: "nav_expenses", icon: Receipt },
 ];
 
 const ModalCtx = createContext(null);
@@ -28,7 +28,7 @@ export const useModals = () => useContext(ModalCtx);
 export function AppShell({ children }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { profile } = useBook();
+  const { profile, t, lang } = useBook();
   const [open, setOpen] = useState(false);
   const [showLog, setShowLog] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -41,7 +41,7 @@ export function AppShell({ children }) {
     router.push("/login");
   }
 
-  const today = new Date().toLocaleDateString("fr-FR", { weekday: "long", day: "numeric", month: "long" });
+  const today = new Date().toLocaleDateString(lang === "en" ? "en-US" : "fr-FR", { weekday: "long", day: "numeric", month: "long" });
 
   return (
     <ModalCtx.Provider value={{ openLog: () => setShowLog(true) }}>
@@ -54,7 +54,7 @@ export function AppShell({ children }) {
           <div className="font-mono text-[12px] font-extrabold tracking-[3px]">
             My<span className="text-accent">Trade</span>Book
           </div>
-          <div className="text-[12px] text-muted2">/ <b className="font-semibold text-muted">{NAV.find((n) => pathname.startsWith(n.href))?.label || "Dashboard"}</b></div>
+          <div className="text-[12px] text-muted2">/ <b className="font-semibold text-muted">{t(NAV.find((n) => pathname.startsWith(n.href))?.key || "nav_dashboard")}</b></div>
           <div className="flex-1" />
           <button onClick={() => setShowLog(true)} className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-[12px] font-bold text-black hover:brightness-110">
             <Plus size={15} /> Log trade
@@ -74,14 +74,14 @@ export function AppShell({ children }) {
               return (
                 <Link key={n.href} href={n.href} onClick={() => setOpen(false)}
                   className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13.5px] font-medium ${active ? "bg-accentDim text-accent" : "text-muted hover:bg-panel2 hover:text-white"}`}>
-                  <Icon size={16} /> {n.label}
+                  <Icon size={16} /> {t(n.key)}
                 </Link>
               );
             })}
             <div className="mt-auto flex flex-col gap-0.5 border-t border-line pt-3">
-              <button onClick={() => { setShowSettings(true); setOpen(false); }} className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[12.5px] text-muted2 hover:bg-panel2 hover:text-white"><Settings size={15} /> Réglages</button>
-              <button onClick={() => { setLocked(true); setOpen(false); }} className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[12.5px] text-muted2 hover:bg-panel2 hover:text-white"><Lock size={15} /> Lock</button>
-              <button onClick={signOut} className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[12.5px] text-muted2 hover:bg-panel2 hover:text-white"><LogOut size={15} /> Sign out</button>
+              <button onClick={() => { setShowSettings(true); setOpen(false); }} className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[12.5px] text-muted2 hover:bg-panel2 hover:text-white"><Settings size={15} /> {t("settings")}</button>
+              <button onClick={() => { setLocked(true); setOpen(false); }} className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[12.5px] text-muted2 hover:bg-panel2 hover:text-white"><Lock size={15} /> {t("lock")}</button>
+              <button onClick={signOut} className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[12.5px] text-muted2 hover:bg-panel2 hover:text-white"><LogOut size={15} /> {t("signout")}</button>
             </div>
           </aside>
 
