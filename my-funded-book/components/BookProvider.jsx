@@ -3,6 +3,7 @@
 import { createContext, useContext, useEffect, useMemo, useState, useCallback } from "react";
 import { createClient } from "@/lib/supabase/client";
 import { computeStats } from "@/lib/stats";
+import { translate } from "@/lib/i18n";
 
 const BookCtx = createContext(null);
 export const useBook = () => useContext(BookCtx);
@@ -10,6 +11,7 @@ export const useBook = () => useContext(BookCtx);
 export function BookProvider({ user, children }) {
   const supabase = useMemo(() => createClient(), []);
   const [loading, setLoading] = useState(true);
+  const [lang, setLangState] = useState("fr");
   const [profile, setProfile] = useState({ name: "trader", pin: "1234", starting_balance: 600000 });
   const [trades, setTrades] = useState([]);
   const [accounts, setAccounts] = useState([]);
@@ -23,6 +25,17 @@ export function BookProvider({ user, children }) {
     setToast({ msg, err, id: Date.now() });
     setTimeout(() => setToast(null), 2200);
   }, []);
+  useEffect(() => {
+    const saved = typeof window !== "undefined" ? localStorage.getItem("lang") : null;
+    if (saved) setLangState(saved);
+  }, []);
+
+  const setLang = useCallback((l) => {
+    setLangState(l);
+    if (typeof window !== "undefined") localStorage.setItem("lang", l);
+  }, []);
+
+  const t = useCallback((key) => translate(lang, key), [lang]);
 
   const loadAll = useCallback(async () => {
     setLoading(true);
@@ -137,6 +150,9 @@ export function BookProvider({ user, children }) {
 
   const value = {
     loading,
+    lang,
+    setLang,
+    t,
     user,
     profile,
     trades,
