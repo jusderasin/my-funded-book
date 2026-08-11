@@ -22,6 +22,12 @@ export const DICT = {
   lock:      { fr: "Verrouiller", en: "Lock" },
   signout:   { fr: "Déconnexion", en: "Sign out" },
   settings:  { fr: "Réglages",    en: "Settings" },
+  nav_label:    { fr: "Navigation",   en: "Navigation" },
+  log_trade:    { fr: "Log trade",    en: "Log trade" },
+  welcome:      { fr: "Bienvenue",    en: "Welcome" },
+  unlock_title: { fr: "Content de te revoir", en: "Welcome back" },
+  unlock_hint:  { fr: "Entre ton code PIN pour déverrouiller.", en: "Enter your PIN to unlock." },
+  unlock_btn:   { fr: "Déverrouiller", en: "Unlock" },
 };
 
 export function translate(lang, key) {
