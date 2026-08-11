@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { stripe } from "@/lib/stripe";
+import { getStripe } from "@/lib/stripe";
 import { createServerSupabase, createAdminSupabase } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -8,6 +8,8 @@ export async function POST() {
   const supabase = await createServerSupabase();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
+
+  const stripe = getStripe();
 
   const admin = createAdminSupabase();
   const { data: sub } = await admin
