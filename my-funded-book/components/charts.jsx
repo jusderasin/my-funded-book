@@ -140,8 +140,10 @@ export function Gauge({ pct, color = "#00E676" }) {
 }
 
 // ---------- Monthly calendar ----------
-export function Calendar({ byDay, tradesByDay, ref: monthRef, onShift }) {
-  const { y, m } = monthRef;
+export function Calendar({ byDay, tradesByDay, month, onShift }) {
+  const today = new Date();
+  const safe = month || { y: today.getFullYear(), m: today.getMonth() + 1 };
+  const { y, m } = safe;
   const monthName = new Date(y, m - 1, 1).toLocaleDateString("en-US", { month: "long", year: "numeric" });
   const first = new Date(y, m - 1, 1).getDay();
   const dim = new Date(y, m, 0).getDate();
