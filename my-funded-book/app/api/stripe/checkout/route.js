@@ -1,5 +1,5 @@
 import { NextResponse } from "next/server";
-import { stripe } from "@/lib/stripe";
+import { getStripe } from "@/lib/stripe";
 import { createServerSupabase, createAdminSupabase } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
@@ -16,13 +16,13 @@ export async function POST(req) {
   } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
 
+  const stripe = getStripe();
   const { plan } = await req.json();
   const price = PRICES[plan];
   if (!price) return NextResponse.json({ error: "invalid plan" }, { status: 400 });
 
   const site = process.env.NEXT_PUBLIC_SITE_URL;
 
-  // Réutilise le customer Stripe existant s'il y en a un
   const admin = createAdminSupabase();
   const { data: sub } = await admin
     .from("subscriptions")
