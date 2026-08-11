@@ -195,11 +195,8 @@ export function ExpenseModal({ onClose }) {
 }
 
 export function SettingsModal({ onClose }) {
-  const { profile, saveProfile, trades } = useBook();
+  const { profile, saveProfile, trades, lang, setLang, t } = useBook();
   const [f, setF] = useState({ name: profile.name, pin: profile.pin });
-  const [lang, setLang] = useState(
-    typeof window !== "undefined" ? localStorage.getItem("lang") || "fr" : "fr"
-  );
   const set = (k, v) => setF((s) => ({ ...s, [k]: v }));
 
   function exportCSV() {
@@ -215,15 +212,14 @@ export function SettingsModal({ onClose }) {
   }
 
   return (
-    <Modal title="Réglages" onClose={onClose}
-      footer={<><GhostBtn className="flex-1" onClick={exportCSV}>Export CSV</GhostBtn><PrimaryBtn className="flex-1" onClick={async () => {
-        if (typeof window !== "undefined") localStorage.setItem("lang", lang);
+    <Modal title={t("settings_title")} onClose={onClose}
+      footer={<><GhostBtn className="flex-1" onClick={exportCSV}>{t("settings_export")}</GhostBtn><PrimaryBtn className="flex-1" onClick={async () => {
         await saveProfile({ name: f.name || "trader", pin: f.pin || "1234", starting_balance: profile.starting_balance ?? 0 });
         onClose();
-      }}>Enregistrer</PrimaryBtn></>}>
-      <Field label="Nom affiché"><input className={inputCls} value={f.name} onChange={(e) => set("name", e.target.value)} /></Field>
-      <Field label="Code PIN (verrou rapide)"><input className={inputCls} value={f.pin} maxLength={6} inputMode="numeric" onChange={(e) => set("pin", e.target.value)} /></Field>
-      <Field label="Langue / Language">
+      }}>{t("settings_save")}</PrimaryBtn></>}>
+      <Field label={t("settings_name")}><input className={inputCls} value={f.name} onChange={(e) => set("name", e.target.value)} /></Field>
+      <Field label={t("settings_pin")}><input className={inputCls} value={f.pin} maxLength={6} inputMode="numeric" onChange={(e) => set("pin", e.target.value)} /></Field>
+      <Field label={t("settings_lang")}>
         <div className="flex gap-1.5">
           <Chip active={lang === "fr"} onClick={() => setLang("fr")}>Français</Chip>
           <Chip active={lang === "en"} onClick={() => setLang("en")}>English</Chip>
