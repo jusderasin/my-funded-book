@@ -2,13 +2,13 @@ import "./globals.css";
 import { PWARegister } from "@/components/PWARegister";
 
 export const metadata = {
-  title: "MY FUNDED BOOK — Trading Journal for Funded Traders",
+  title: "MyTradeBook — Journal de trading",
   description: "Le livre de comptes du trader financé — trades, evals, payouts, certificats et ROI.",
   manifest: "/manifest.json",
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
-    title: "MY FUNDED BOOK",
+    title: "MyTradeBook",
   },
 };
 
