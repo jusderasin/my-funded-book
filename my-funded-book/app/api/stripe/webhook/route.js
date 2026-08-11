@@ -1,13 +1,12 @@
 import { NextResponse } from "next/server";
-import { stripe } from "@/lib/stripe";
+import { getStripe } from "@/lib/stripe";
 import { createAdminSupabase } from "@/lib/supabase/server";
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
-// Le webhook est la SEULE source de vérité pour le statut d'abonnement.
-// Il écrit avec le service_role (bypass RLS) — jamais le client.
 export async function POST(req) {
+  const stripe = getStripe();
   const body = await req.text();
   const sig = req.headers.get("stripe-signature");
   let event;
