@@ -117,6 +117,23 @@ export const DICT = {
   exp_add:        { fr: "+ Dépense",         en: "+ Expense" },
   exp_empty_t:    { fr: "Aucune dépense",    en: "No expense" },
   exp_empty_s:    { fr: "Frais d'éval, resets, data feeds… ici tu sais exactement ce que le prop trading te coûte.", en: "Eval fees, resets, data feeds… here you know exactly what prop trading costs you." },
+  jrn_title:      { fr: "Journal de trades",  en: "Trade journal" },
+  jrn_add:        { fr: "+ Log trade",        en: "+ Log trade" },
+  jrn_empty_t:    { fr: "Aucun trade",        en: "No trade" },
+  jrn_empty_s:    { fr: "Log tes NQ/MNQ : grade, session, R, PnL et surtout le WHY. C'est là que l'edge se muscle.", en: "Log your NQ/MNQ: grade, session, R, PnL and above all the WHY. That's where the edge grows." },
+  jrn_why:        { fr: "WHY —",              en: "WHY —" },
+  jrn_edit:       { fr: "Éditer",             en: "Edit" },
+  jrn_delete:     { fr: "Supprimer",          en: "Delete" },
+
+  crt_funded_cap: { fr: "Capital financé",    en: "Funded capital" },
+  crt_payouts:    { fr: "Payouts",            en: "Payouts" },
+  crt_total_in:   { fr: "Total encaissé",     en: "Total received" },
+  crt_wall:       { fr: "Mur de certificats", en: "Certificate wall" },
+  crt_add:        { fr: "+ Certificat",       en: "+ Certificate" },
+  crt_empty_t:    { fr: "Aucun certificat",   en: "No certificate" },
+  crt_empty_s:    { fr: "Compte financé, 1er payout, palier de scaling… garde une trace de tes wins.", en: "Funded account, first payout, scaling milestone… keep a record of your wins." },
+  crt_payout:     { fr: "PAYOUT",             en: "PAYOUT" },
+  crt_eval_pass:  { fr: "EVAL PASSED",        en: "EVAL PASSED" },
 };
 
 export function translate(lang, key) {
