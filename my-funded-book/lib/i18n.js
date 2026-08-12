@@ -100,6 +100,16 @@ export const DICT = {
 
   m_new_expense:  { fr: "Nouvelle dépense", en: "New expense" },
   m_firm_post:    { fr: "Firme / poste",    en: "Firm / item" },
+  acc_title:      { fr: "Comptes prop firm", en: "Prop firm accounts" },
+  acc_add:        { fr: "+ Compte",          en: "+ Account" },
+  acc_tab_all:    { fr: "Tous",              en: "All" },
+  acc_tab_eval:   { fr: "Évals",             en: "Evals" },
+  acc_tab_funded: { fr: "Funded",            en: "Funded" },
+  acc_empty_t:    { fr: "Aucun compte",      en: "No account" },
+  acc_empty_s:    { fr: "Ajoute tes évals et comptes financés pour suivre statut et coûts.", en: "Add your evals and funded accounts to track status and costs." },
+  acc_funded:     { fr: "FUNDED",            en: "FUNDED" },
+  acc_eval:       { fr: "ÉVAL",              en: "EVAL" },
+  acc_free:       { fr: "gratuit",           en: "free" },
 };
 
 export function translate(lang, key) {
