@@ -168,6 +168,15 @@ export const DICT = {
   rv_focus:       { fr: "Focus pour la semaine prochaine", en: "Focus for next week" },
   rv_focus_ph:    { fr: "Un ou deux engagements concrets…", en: "One or two concrete commitments…" },
   rv_save:        { fr: "Enregistrer la review", en: "Save review" },
+  chart_no_data:  { fr: "Pas assez de données", en: "Not enough data" },
+  cal_trade:      { fr: "trade",   en: "trade" },
+  cal_trades:     { fr: "trades",  en: "trades" },
+
+  st_active:      { fr: "En cours", en: "Active" },
+  st_passed:      { fr: "Validé",   en: "Passed" },
+  st_funded:      { fr: "Funded",   en: "Funded" },
+  st_failed:      { fr: "Cramé",    en: "Failed" },
+  st_paid:        { fr: "Payé",     en: "Paid" },
 };
 
 export function translate(lang, key) {
