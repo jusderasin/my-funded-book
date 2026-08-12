@@ -28,6 +28,32 @@ export const DICT = {
   unlock_title: { fr: "Content de te revoir", en: "Welcome back" },
   unlock_hint:  { fr: "Entre ton code PIN pour déverrouiller.", en: "Enter your PIN to unlock." },
   unlock_btn:   { fr: "Déverrouiller", en: "Unlock" },
+  kpi_net:        { fr: "P&L net",        en: "Net P&L" },
+  kpi_trade_wr:   { fr: "% trades gagnants", en: "Trade win %" },
+  kpi_pf:         { fr: "Profit factor",  en: "Profit factor" },
+  kpi_day_wr:     { fr: "% jours gagnants", en: "Day win %" },
+  kpi_avg_wl:     { fr: "Gain/perte moy.", en: "Avg win/loss" },
+
+  streak_plan:    { fr: "série plan respecté", en: "plan-followed streak" },
+  streak_days:    { fr: "jour(s) de trading",  en: "trading day(s)" },
+  streak_adher:   { fr: "respect du plan",      en: "plan adherence" },
+  streak_green:   { fr: "jours verts",          en: "green days" },
+
+  edge_score:     { fr: "Edge score",           en: "Edge score" },
+  your_edge:      { fr: "Ton Edge Score",       en: "Your Edge Score" },
+  daily_cum:      { fr: "P&L net cumulé quotidien", en: "Daily net cumulative P&L" },
+  net_daily:      { fr: "P&L net quotidien",    en: "Net daily P&L" },
+
+  recent_trades:  { fr: "Trades récents",       en: "Recent trades" },
+  no_trades:      { fr: "Aucun trade encore.",  en: "No trades yet." },
+  th_close_date:  { fr: "Date de clôture",      en: "Close date" },
+  th_symbol:      { fr: "Instrument",           en: "Symbol" },
+  th_net_pnl:     { fr: "P&L net",              en: "Net P&L" },
+  balance:        { fr: "Balance",              en: "Balance" },
+
+  account_balance:{ fr: "Balance du compte",    en: "Account balance" },
+  starting_balance_lbl:{ fr: "Balance de départ", en: "Starting balance" },
+  drawdown:       { fr: "Drawdown",             en: "Drawdown" },
 };
 
 export function translate(lang, key) {
