@@ -154,6 +154,20 @@ export const DICT = {
   pb_empty_t:     { fr: "Aucun setup",     en: "No setup" },
   pb_empty_s:     { fr: "Écris les règles exactes de ce que tu trades — ensuite chaque trade est noté contre elles.", en: "Write the exact rules of what you trade — then each trade is graded against them." },
   pb_trades:      { fr: "trades",          en: "trades" },
+  rv_net:         { fr: "P&L net",          en: "Net P&L" },
+  rv_trades_wr:   { fr: "Trades / WR",      en: "Trades / WR" },
+  rv_best:        { fr: "Meilleur jour",    en: "Best day" },
+  rv_worst:       { fr: "Pire jour",        en: "Worst day" },
+  rv_plan:        { fr: "Plan respecté",    en: "Plan followed" },
+  rv_costly:      { fr: "Erreur la plus coûteuse", en: "Costliest mistake" },
+  rv_title:       { fr: "Écris la review de cette semaine", en: "Write this week's review" },
+  rv_worked:      { fr: "Ce qui a marché — à refaire", en: "What worked — do more of this" },
+  rv_worked_ph:   { fr: "Setups, sessions, comportements qui ont fait de l'argent…", en: "Setups, sessions, behaviors that made money…" },
+  rv_cut:         { fr: "Ce qu'il faut couper — à arrêter", en: "What to cut — stop doing this" },
+  rv_cut_ph:      { fr: "Erreurs, leaks, règles cassées…", en: "Mistakes, leaks, broken rules…" },
+  rv_focus:       { fr: "Focus pour la semaine prochaine", en: "Focus for next week" },
+  rv_focus_ph:    { fr: "Un ou deux engagements concrets…", en: "One or two concrete commitments…" },
+  rv_save:        { fr: "Enregistrer la review", en: "Save review" },
 };
 
 export function translate(lang, key) {
