@@ -9,7 +9,7 @@ import { fmtMoney, fmtK, frDate } from "@/lib/format";
 import { X } from "lucide-react";
 
 export default function CertificatesPage() {
-  const { certificates, accounts, deleteCert } = useBook();
+  const { certificates, accounts, deleteCert, t } = useBook();
   const [modal, setModal] = useState(false);
 
   const fundedCapital =
@@ -21,18 +21,18 @@ export default function CertificatesPage() {
   return (
     <div>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-        <Kpi label="Funded capital" tone="pos" value={fmtK(fundedCapital)} />
-        <Kpi label="Payouts" tone="neu" value={payouts.length} />
-        <Kpi label="Total encaissé" tone="pos" value={fmtMoney(payTot)} />
+        <Kpi label={t("crt_funded_cap")} tone="pos" value={fmtK(fundedCapital)} />
+        <Kpi label={t("crt_payouts")} tone="neu" value={payouts.length} />
+        <Kpi label={t("crt_total_in")} tone="pos" value={fmtMoney(payTot)} />
       </div>
 
       <div className="mb-3 mt-3.5 flex items-center justify-between">
-        <div className="text-[11px] font-semibold uppercase tracking-wide text-muted2">Certificate wall</div>
-        <PrimaryBtn className="px-3 py-1.5 text-[12px]" onClick={() => setModal(true)}>+ Certificat</PrimaryBtn>
+        <div className="text-[11px] font-semibold uppercase tracking-wide text-muted2">{t("crt_wall")}</div>
+        <PrimaryBtn className="px-3 py-1.5 text-[12px]" onClick={() => setModal(true)}>{t("crt_add")}</PrimaryBtn>
       </div>
 
       {certificates.length === 0 ? (
-        <EmptyState icon="✦" title="Aucun certificat" sub="Compte financé, 1er payout, palier de scaling… garde une trace de tes wins." />
+        <EmptyState icon="✦" title={t("crt_empty_t")} sub={t("crt_empty_s")} />
       ) : (
         <div className="flex flex-col gap-2">
           {certificates.map((c) => {
@@ -42,7 +42,7 @@ export default function CertificatesPage() {
                 <div className="min-w-0 flex-1">
                   <div className="flex flex-wrap items-center gap-2 text-[14px] font-semibold">
                     <span className="inline-flex items-center gap-1.5"><FirmDot color={firmColor(c.firm)} />{c.firm}</span>
-                    <Pill tone={isP ? "cyan" : "green"}>{isP ? "PAYOUT" : "EVAL PASSED"}</Pill>
+                    <Pill tone={isP ? "cyan" : "green"}>{isP ? t("crt_payout") : t("crt_eval_pass")}</Pill>
                   </div>
                   <div className="mt-0.5 font-mono text-[11px] text-muted2">{frDate(c.date)}{c.note ? " · " + c.note : ""}</div>
                 </div>
