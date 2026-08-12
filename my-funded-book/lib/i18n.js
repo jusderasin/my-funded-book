@@ -134,6 +134,26 @@ export const DICT = {
   crt_empty_s:    { fr: "Compte financé, 1er payout, palier de scaling… garde une trace de tes wins.", en: "Funded account, first payout, scaling milestone… keep a record of your wins." },
   crt_payout:     { fr: "PAYOUT",             en: "PAYOUT" },
   crt_eval_pass:  { fr: "EVAL PASSED",        en: "EVAL PASSED" },
+  brk_by_setup:   { fr: "Par setup",       en: "By setup" },
+  brk_by_session: { fr: "Par session",     en: "By session" },
+  brk_by_symbol:  { fr: "Par instrument",  en: "By instrument" },
+  brk_by_grade:   { fr: "Par grade",       en: "By grade" },
+  brk_by_tag:     { fr: "Par tag",         en: "By tag" },
+  brk_empty:      { fr: "Aucun trade à décomposer.", en: "No trade to break down." },
+  brk_trades:     { fr: "Trades",          en: "Trades" },
+  brk_wr:         { fr: "Win %",           en: "Win %" },
+  brk_net:        { fr: "P&L net",         en: "Net P&L" },
+
+  pb_add_title:   { fr: "Ajouter un setup au playbook", en: "Add setup to playbook" },
+  pb_name:        { fr: "Nom du setup",    en: "Setup name" },
+  pb_name_ph:     { fr: "ex. NY open sweep + FVG", en: "e.g. NY open sweep + FVG" },
+  pb_desc:        { fr: "Description",     en: "Description" },
+  pb_desc_ph:     { fr: "Quand et pourquoi ce setup marche", en: "When and why this setup works" },
+  pb_rules:       { fr: "Règles — une par ligne, deviennent la checklist", en: "Rules — one per line, become the checklist" },
+  pb_add_btn:     { fr: "Ajouter le setup", en: "Add setup" },
+  pb_empty_t:     { fr: "Aucun setup",     en: "No setup" },
+  pb_empty_s:     { fr: "Écris les règles exactes de ce que tu trades — ensuite chaque trade est noté contre elles.", en: "Write the exact rules of what you trade — then each trade is graded against them." },
+  pb_trades:      { fr: "trades",          en: "trades" },
 };
 
 export function translate(lang, key) {
