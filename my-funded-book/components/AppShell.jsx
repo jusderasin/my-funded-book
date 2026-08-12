@@ -57,7 +57,7 @@ export function AppShell({ children }) {
           <div className="text-[12px] text-muted2">/ <b className="font-semibold text-muted">{t(NAV.find((n) => pathname.startsWith(n.href))?.key || "nav_dashboard")}</b></div>
           <div className="flex-1" />
           <button onClick={() => setShowLog(true)} className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-[12px] font-bold text-black hover:brightness-110">
-            <Plus size={15} /> Log trade
+            <Plus size={15} /> {t("log_trade")}
           </button>
         </div>
 
@@ -67,7 +67,7 @@ export function AppShell({ children }) {
 
           {/* sidebar */}
           <aside className={`fixed top-0 z-[50] flex h-screen w-[224px] flex-shrink-0 flex-col gap-0.5 border-r border-line bg-ink2 p-3 transition-transform lg:sticky lg:top-[52px] lg:h-[calc(100vh-52px)] lg:translate-x-0 ${open ? "translate-x-0" : "-translate-x-full"}`}>
-            <div className="px-2.5 pb-1.5 pt-2.5 text-[10px] font-bold uppercase tracking-widest text-muted2">Navigation</div>
+            <div className="px-2.5 pb-1.5 pt-2.5 text-[10px] font-bold uppercase tracking-widest text-muted2">{t("nav_label")}</div>
             {NAV.map((n) => {
               const active = pathname.startsWith(n.href);
               const Icon = n.icon;
@@ -89,7 +89,7 @@ export function AppShell({ children }) {
           <main className="mx-auto w-full max-w-[1180px] flex-1 p-4 sm:p-6">
             <div className="mb-5 flex items-end justify-between gap-3">
               <div>
-                <h1 className="text-[22px] font-extrabold tracking-tight">Welcome, {profile.name}</h1>
+                <h1 className="text-[22px] font-extrabold tracking-tight">{t("welcome")}, {profile.name}</h1>
                 <div className="mt-0.5 text-[12.5px] text-muted2">{today}</div>
               </div>
             </div>
@@ -105,14 +105,14 @@ export function AppShell({ children }) {
           <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-5 bg-ink">
             <div className="font-mono text-[13px] font-extrabold tracking-[6px] text-muted2">MYTRADEBOOK</div>
             <div className="w-[min(340px,88vw)] rounded-2xl border border-line2 bg-panel p-6">
-              <h2 className="text-[17px] font-extrabold">Welcome back, {profile.name}</h2>
-              <p className="mb-4 mt-1 text-[12px] text-muted2">Entre ton code PIN pour déverrouiller.</p>
+              <h2 className="text-[17px] font-extrabold">{t("unlock_title")}, {profile.name}</h2>
+              <p className="mb-4 mt-1 text-[12px] text-muted2">{t("unlock_hint")}</p>
               <input autoFocus type="password" inputMode="numeric" value={pin} maxLength={6}
                 onChange={(e) => setPin(e.target.value)}
                 onKeyDown={(e) => { if (e.key === "Enter") { if (pin === (profile.pin || "1234")) { setLocked(false); setPin(""); } else setPin(""); } }}
                 className="mb-3 w-full rounded-xl border border-line2 bg-panel2 px-4 py-3 text-center font-mono text-lg tracking-[8px] text-white outline-none focus:border-accent" placeholder="••••" />
               <button onClick={() => { if (pin === (profile.pin || "1234")) { setLocked(false); setPin(""); } else setPin(""); }}
-                className="w-full rounded-xl bg-accent py-3 font-bold text-black">Déverrouiller</button>
+                className="w-full rounded-xl bg-accent py-3 font-bold text-black">{t("unlock_btn")}</button>
             </div>
           </div>
         )}
