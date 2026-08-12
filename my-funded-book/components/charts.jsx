@@ -140,7 +140,7 @@ export function Gauge({ pct, color = "#00E676" }) {
 }
 
 // ---------- Monthly calendar ----------
-export function Calendar({ byDay, tradesByDay, month, onShift }) {
+export function Calendar({ byDay, tradesByDay, month, onShift, t }) {
   const today = new Date();
   const safe = month || { y: today.getFullYear(), m: today.getMonth() + 1 };
   const { y, m } = safe;
@@ -161,7 +161,7 @@ export function Calendar({ byDay, tradesByDay, month, onShift }) {
         {pnl != null && (
           <div>
             <div className={`font-mono text-[10px] font-extrabold leading-tight ${pnl >= 0 ? "text-accent" : "text-loss"}`}>{fmtK(pnl)}</div>
-            <div className="text-[8px] text-muted2">{nT} trade{nT > 1 ? "s" : ""}</div>
+            <div className="text-[8px] text-muted2">{nT} {nT > 1 ? (t ? t("cal_trades") : "trades") : (t ? t("cal_trade") : "trade")}</div>
           </div>
         )}
       </div>
@@ -185,5 +185,5 @@ export function Calendar({ byDay, tradesByDay, month, onShift }) {
 }
 
 function ChartEmpty() {
-  return <div className="flex h-[150px] items-center justify-center text-[12px] text-muted2">Pas assez de données</div>;
+  return <div className="flex h-[150px] items-center justify-center text-[12px] text-muted2">Pas assez de données / Not enough data</div>;
 }
