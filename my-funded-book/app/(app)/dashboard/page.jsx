@@ -99,7 +99,7 @@ export default function DashboardPage() {
           )}
         </div>
         <div className="rounded-2xl border border-line bg-panel p-[18px]">
-          <Calendar byDay={s.byDay} tradesByDay={tradesByDay} month={cal} onShift={shift} />
+          <Calendar byDay={s.byDay} tradesByDay={tradesByDay} month={cal} onShift={shift} t={t} />
         </div>
       </div>
 
