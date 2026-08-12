@@ -1,5 +1,4 @@
 "use client";
-
 import { useState } from "react";
 import { useBook } from "@/components/BookProvider";
 import { Kpi, FirmDot, EmptyState, PrimaryBtn } from "@/components/ui";
@@ -7,29 +6,24 @@ import { ExpenseModal } from "@/components/modals";
 import { firmColor } from "@/lib/constants";
 import { fmtMoney, frDate } from "@/lib/format";
 import { X } from "lucide-react";
-
 export default function ExpensesPage() {
-  const { expenses, certificates, deleteExpense } = useBook();
+  const { expenses, certificates, deleteExpense, t } = useBook();
   const [modal, setModal] = useState(false);
-
   const tot = expenses.reduce((s, e) => s + Number(e.amount), 0);
   const payTot = certificates.filter((c) => c.type === "payout").reduce((s, c) => s + Number(c.amount), 0);
-
   return (
     <div>
       <div className="grid grid-cols-2 gap-3 md:grid-cols-3">
-        <Kpi label="Total dépensé" tone="neg" value={fmtMoney(tot)} />
-        <Kpi label="Payouts encaissés" tone="pos" value={fmtMoney(payTot)} />
-        <Kpi label="Net prop (payouts − évals)" tone={payTot - tot >= 0 ? "pos" : "neg"} value={fmtMoney(payTot - tot)} />
+        <Kpi label={t("exp_total")} tone="neg" value={fmtMoney(tot)} />
+        <Kpi label={t("exp_payouts")} tone="pos" value={fmtMoney(payTot)} />
+        <Kpi label={t("exp_net")} tone={payTot - tot >= 0 ? "pos" : "neg"} value={fmtMoney(payTot - tot)} />
       </div>
-
       <div className="mb-3 mt-3.5 flex items-center justify-between">
-        <div className="text-[11px] font-semibold uppercase tracking-wide text-muted2">Eval expense tracker</div>
-        <PrimaryBtn className="px-3 py-1.5 text-[12px]" onClick={() => setModal(true)}>+ Dépense</PrimaryBtn>
+        <div className="text-[11px] font-semibold uppercase tracking-wide text-muted2">{t("exp_tracker")}</div>
+        <PrimaryBtn className="px-3 py-1.5 text-[12px]" onClick={() => setModal(true)}>{t("exp_add")}</PrimaryBtn>
       </div>
-
       {expenses.length === 0 ? (
-        <EmptyState icon="▦" title="Aucune dépense" sub="Frais d'éval, resets, data feeds… ici tu sais exactement ce que le prop trading te coûte." />
+        <EmptyState icon="▦" title={t("exp_empty_t")} sub={t("exp_empty_s")} />
       ) : (
         <div className="flex flex-col gap-2">
           {expenses.map((e) => (
