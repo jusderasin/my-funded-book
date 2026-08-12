@@ -11,7 +11,7 @@ const KEYS = {
 };
 
 export default function BreakdownPage() {
-  const { trades } = useBook();
+  const { trades, t } = useBook();
   const [key, setKey] = useState("setup");
   const rows = breakdownBy(trades, KEYS[key]);
 
@@ -19,21 +19,21 @@ export default function BreakdownPage() {
     <div>
       <SegTabs active={key} onChange={setKey}
         tabs={[
-          { value: "setup", label: "Par setup" }, { value: "session", label: "Par session" },
-          { value: "symbol", label: "Par instrument" }, { value: "grade", label: "Par grade" },
-          { value: "tag", label: "Par tag" },
+          { value: "setup", label: t("brk_by_setup") }, { value: "session", label: t("brk_by_session") },
+          { value: "symbol", label: t("brk_by_symbol") }, { value: "grade", label: t("brk_by_grade") },
+          { value: "tag", label: t("brk_by_tag") },
         ]} />
       <div className="rounded-2xl border border-line bg-panel p-[18px]">
         {rows.length === 0 ? (
-          <p className="py-6 text-center text-[12px] text-muted2">Aucun trade à décomposer.</p>
+          <p className="py-6 text-center text-[12px] text-muted2">{t("brk_empty")}</p>
         ) : (
           <table className="w-full">
             <thead>
               <tr className="text-[10px] uppercase tracking-wide text-muted2">
                 <th className="pb-2.5 text-left font-bold capitalize">{key}</th>
-                <th className="pb-2.5 text-right font-bold">Trades</th>
-                <th className="pb-2.5 text-right font-bold">Win %</th>
-                <th className="pb-2.5 text-right font-bold">Net P&L</th>
+                <th className="pb-2.5 text-right font-bold">{t("brk_trades")}</th>
+                <th className="pb-2.5 text-right font-bold">{t("brk_wr")}</th>
+                <th className="pb-2.5 text-right font-bold">{t("brk_net")}</th>
               </tr>
             </thead>
             <tbody>
