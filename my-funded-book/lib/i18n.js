@@ -110,6 +110,13 @@ export const DICT = {
   acc_funded:     { fr: "FUNDED",            en: "FUNDED" },
   acc_eval:       { fr: "ÉVAL",              en: "EVAL" },
   acc_free:       { fr: "gratuit",           en: "free" },
+  exp_total:      { fr: "Total dépensé",     en: "Total spent" },
+  exp_payouts:    { fr: "Payouts encaissés", en: "Payouts received" },
+  exp_net:        { fr: "Net prop (payouts − évals)", en: "Net prop (payouts − evals)" },
+  exp_tracker:    { fr: "Suivi des frais d'éval", en: "Eval expense tracker" },
+  exp_add:        { fr: "+ Dépense",         en: "+ Expense" },
+  exp_empty_t:    { fr: "Aucune dépense",    en: "No expense" },
+  exp_empty_s:    { fr: "Frais d'éval, resets, data feeds… ici tu sais exactement ce que le prop trading te coûte.", en: "Eval fees, resets, data feeds… here you know exactly what prop trading costs you." },
 };
 
 export function translate(lang, key) {
