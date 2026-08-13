@@ -19,6 +19,7 @@ export function BookProvider({ user, children }) {
   const [expenses, setExpenses] = useState([]);
   const [playbooks, setPlaybooks] = useState([]);
   const [reviews, setReviews] = useState([]);
+  const [subscription, setSubscription] = useState(null);
   const [toast, setToast] = useState(null);
 
   const notify = useCallback((msg, err = false) => {
@@ -39,7 +40,7 @@ export function BookProvider({ user, children }) {
 
   const loadAll = useCallback(async () => {
     setLoading(true);
-    const [p, t, a, c, e, pb, rv] = await Promise.all([
+    const [p, t, a, c, e, pb, rv, s] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", user.id).single(),
       supabase.from("trades").select("*").order("date", { ascending: false }),
       supabase.from("accounts").select("*").order("date", { ascending: false }),
@@ -47,6 +48,7 @@ export function BookProvider({ user, children }) {
       supabase.from("expenses").select("*").order("date", { ascending: false }),
       supabase.from("playbooks").select("*").order("created_at", { ascending: true }),
       supabase.from("reviews").select("*").order("week_of", { ascending: false }),
+      supabase.from("subscriptions").select("*").eq("user_id", user.id).maybeSingle(),
     ]);
     if (p.data) setProfile(p.data);
     setTrades(t.data || []);
@@ -55,6 +57,7 @@ export function BookProvider({ user, children }) {
     setExpenses(e.data || []);
     setPlaybooks(pb.data || []);
     setReviews(rv.data || []);
+    setSubscription(s.data || null);
     setLoading(false);
   }, [supabase, user.id]);
 
@@ -161,6 +164,7 @@ export function BookProvider({ user, children }) {
     expenses,
     playbooks,
     reviews,
+    subscription,
     stats,
     toast,
     ...api,
@@ -178,6 +182,3 @@ export function BookProvider({ user, children }) {
           {toast.msg}
         </div>
       )}
-    </BookCtx.Provider>
-  );
-}
