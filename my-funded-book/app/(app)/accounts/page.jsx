@@ -31,7 +31,8 @@ export default function AccountsPage() {
       ) : (
         <div className="flex flex-col gap-2">
           {list.map((a) => {
-            const st = STATUS_LABEL[a.status] || ["gray", a.status];
+            const stStyle = STATUS_LABEL[a.status] || ["gray", a.status];
+            const stKey = { active: "st_active", passed: "st_passed", funded: "st_funded", failed: "st_failed", paid: "st_paid" }[a.status];
             return (
               <div key={a.id} className="flex items-center gap-3.5 rounded-xl border border-line bg-panel px-4 py-3.5">
                 <div className="min-w-0 flex-1">
@@ -39,7 +40,7 @@ export default function AccountsPage() {
                     <span className="inline-flex items-center gap-1.5"><FirmDot color={firmColor(a.firm)} />{a.firm}</span>
                     <Pill tone="gray">{fmtMoney(a.size)}</Pill>
                     <Pill tone={a.type === "funded" ? "green" : "yellow"}>{a.type === "funded" ? t("acc_funded") : t("acc_eval")}</Pill>
-                    <Pill tone={st[0]}>{st[1]}</Pill>
+                    <Pill tone={stStyle[0]}>{stKey ? t(stKey) : stStyle[1]}</Pill>
                   </div>
                   <div className="mt-0.5 font-mono text-[11px] text-muted2">{frDate(a.date)}{a.note ? " · " + a.note : ""}</div>
                 </div>
