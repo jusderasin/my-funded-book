@@ -30,11 +30,30 @@ export function AppShell({ children }) {
   const pathname = usePathname();
   const router = useRouter();
   const { profile, t, lang } = useBook();
-  const [open, setOpen] = useState(false);
+  const [open, setOpen] = useState(false);        // tiroir mobile
+  const [collapsed, setCollapsed] = useState(false); // repli PC
   const [showLog, setShowLog] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [locked, setLocked] = useState(false);
   const [pin, setPin] = useState("");
+
+  // Restaure l'état "replié" sur PC
+  useEffect(() => {
+    try { setCollapsed(localStorage.getItem("sidebarCollapsed") === "1"); } catch {}
+  }, []);
+
+  // Le burger : sur PC il replie/déplie la sidebar, sur mobile il ouvre le tiroir
+  function toggleSidebar() {
+    if (typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches) {
+      setCollapsed((c) => {
+        const nv = !c;
+        try { localStorage.setItem("sidebarCollapsed", nv ? "1" : "0"); } catch {}
+        return nv;
+      });
+    } else {
+      setOpen((o) => !o);
+    }
+  }
 
   // Écran de bienvenue au chargement (min ~1,3s + fondu)
   const [splash, setSplash] = useState(true);
@@ -59,7 +78,7 @@ export function AppShell({ children }) {
       <div className="min-h-screen bg-ink text-white">
         {/* top bar */}
         <div className="sticky top-0 z-40 flex h-[52px] items-center gap-3 border-b border-line bg-ink/90 px-4 backdrop-blur">
-          <button className="rounded-lg p-1.5 text-white/80 hover:bg-panel2 lg:hidden" onClick={() => setOpen(true)}>
+          <button className="rounded-lg p-1.5 text-white/80 hover:bg-panel2" onClick={toggleSidebar} aria-label="Menu">
             <Menu size={20} />
           </button>
           <div className="font-mono text-[12px] font-extrabold tracking-[3px]">
@@ -77,7 +96,7 @@ export function AppShell({ children }) {
           {open && <div className="fixed inset-0 z-[45] bg-black/60 lg:hidden" onClick={() => setOpen(false)} />}
 
           {/* sidebar */}
-          <aside className={`fixed top-0 z-[50] flex h-screen w-[224px] flex-shrink-0 flex-col gap-0.5 border-r border-line bg-ink2 p-3 transition-transform lg:sticky lg:top-[52px] lg:h-[calc(100vh-52px)] lg:translate-x-0 ${open ? "translate-x-0" : "-translate-x-full"}`}>
+          <aside className={`fixed top-0 z-[50] flex h-screen w-[224px] flex-shrink-0 flex-col gap-0.5 border-r border-line bg-ink2 p-3 transition-transform lg:sticky lg:top-[52px] lg:h-[calc(100vh-52px)] lg:translate-x-0 ${open ? "translate-x-0" : "-translate-x-full"} ${collapsed ? "lg:hidden" : ""}`}>
             <div className="px-2.5 pb-1.5 pt-2.5 text-[10px] font-bold uppercase tracking-widest text-muted2">{t("nav_label")}</div>
             {NAV.map((n) => {
               const active = pathname.startsWith(n.href);
