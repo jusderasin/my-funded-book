@@ -191,6 +191,15 @@ export const DICT = {
   sub_active:      { fr: "Actif",                  en: "Active" },
   sub_inactive:    { fr: "Inactif",                en: "Inactive" },
   sub_none:        { fr: "Aucun abonnement actif pour le moment.", en: "No active subscription yet." },
+  sub_cancel:         { fr: "Annuler mon abonnement", en: "Cancel my subscription" },
+  sub_cancel_confirm: { fr: "Annuler ton abonnement ?", en: "Cancel your subscription?" },
+  sub_cancel_hint:    { fr: "Tu gardes l'accès jusqu'à la fin de la période déjà payée.", en: "You keep access until the end of the period you've already paid for." },
+  sub_cancel_yes:     { fr: "Oui, annuler",       en: "Yes, cancel" },
+  sub_cancel_back:    { fr: "Retour",             en: "Back" },
+  sub_cancel_loading: { fr: "Annulation…",        en: "Cancelling…" },
+  sub_cancel_done:    { fr: "Abonnement annulé ✓", en: "Subscription cancelled ✓" },
+  sub_canceled_title: { fr: "Annulation programmée", en: "Cancellation scheduled" },
+  sub_canceled_until: { fr: "Accès jusqu'au",     en: "Access until" },
 };
 
 export function translate(lang, key) {
