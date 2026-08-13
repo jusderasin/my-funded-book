@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   LayoutGrid, Table2, ListChecks, PenLine, BookOpen, Grid3x3, Award, Receipt,
-  Settings, Lock, LogOut, Plus, Menu,
+  Settings, Lock, LogOut, Plus, Menu, FlaskConical,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useBook } from "./BookProvider";
@@ -15,6 +15,7 @@ const NAV = [
   { href: "/dashboard", key: "nav_dashboard", icon: LayoutGrid },
   { href: "/accounts", key: "nav_accounts", icon: Table2 },
   { href: "/journal", key: "nav_journal", icon: ListChecks },
+  { href: "/backtest", label: "Backtest", icon: FlaskConical },
   { href: "/review", key: "nav_review", icon: PenLine },
   { href: "/playbook", key: "nav_playbook", icon: BookOpen },
   { href: "/breakdown", key: "nav_breakdown", icon: Grid3x3 },
@@ -42,6 +43,7 @@ export function AppShell({ children }) {
   }
 
   const today = new Date().toLocaleDateString(lang === "en" ? "en-US" : "fr-FR", { weekday: "long", day: "numeric", month: "long" });
+  const current = NAV.find((n) => pathname.startsWith(n.href));
 
   return (
     <ModalCtx.Provider value={{ openLog: () => setShowLog(true) }}>
@@ -54,7 +56,7 @@ export function AppShell({ children }) {
           <div className="font-mono text-[12px] font-extrabold tracking-[3px]">
             My<span className="text-accent">Trade</span>Book
           </div>
-          <div className="text-[12px] text-muted2">/ <b className="font-semibold text-muted">{t(NAV.find((n) => pathname.startsWith(n.href))?.key || "nav_dashboard")}</b></div>
+          <div className="text-[12px] text-muted2">/ <b className="font-semibold text-muted">{current?.label || t(current?.key || "nav_dashboard")}</b></div>
           <div className="flex-1" />
           <button onClick={() => setShowLog(true)} className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-[12px] font-bold text-black hover:brightness-110">
             <Plus size={15} /> {t("log_trade")}
@@ -74,7 +76,7 @@ export function AppShell({ children }) {
               return (
                 <Link key={n.href} href={n.href} onClick={() => setOpen(false)}
                   className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13.5px] font-medium ${active ? "bg-accentDim text-accent" : "text-muted hover:bg-panel2 hover:text-white"}`}>
-                  <Icon size={16} /> {t(n.key)}
+                  <Icon size={16} /> {n.label || t(n.key)}
                 </Link>
               );
             })}
