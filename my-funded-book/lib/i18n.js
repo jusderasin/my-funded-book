@@ -177,6 +177,11 @@ export const DICT = {
   st_funded:      { fr: "Funded",   en: "Funded" },
   st_failed:      { fr: "Cramé",    en: "Failed" },
   st_paid:        { fr: "Payé",     en: "Paid" },
+
+  sub_section:    { fr: "Abonnement",             en: "Subscription" },
+  sub_manage:     { fr: "Gérer mon abonnement",   en: "Manage my subscription" },
+  sub_loading:    { fr: "Ouverture…",             en: "Opening…" },
+  sub_manage_hint:{ fr: "Change de carte, télécharge tes factures ou annule ton abonnement.", en: "Change card, download invoices or cancel your subscription." },
 };
 
 export function translate(lang, key) {
