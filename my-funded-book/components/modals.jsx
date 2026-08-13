@@ -195,14 +195,17 @@ export function ExpenseModal({ onClose }) {
 }
 
 export function SettingsModal({ onClose }) {
-  const { profile, saveProfile, trades, lang, setLang, t, notify, subscription } = useBook();
+  const { profile, saveProfile, trades, lang, setLang, t, notify, subscription, reload } = useBook();
   const [f, setF] = useState({ name: profile.name, pin: profile.pin });
   const [portalLoading, setPortalLoading] = useState(false);
+  const [cancelConfirm, setCancelConfirm] = useState(false);
+  const [cancelLoading, setCancelLoading] = useState(false);
   const set = (k, v) => setF((s) => ({ ...s, [k]: v }));
 
   // --- Abonnement (affichage) ---
   const locale = lang === "fr" ? "fr-FR" : "en-US";
   const isActive = subscription && subscription.status === "active";
+  const isCanceling = subscription?.cancel_at_period_end === true;
   const periodEnd = subscription?.current_period_end ? new Date(subscription.current_period_end) : null;
   const daysLeft = periodEnd ? Math.max(0, Math.ceil((periodEnd.getTime() - Date.now()) / 86400000)) : null;
   const memberSince = profile?.created_at ? new Date(profile.created_at) : null;
@@ -237,6 +240,25 @@ export function SettingsModal({ onClose }) {
     }
   }
 
+  async function cancelSub() {
+    try {
+      setCancelLoading(true);
+      const res = await fetch("/api/stripe/cancel", { method: "POST" });
+      const data = await res.json();
+      if (data.ok) {
+        notify(t("sub_cancel_done"));
+        setCancelConfirm(false);
+        await reload();
+      } else {
+        notify(data.error || "Erreur", true);
+      }
+    } catch (e) {
+      notify(e.message, true);
+    } finally {
+      setCancelLoading(false);
+    }
+  }
+
   return (
     <Modal title={t("settings_title")} onClose={onClose}
       footer={<><GhostBtn className="flex-1" onClick={exportCSV}>{t("settings_export")}</GhostBtn><PrimaryBtn className="flex-1" onClick={async () => {
@@ -261,11 +283,17 @@ export function SettingsModal({ onClose }) {
               >
                 {t("sub_active")}
               </span>
-              <span className="text-[11px] uppercase tracking-wide text-muted2">{t("sub_next_payment")}</span>
+              {isCanceling ? (
+                <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: "#f59e0b" }}>
+                  {t("sub_canceled_title")}
+                </span>
+              ) : (
+                <span className="text-[11px] uppercase tracking-wide text-muted2">{t("sub_next_payment")}</span>
+              )}
             </div>
 
             <div className="mt-2 text-center">
-              <div className="font-mono text-4xl font-extrabold leading-none" style={{ color: "#00d301" }}>
+              <div className="font-mono text-4xl font-extrabold leading-none" style={{ color: isCanceling ? "#f59e0b" : "#00d301" }}>
                 {daysLeft}
               </div>
               <div className="mt-1 text-xs text-muted2">
@@ -275,7 +303,7 @@ export function SettingsModal({ onClose }) {
 
             <div className="mt-3 space-y-1.5 border-t border-line2 pt-3">
               <div className="flex items-center justify-between text-xs">
-                <span className="text-muted2">{t("sub_renews_on")}</span>
+                <span className="text-muted2">{isCanceling ? t("sub_canceled_until") : t("sub_renews_on")}</span>
                 <span className="font-mono text-white">{fmtDate(periodEnd)}</span>
               </div>
               <div className="flex items-center justify-between text-xs">
@@ -287,6 +315,39 @@ export function SettingsModal({ onClose }) {
             <GhostBtn className="mt-3 w-full" onClick={() => { if (!portalLoading) openPortal(); }}>
               {portalLoading ? t("sub_loading") : t("sub_manage")}
             </GhostBtn>
+
+            {!isCanceling && (
+              cancelConfirm ? (
+                <div className="mt-3 rounded-lg border border-line2 bg-panel p-3">
+                  <div className="text-sm font-semibold text-white">{t("sub_cancel_confirm")}</div>
+                  <div className="mt-1 text-xs text-muted2">{t("sub_cancel_hint")}</div>
+                  <div className="mt-2.5 flex gap-2">
+                    <button
+                      onClick={() => { if (!cancelLoading) setCancelConfirm(false); }}
+                      className="flex-1 rounded-lg border border-line2 bg-panel2 py-2 text-xs font-semibold text-white"
+                    >
+                      {t("sub_cancel_back")}
+                    </button>
+                    <button
+                      onClick={() => { if (!cancelLoading) cancelSub(); }}
+                      disabled={cancelLoading}
+                      className="flex-1 rounded-lg py-2 text-xs font-bold text-white disabled:opacity-60"
+                      style={{ background: "#ff3b5c" }}
+                    >
+                      {cancelLoading ? t("sub_cancel_loading") : t("sub_cancel_yes")}
+                    </button>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  onClick={() => setCancelConfirm(true)}
+                  className="mt-2 w-full py-1 text-center text-xs font-semibold"
+                  style={{ color: "#ff3b5c" }}
+                >
+                  {t("sub_cancel")}
+                </button>
+              )
+            )}
           </div>
         ) : (
           <div className="rounded-xl border border-line2 bg-panel2 p-5 text-center">
