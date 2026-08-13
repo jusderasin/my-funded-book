@@ -42,6 +42,25 @@ export async function POST(req) {
       .upsert({ user_id: user.id, stripe_customer_id: customerId }, { onConflict: "user_id" });
   }
 
+  // --- Garde-fou anti-doublon ---
+  // Si ce client a déjà un abonnement en cours, on ne crée PAS un second checkout :
+  // on le renvoie vers le portail pour gérer l'abonnement existant.
+  const existing = await stripe.subscriptions.list({
+    customer: customerId,
+    status: "all",
+    limit: 10,
+  });
+  const hasActive = existing.data.some((s) =>
+    ["active", "trialing", "past_due", "unpaid"].includes(s.status)
+  );
+  if (hasActive) {
+    const portal = await stripe.billingPortal.sessions.create({
+      customer: customerId,
+      return_url: `${site}/dashboard`,
+    });
+    return NextResponse.json({ url: portal.url, already_subscribed: true });
+  }
+
   const session = await stripe.checkout.sessions.create({
     mode: "subscription",
     customer: customerId,
