@@ -182,6 +182,15 @@ export const DICT = {
   sub_manage:     { fr: "Gérer mon abonnement",   en: "Manage my subscription" },
   sub_loading:    { fr: "Ouverture…",             en: "Opening…" },
   sub_manage_hint:{ fr: "Change de carte, télécharge tes factures ou annule ton abonnement.", en: "Change card, download invoices or cancel your subscription." },
+  sub_next_payment:{ fr: "Prochain paiement dans", en: "Next payment in" },
+  sub_days:        { fr: "jours",                  en: "days" },
+  sub_day:         { fr: "jour",                   en: "day" },
+  sub_today:       { fr: "aujourd'hui",            en: "today" },
+  sub_renews_on:   { fr: "Renouvellement le",      en: "Renews on" },
+  sub_member_since:{ fr: "Membre depuis",          en: "Member since" },
+  sub_active:      { fr: "Actif",                  en: "Active" },
+  sub_inactive:    { fr: "Inactif",                en: "Inactive" },
+  sub_none:        { fr: "Aucun abonnement actif pour le moment.", en: "No active subscription yet." },
 };
 
 export function translate(lang, key) {
