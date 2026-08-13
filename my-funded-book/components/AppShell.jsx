@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, createContext, useContext } from "react";
+import { useState, useEffect, createContext, useContext } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -29,12 +29,21 @@ export const useModals = () => useContext(ModalCtx);
 export function AppShell({ children }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { profile, t } = useBook();
+  const { profile, t, lang } = useBook();
   const [open, setOpen] = useState(false);
   const [showLog, setShowLog] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [locked, setLocked] = useState(false);
   const [pin, setPin] = useState("");
+
+  // Écran de bienvenue au chargement (min ~1,3s + fondu)
+  const [splash, setSplash] = useState(true);
+  const [splashOut, setSplashOut] = useState(false);
+  useEffect(() => {
+    const t1 = setTimeout(() => setSplashOut(true), 1300);
+    const t2 = setTimeout(() => setSplash(false), 1750);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, []);
 
   async function signOut() {
     const supabase = createClient();
@@ -42,6 +51,7 @@ export function AppShell({ children }) {
     router.push("/login");
   }
 
+  const today = new Date().toLocaleDateString(lang === "en" ? "en-US" : "fr-FR", { weekday: "long", day: "numeric", month: "long" });
   const current = NAV.find((n) => pathname.startsWith(n.href));
 
   return (
@@ -94,6 +104,22 @@ export function AppShell({ children }) {
 
         {showLog && <LogTradeModal onClose={() => setShowLog(false)} />}
         {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
+
+        {/* écran de bienvenue (chargement) */}
+        {splash && (
+          <div className={`fixed inset-0 z-[110] flex flex-col items-center justify-center gap-4 bg-ink transition-opacity duration-500 ${splashOut ? "opacity-0" : "opacity-100"}`}>
+            <div className="font-mono text-[13px] font-extrabold tracking-[6px] text-muted2">
+              MY<span className="text-accent">TRADE</span>BOOK
+            </div>
+            <div className="text-center">
+              <div className="text-[24px] font-extrabold tracking-tight">{t("welcome")}{profile?.name ? `, ${profile.name}` : ""}</div>
+              <div className="mt-1 text-[12.5px] text-muted2">{today}</div>
+            </div>
+            <div className="mt-2 h-[3px] w-40 overflow-hidden rounded-full bg-panel2">
+              <div className="h-full w-1/2 animate-pulse rounded-full bg-accent" />
+            </div>
+          </div>
+        )}
 
         {/* lock screen */}
         {locked && (
