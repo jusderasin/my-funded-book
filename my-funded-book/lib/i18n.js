@@ -151,6 +151,8 @@ export const DICT = {
   pb_desc_ph:     { fr: "Quand et pourquoi ce setup marche", en: "When and why this setup works" },
   pb_rules:       { fr: "Règles — une par ligne, deviennent la checklist", en: "Rules — one per line, become the checklist" },
   pb_add_btn:     { fr: "Ajouter le setup", en: "Add setup" },
+  pb_edit_title:  { fr: "Modifier le setup", en: "Edit setup" },
+     pb_save_btn:    { fr: "Enregistrer les modifications", en: "Save changes" },
   pb_empty_t:     { fr: "Aucun setup",     en: "No setup" },
   pb_empty_s:     { fr: "Écris les règles exactes de ce que tu trades — ensuite chaque trade est noté contre elles.", en: "Write the exact rules of what you trade — then each trade is graded against them." },
   pb_trades:      { fr: "trades",          en: "trades" },
