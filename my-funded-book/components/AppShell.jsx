@@ -29,7 +29,7 @@ export const useModals = () => useContext(ModalCtx);
 export function AppShell({ children }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { profile, t, lang } = useBook();
+  const { profile, t } = useBook();
   const [open, setOpen] = useState(false);
   const [showLog, setShowLog] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
@@ -42,7 +42,6 @@ export function AppShell({ children }) {
     router.push("/login");
   }
 
-  const today = new Date().toLocaleDateString(lang === "en" ? "en-US" : "fr-FR", { weekday: "long", day: "numeric", month: "long" });
   const current = NAV.find((n) => pathname.startsWith(n.href));
 
   return (
@@ -89,12 +88,6 @@ export function AppShell({ children }) {
 
           {/* main */}
           <main className="mx-auto w-full max-w-[1180px] flex-1 p-4 sm:p-6">
-            <div className="mb-5 flex items-end justify-between gap-3">
-              <div>
-                <h1 className="text-[22px] font-extrabold tracking-tight">{t("welcome")}, {profile.name}</h1>
-                <div className="mt-0.5 text-[12.5px] text-muted2">{today}</div>
-              </div>
-            </div>
             {children}
           </main>
         </div>
