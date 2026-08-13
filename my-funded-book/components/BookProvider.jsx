@@ -182,3 +182,6 @@ export function BookProvider({ user, children }) {
           {toast.msg}
         </div>
       )}
+    </BookCtx.Provider>
+  );
+}
