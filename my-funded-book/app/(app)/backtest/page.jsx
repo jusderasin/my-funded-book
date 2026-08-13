@@ -4,18 +4,18 @@ import { useEffect, useMemo, useState } from "react";
 import { useBook } from "@/components/BookProvider";
 import { createClient } from "@/lib/supabase/client";
 import { Kpi, Modal, Field, inputCls, Chip, PrimaryBtn, GhostBtn } from "@/components/ui";
-import { Plus, FlaskConical, Trash2 } from "lucide-react";
+import { Plus, FlaskConical, Trash2, Pencil } from "lucide-react";
 
 const STR = {
   fr: {
     title: "Backtesting",
     sub: "Sessions et scénarios d'analyse historique — séparé de ton journal live",
-    newSession: "Nouvelle session", createSession: "Créer la session",
+    newSession: "Nouvelle session", createSession: "Créer la session", editSession: "Éditer la session", saveSession: "Enregistrer",
     noSessionsT: "Aucune session de backtest",
     noSessionsS: "Crée ta première session pour tester une stratégie sur l'historique. Ça ne touche jamais tes stats live.",
     sName: "Nom de la session", sNamePh: "ex. NY Open Sweep — Août",
     sInstrument: "Instrument", sTf: "Timeframe", sTfPh: "ex. 1m, 5m, 15m",
-    sOneR: "Valeur d'1R ($)", sNote: "Note",
+    sOneR: "Valeur d'1R ($)", sNote: "Note", sStart: "Début de période", sEnd: "Fin de période",
     wr: "Win Rate", pf: "Profit Factor", totalR: "Total R", expectancy: "Expectancy / trade",
     addTrade: "Trade", noTradesT: "Aucun trade", noTradesS: "Ajoute tes trades backtest en R (résultat + RR).",
     thDate: "Date", thDir: "Sens", thResult: "Résultat", thR: "R", thSetup: "Setup",
@@ -26,18 +26,18 @@ const STR = {
     fNotes: "Notes", fNotesPh: "Observations, contexte…", fShot: "Screenshot (URL)",
     save: "Enregistrer", cancel: "Annuler",
     win: "Win", loss: "Loss", be: "BE", long: "LONG", short: "SHORT",
-    created: "Session créée ✓", deleted: "Supprimé",
+    created: "Session créée ✓", saved: "Enregistré ✓", deleted: "Supprimé",
     confirmDelSession: "Supprimer cette session et tous ses trades ?", trades: "trades",
   },
   en: {
     title: "Backtesting",
     sub: "Sessions and historical analysis scenarios — separate from your live journal",
-    newSession: "New session", createSession: "Create session",
+    newSession: "New session", createSession: "Create session", editSession: "Edit session", saveSession: "Save",
     noSessionsT: "No backtest session",
     noSessionsS: "Create your first session to test a strategy on history. It never touches your live stats.",
     sName: "Session name", sNamePh: "e.g. NY Open Sweep — August",
     sInstrument: "Instrument", sTf: "Timeframe", sTfPh: "e.g. 1m, 5m, 15m",
-    sOneR: "Value of 1R ($)", sNote: "Note",
+    sOneR: "Value of 1R ($)", sNote: "Note", sStart: "Period start", sEnd: "Period end",
     wr: "Win Rate", pf: "Profit Factor", totalR: "Total R", expectancy: "Expectancy / trade",
     addTrade: "Trade", noTradesT: "No trade", noTradesS: "Add your backtest trades in R (result + RR).",
     thDate: "Date", thDir: "Dir", thResult: "Result", thR: "R", thSetup: "Setup",
@@ -48,12 +48,13 @@ const STR = {
     fNotes: "Notes", fNotesPh: "Observations, context…", fShot: "Screenshot (URL)",
     save: "Save", cancel: "Cancel",
     win: "Win", loss: "Loss", be: "BE", long: "LONG", short: "SHORT",
-    created: "Session created ✓", deleted: "Deleted",
+    created: "Session created ✓", saved: "Saved ✓", deleted: "Deleted",
     confirmDelSession: "Delete this session and all its trades?", trades: "trades",
   },
 };
 
 const rOf = (t) => (t.result === "win" ? Number(t.rr || 0) : t.result === "loss" ? -1 : 0);
+const emptyForm = { name: "", instrument: "MNQ", timeframe: "", one_r: 200, period_start: "", period_end: "", note: "" };
 
 export default function BacktestPage() {
   const { lang, notify, playbooks } = useBook();
@@ -64,8 +65,9 @@ export default function BacktestPage() {
   const [sessions, setSessions] = useState([]);
   const [trades, setTrades] = useState([]);
   const [selectedId, setSelectedId] = useState(null);
-  const [showNew, setShowNew] = useState(false);
-  const [form, setForm] = useState({ name: "", instrument: "MNQ", timeframe: "", one_r: 200, note: "" });
+  const [showSession, setShowSession] = useState(false);
+  const [editingSession, setEditingSession] = useState(null);
+  const [form, setForm] = useState(emptyForm);
   const [showTrade, setShowTrade] = useState(false);
   const [editing, setEditing] = useState(null);
 
@@ -98,25 +100,45 @@ export default function BacktestPage() {
     return { wins, losses, be, totalR, wr, pf, expectancy, n: sTrades.length };
   }, [sTrades]);
 
-  async function createSession() {
+  function openNewSession() {
+    setEditingSession(null);
+    setForm(emptyForm);
+    setShowSession(true);
+  }
+  function openEditSession(s) {
+    setEditingSession(s);
+    setForm({
+      name: s.name || "", instrument: s.instrument || "MNQ", timeframe: s.timeframe || "",
+      one_r: s.one_r ?? 200, period_start: s.period_start || "", period_end: s.period_end || "", note: s.note || "",
+    });
+    setShowSession(true);
+  }
+  function closeSession() { setShowSession(false); setEditingSession(null); setForm(emptyForm); }
+
+  async function saveSession() {
     if (!form.name.trim()) return;
-    const { data, error } = await supabase
-      .from("bt_sessions")
-      .insert({
-        name: form.name.trim(),
-        instrument: form.instrument || "MNQ",
-        timeframe: form.timeframe || null,
-        one_r: Number(form.one_r) || 200,
-        note: form.note || null,
-      })
-      .select()
-      .single();
-    if (error) return notify(error.message, true);
-    setSessions((s) => [data, ...s]);
-    setSelectedId(data.id);
-    setShowNew(false);
-    setForm({ name: "", instrument: "MNQ", timeframe: "", one_r: 200, note: "" });
-    notify(L.created);
+    const payload = {
+      name: form.name.trim(),
+      instrument: form.instrument || "MNQ",
+      timeframe: form.timeframe || null,
+      one_r: Number(form.one_r) || 200,
+      period_start: form.period_start || null,
+      period_end: form.period_end || null,
+      note: form.note || null,
+    };
+    if (editingSession) {
+      const { data, error } = await supabase.from("bt_sessions").update(payload).eq("id", editingSession.id).select().single();
+      if (error) return notify(error.message, true);
+      setSessions((s) => s.map((x) => (x.id === editingSession.id ? data : x)));
+      notify(L.saved);
+    } else {
+      const { data, error } = await supabase.from("bt_sessions").insert(payload).select().single();
+      if (error) return notify(error.message, true);
+      setSessions((s) => [data, ...s]);
+      setSelectedId(data.id);
+      notify(L.created);
+    }
+    closeSession();
   }
 
   async function deleteSession(id) {
@@ -152,6 +174,7 @@ export default function BacktestPage() {
 
   const fmtD = (d) => (d ? new Date(d).toLocaleDateString(lang === "en" ? "en-US" : "fr-FR", { day: "2-digit", month: "short" }) : "");
   const fmtPf = (v) => (v === Infinity ? "∞" : v.toFixed(2));
+  const periodLabel = (s) => (s.period_start || s.period_end) ? `${fmtD(s.period_start) || "?"} → ${fmtD(s.period_end) || "?"}` : "";
 
   if (loading) return <div className="py-10 text-center text-[13px] text-muted2">…</div>;
 
@@ -164,7 +187,7 @@ export default function BacktestPage() {
           </h2>
           <div className="mt-0.5 text-[12px] text-muted2">{L.sub}</div>
         </div>
-        <button onClick={() => setShowNew(true)} className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-[12px] font-bold text-black hover:brightness-110">
+        <button onClick={openNewSession} className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-[12px] font-bold text-black hover:brightness-110">
           <Plus size={15} /> {L.newSession}
         </button>
       </div>
@@ -180,14 +203,18 @@ export default function BacktestPage() {
           <div className="mb-4 flex flex-wrap gap-2">
             {sessions.map((s) => {
               const active = s.id === selectedId;
+              const per = periodLabel(s);
               return (
                 <button key={s.id} onClick={() => setSelectedId(s.id)}
                   className={`group flex items-center gap-2 rounded-xl border px-3.5 py-2.5 text-left transition-colors ${active ? "border-accent bg-accentDim" : "border-line bg-panel hover:border-line2"}`}>
                   <div>
                     <div className={`text-[13px] font-bold ${active ? "text-accent" : "text-white"}`}>{s.name}</div>
-                    <div className="text-[10px] text-muted2">{s.instrument}{s.timeframe ? ` · ${s.timeframe}` : ""} · 1R = {Number(s.one_r || 0)}$</div>
+                    <div className="text-[10px] text-muted2">{s.instrument}{s.timeframe ? ` · ${s.timeframe}` : ""} · 1R = {Number(s.one_r || 0)}${per ? ` · ${per}` : ""}</div>
                   </div>
-                  <span onClick={(e) => { e.stopPropagation(); deleteSession(s.id); }} className="ml-1 rounded p-1 text-muted2 opacity-0 hover:text-loss group-hover:opacity-100" title="×">
+                  <span onClick={(e) => { e.stopPropagation(); openEditSession(s); }} className="ml-1 rounded p-1 text-muted2 opacity-0 hover:text-white group-hover:opacity-100" title="edit">
+                    <Pencil size={13} />
+                  </span>
+                  <span onClick={(e) => { e.stopPropagation(); deleteSession(s.id); }} className="rounded p-1 text-muted2 opacity-0 hover:text-loss group-hover:opacity-100" title="×">
                     <Trash2 size={13} />
                   </span>
                 </button>
@@ -206,7 +233,10 @@ export default function BacktestPage() {
 
               <div className="rounded-2xl border border-line bg-panel p-[18px]">
                 <div className="mb-3 flex items-center justify-between">
-                  <h3 className="text-[12px] font-semibold uppercase tracking-wide text-muted2">{selected.name}</h3>
+                  <div>
+                    <h3 className="text-[12px] font-semibold uppercase tracking-wide text-muted2">{selected.name}</h3>
+                    {periodLabel(selected) && <div className="mt-0.5 font-mono text-[11px] text-muted2">{periodLabel(selected)}</div>}
+                  </div>
                   <button onClick={() => { setEditing(null); setShowTrade(true); }} className="inline-flex items-center gap-1 rounded-lg bg-accentDim px-2.5 py-1.5 text-[12px] font-bold text-accent hover:brightness-110">
                     <Plus size={14} /> {L.addTrade}
                   </button>
@@ -243,7 +273,7 @@ export default function BacktestPage() {
                             <td className={`py-2 text-right font-mono font-bold ${rColor}`}>{(r > 0 ? "+" : "") + r.toFixed(1)}R</td>
                             <td className="py-2 pl-3 text-muted2">{tr.setup || "—"}</td>
                             <td className="py-2 text-right">
-                              <button onClick={() => { setEditing(tr); setShowTrade(true); }} className="mr-2 text-[11px] text-muted2 hover:text-white">✎</button>
+                              <button onClick={() => { setEditing(tr); setShowTrade(true); }} className="mr-2 text-muted2 hover:text-white"><Pencil size={13} /></button>
                               <button onClick={() => deleteTrade(tr.id)} className="text-muted2 hover:text-loss"><Trash2 size={13} /></button>
                             </td>
                           </tr>
@@ -260,13 +290,17 @@ export default function BacktestPage() {
         </>
       )}
 
-      {showNew && (
-        <Modal title={L.newSession} onClose={() => setShowNew(false)}
-          footer={<><GhostBtn className="flex-1" onClick={() => setShowNew(false)}>{L.cancel}</GhostBtn><PrimaryBtn className="flex-1" onClick={createSession}>{L.createSession}</PrimaryBtn></>}>
+      {showSession && (
+        <Modal title={editingSession ? L.editSession : L.newSession} onClose={closeSession}
+          footer={<><GhostBtn className="flex-1" onClick={closeSession}>{L.cancel}</GhostBtn><PrimaryBtn className="flex-1" onClick={saveSession}>{editingSession ? L.saveSession : L.createSession}</PrimaryBtn></>}>
           <Field label={L.sName}><input className={inputCls} value={form.name} onChange={(e) => setForm((f) => ({ ...f, name: e.target.value }))} placeholder={L.sNamePh} /></Field>
           <div className="grid grid-cols-2 gap-3">
             <Field label={L.sInstrument}><input className={inputCls} value={form.instrument} onChange={(e) => setForm((f) => ({ ...f, instrument: e.target.value }))} placeholder="MNQ" /></Field>
             <Field label={L.sTf}><input className={inputCls} value={form.timeframe} onChange={(e) => setForm((f) => ({ ...f, timeframe: e.target.value }))} placeholder={L.sTfPh} /></Field>
+          </div>
+          <div className="grid grid-cols-2 gap-3">
+            <Field label={L.sStart}><input type="date" className={inputCls} value={form.period_start} onChange={(e) => setForm((f) => ({ ...f, period_start: e.target.value }))} /></Field>
+            <Field label={L.sEnd}><input type="date" className={inputCls} value={form.period_end} onChange={(e) => setForm((f) => ({ ...f, period_end: e.target.value }))} /></Field>
           </div>
           <Field label={L.sOneR}><input type="number" className={inputCls} value={form.one_r} onChange={(e) => setForm((f) => ({ ...f, one_r: e.target.value }))} placeholder="200" /></Field>
           <Field label={L.sNote}><input className={inputCls} value={form.note} onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))} /></Field>
