@@ -26,6 +26,15 @@ export async function POST(req) {
       .maybeSingle();
     let userId = row?.user_id || subscription?.metadata?.supabase_user_id;
     if (!userId) return;
+
+    // Stripe a déplacé current_period_end au niveau de l'item d'abonnement
+    // dans ses versions d'API récentes. On lit d'abord au niveau de l'item,
+    // puis on retombe sur l'ancien emplacement (compat toutes versions).
+    const periodEndUnix =
+      subscription?.items?.data?.[0]?.current_period_end ??
+      subscription?.current_period_end ??
+      null;
+
     await admin.from("subscriptions").upsert(
       {
         user_id: userId,
@@ -33,9 +42,10 @@ export async function POST(req) {
         stripe_subscription_id: subscription?.id || null,
         price_id: subscription?.items?.data?.[0]?.price?.id || null,
         status: subscription?.status || "inactive",
-        current_period_end: subscription?.current_period_end
-          ? new Date(subscription.current_period_end * 1000).toISOString()
+        current_period_end: periodEndUnix
+          ? new Date(periodEndUnix * 1000).toISOString()
           : null,
+        cancel_at_period_end: subscription?.cancel_at_period_end ?? false,
         updated_at: new Date().toISOString(),
       },
       { onConflict: "user_id" }
