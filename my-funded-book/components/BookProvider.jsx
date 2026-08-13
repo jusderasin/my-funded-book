@@ -115,6 +115,7 @@ export function BookProvider({ user, children }) {
     deleteExpense: (id) => remove("expenses", id, setExpenses, expenses),
     // playbooks
     addSetup: (row) => insert("playbooks", row, setPlaybooks, playbooks),
+    updateSetup: (id, patch) => update("playbooks", id, patch, setPlaybooks, playbooks),
     deleteSetup: (id) => remove("playbooks", id, setPlaybooks, playbooks),
     // profile
     saveProfile: async (patch) => {
