@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import { useBook } from "@/components/BookProvider";
 import { createClient } from "@/lib/supabase/client";
 import { computeBadges, badgeSummary, TIER_NAMES } from "@/lib/badges";
+import { X } from "lucide-react";
 
 const TIER_COLOR = ["#3a3f4a", "#cd7f3f", "#c3ccd6", "#f5b301", "#00d301", "#ff66e4"];
 const TIER_GLYPH = ["#6b7280", "#e0975a", "#dfe6ec", "#ffd54a", "#3ef05a", "#ff9ff0"];
@@ -30,14 +31,7 @@ function Emblem({ type, color }) {
 
 function BadgeMedal({ tier }) {
   const c = TIER_COLOR[tier];
-  const g = TIER_GLYPH[tier];
-  if (tier <= 0) {
-    return (
-      <g>
-        <path d="M46 60 L64 60 L64 78 Q64 92 46 100 Q28 92 28 78 L28 60 Z" fill="#14171c" stroke="#3a3f4a" strokeWidth="2.2" />
-      </g>
-    );
-  }
+  if (tier <= 0) return <path d="M46 60 L64 60 L64 78 Q64 92 46 100 Q28 92 28 78 L28 60 Z" fill="#14171c" stroke="#3a3f4a" strokeWidth="2.2" />;
   if (tier === 1) return <path d="M46 60 L64 60 L64 78 Q64 92 46 100 Q28 92 28 78 L28 60 Z" fill="#14171c" stroke={c} strokeWidth="2.4" />;
   if (tier === 2) return (
     <g>
@@ -67,11 +61,104 @@ function BadgeMedal({ tier }) {
   );
 }
 
+function BadgeCard({ b, L, onClick }) {
+  const c = TIER_COLOR[b.tier];
+  const g = TIER_GLYPH[b.tier];
+  return (
+    <button onClick={onClick} className={`rounded-xl border bg-panel p-3 text-left transition-colors hover:border-accent ${b.unlocked ? "border-line2" : "border-line"}`}>
+      <div className="flex flex-col items-center text-center">
+        <svg width="92" height="118" viewBox="0 0 92 130">
+          <BadgeMedal tier={b.tier} />
+          <g transform="translate(46,80)"><Emblem type={b.emblem} color={g} /></g>
+        </svg>
+        <div className={`text-[12.5px] font-bold ${b.unlocked ? "text-white" : "text-muted2"}`}>{b.name[L]}</div>
+        <div className="mt-0.5 text-[10px]" style={{ color: b.unlocked ? c : "#6b7280" }}>
+          {b.tier > 0 ? TIER_NAMES[b.tier][L] : (L === "en" ? "Locked" : "Verrouillé")}
+        </div>
+        <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-panel2">
+          <div className="h-full rounded-full" style={{ width: `${Math.round(b.progress * 100)}%`, background: b.unlocked ? c : "#3a3f4a" }} />
+        </div>
+        <div className="mt-1 font-mono text-[10px] text-muted2">
+          {b.maxed ? "MAX" : `${b.value} / ${b.nextThreshold} ${b.unit}`}
+        </div>
+      </div>
+    </button>
+  );
+}
+
+function BadgeDetail({ b, L, onClose }) {
+  const c = TIER_COLOR[b.tier];
+  const g = TIER_GLYPH[b.tier];
+  const remaining = b.maxed ? 0 : Math.max(0, b.nextThreshold - b.value);
+  return (
+    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4" onClick={onClose}>
+      <div className="w-[min(440px,94vw)] rounded-2xl border border-line2 bg-panel p-5" onClick={(e) => e.stopPropagation()}>
+        <div className="mb-3 flex items-start justify-between">
+          <div className="text-[10px] font-bold uppercase tracking-widest text-muted2">Badge</div>
+          <button onClick={onClose} className="rounded-md p-1 text-muted2 hover:bg-panel2 hover:text-white"><X size={16} /></button>
+        </div>
+
+        <div className="flex flex-col items-center text-center">
+          <svg width="120" height="150" viewBox="0 0 92 130">
+            <BadgeMedal tier={b.tier} />
+            <g transform="translate(46,80)"><Emblem type={b.emblem} color={g} /></g>
+          </svg>
+          <div className="text-[18px] font-extrabold">{b.name[L]}</div>
+          <div className="text-[12px]" style={{ color: b.unlocked ? c : "#6b7280" }}>
+            {b.tier > 0 ? `${TIER_NAMES[b.tier][L]} · ${L === "en" ? "tier" : "palier"} ${b.tier}/${b.maxTier}` : (L === "en" ? "Locked" : "Verrouillé")}
+          </div>
+          <div className="mt-1 text-[12.5px] text-muted">{b.desc[L]}</div>
+        </div>
+
+        <div className="mt-4 rounded-xl border border-line bg-panel2 p-3">
+          <div className="flex items-center justify-between text-[12px]">
+            <span className="text-muted2">{L === "en" ? "Current" : "Actuel"}</span>
+            <span className="font-mono font-bold text-white">{b.value} {b.unit}</span>
+          </div>
+          <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-ink">
+            <div className="h-full rounded-full" style={{ width: `${Math.round(b.progress * 100)}%`, background: b.unlocked ? c : "#3a3f4a" }} />
+          </div>
+          <div className="mt-2 text-center text-[12px]">
+            {b.maxed
+              ? <span className="font-semibold text-accent">{L === "en" ? "Max tier reached! 🏆" : "Palier max atteint ! 🏆"}</span>
+              : <span className="text-muted">{L === "en" ? `${remaining} more ${b.unit} to reach ` : `Encore ${remaining} ${b.unit} pour atteindre `}<b style={{ color: TIER_COLOR[b.tier + 1] }}>{TIER_NAMES[b.tier + 1][L]}</b></span>}
+          </div>
+        </div>
+
+        <div className="mt-3">
+          <div className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-muted2">{L === "en" ? "Tiers" : "Paliers"}</div>
+          <div className="flex flex-col gap-1">
+            {b.thresholds.map((th, i) => {
+              const tierN = i + 1;
+              const reached = b.tier >= tierN;
+              return (
+                <div key={i} className={`flex items-center justify-between rounded-lg px-2.5 py-1.5 text-[12px] ${reached ? "bg-panel2" : ""}`}>
+                  <span className="flex items-center gap-2">
+                    <span className="inline-block h-2 w-2 rounded-full" style={{ background: reached ? TIER_COLOR[tierN] : "#3a3f4a" }} />
+                    <span className={reached ? "font-semibold text-white" : "text-muted2"}>{TIER_NAMES[tierN][L]}</span>
+                  </span>
+                  <span className="font-mono text-muted2">{th} {b.unit}{reached ? " ✓" : ""}</span>
+                </div>
+              );
+            })}
+          </div>
+        </div>
+
+        <div className="mt-3 rounded-xl border p-3" style={{ borderColor: "rgba(0,211,1,0.3)", background: "rgba(0,211,1,0.06)" }}>
+          <div className="mb-1 text-[10px] font-bold uppercase tracking-widest" style={{ color: "#00d301" }}>{L === "en" ? "How to progress" : "Comment progresser"}</div>
+          <div className="text-[12.5px] leading-relaxed text-white/85">{b.how[L]}</div>
+        </div>
+      </div>
+    </div>
+  );
+}
+
 export default function BadgesPage() {
-  const { trades, accounts, certificates, profile, lang, notify, t } = useBook();
+  const { trades, accounts, certificates, profile, lang, notify } = useBook();
   const supabase = useMemo(() => createClient(), []);
   const [btCount, setBtCount] = useState(0);
   const [loaded, setLoaded] = useState(false);
+  const [selected, setSelected] = useState(null);
   const L = lang === "en" ? "en" : "fr";
 
   useEffect(() => {
@@ -88,7 +175,6 @@ export default function BadgesPage() {
   );
   const sum = badgeSummary(badges);
 
-  // Persiste les déblocages + notifie les nouveaux paliers
   useEffect(() => {
     if (!loaded) return;
     (async () => {
@@ -108,12 +194,7 @@ export default function BadgesPage() {
     })();
   }, [loaded, badges, supabase, L, notify]);
 
-  const CATS = {
-    process: L === "en" ? "Process & discipline" : "Process & discipline",
-    perf: L === "en" ? "Performance" : "Performance",
-    prop: L === "en" ? "Prop firm" : "Prop firm",
-    meta: L === "en" ? "Milestones" : "Progression",
-  };
+  const CATS = { process: "Process & discipline", perf: "Performance", prop: "Prop firm", meta: L === "en" ? "Milestones" : "Progression" };
   const order = ["process", "perf", "prop", "meta"];
 
   return (
@@ -121,7 +202,7 @@ export default function BadgesPage() {
       <style>{`.badge-pulse{animation:bpz 2.6s ease-in-out infinite}@keyframes bpz{0%,100%{opacity:.45}50%{opacity:1}}`}</style>
 
       <div className="mb-4 flex flex-wrap items-center gap-3 rounded-2xl border border-line bg-panel px-5 py-4">
-        <div className="flex items-center gap-2 text-[16px] font-extrabold"><span className="text-accent">🏅</span> {L === "en" ? "Badges" : "Badges"}</div>
+        <div className="flex items-center gap-2 text-[16px] font-extrabold"><span className="text-accent">🏅</span> Badges</div>
         <div className="flex-1" />
         <div className="flex gap-5 text-center">
           <div><div className="font-mono text-[20px] font-extrabold text-accent">{sum.unlocked}<span className="text-muted2">/{sum.total}</span></div><div className="text-[10px] uppercase tracking-wide text-muted2">{L === "en" ? "unlocked" : "débloqués"}</div></div>
@@ -136,30 +217,7 @@ export default function BadgesPage() {
           <div key={cat} className="mb-4">
             <div className="mb-2 text-[10px] font-bold uppercase tracking-widest text-muted2">{CATS[cat]}</div>
             <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-4">
-              {list.map((b) => {
-                const c = TIER_COLOR[b.tier];
-                const g = TIER_GLYPH[b.tier];
-                return (
-                  <div key={b.id} className={`rounded-xl border bg-panel p-3 ${b.unlocked ? "border-line2" : "border-line"}`}>
-                    <div className="flex flex-col items-center text-center">
-                      <svg width="92" height="118" viewBox="0 0 92 130">
-                        <BadgeMedal tier={b.tier} />
-                        <g transform="translate(46,80)"><Emblem type={b.emblem} color={g} /></g>
-                      </svg>
-                      <div className={`text-[12.5px] font-bold ${b.unlocked ? "text-white" : "text-muted2"}`}>{b.name[L]}</div>
-                      <div className="mt-0.5 text-[10px]" style={{ color: b.unlocked ? c : "#6b7280" }}>
-                        {b.tier > 0 ? TIER_NAMES[b.tier][L] : (L === "en" ? "Locked" : "Verrouillé")}
-                      </div>
-                      <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-panel2">
-                        <div className="h-full rounded-full" style={{ width: `${Math.round(b.progress * 100)}%`, background: b.unlocked ? c : "#3a3f4a" }} />
-                      </div>
-                      <div className="mt-1 font-mono text-[10px] text-muted2">
-                        {b.maxed ? (L === "en" ? "MAX" : "MAX") : `${b.value} / ${b.nextThreshold} ${b.unit}`}
-                      </div>
-                    </div>
-                  </div>
-                );
-              })}
+              {list.map((b) => <BadgeCard key={b.id} b={b} L={L} onClick={() => setSelected(b)} />)}
             </div>
           </div>
         );
@@ -168,6 +226,8 @@ export default function BadgesPage() {
       <div className="mt-2 rounded-xl border border-dashed border-line bg-panel/50 p-3 text-center text-[11px] text-muted2">
         {L === "en" ? "Social badges (trader of the month, leaderboard…) coming with the leaderboard." : "Badges sociaux (trader du mois, classement…) à venir avec le leaderboard."}
       </div>
+
+      {selected && <BadgeDetail b={selected} L={L} onClose={() => setSelected(null)} />}
     </div>
   );
 }
