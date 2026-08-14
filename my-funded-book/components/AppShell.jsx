@@ -9,7 +9,7 @@ import {
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useBook } from "./BookProvider";
-import { LogTradeModal, SettingsModal } from "./modals";
+import { LogTradeModal } from "./modals";
 import { Tutorial } from "./Tutorial";
 
 const NAV = [
@@ -35,7 +35,6 @@ export function AppShell({ children }) {
   const [open, setOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [showLog, setShowLog] = useState(false);
-  const [showSettings, setShowSettings] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
   const [locked, setLocked] = useState(false);
   const [pin, setPin] = useState("");
@@ -53,7 +52,14 @@ export function AppShell({ children }) {
     }
   }, [loading, profile]);
 
- function finishTutorial() {
+  // Relance le tuto quand la page Réglages émet l'événement
+  useEffect(() => {
+    const replay = () => setShowTutorial(true);
+    window.addEventListener("mtb-replay-tutorial", replay);
+    return () => window.removeEventListener("mtb-replay-tutorial", replay);
+  }, []);
+
+  function finishTutorial() {
     if (!profile?.tutorial_seen && profile?.id) {
       saveProfile({ tutorial_seen: true });
     }
@@ -87,6 +93,7 @@ export function AppShell({ children }) {
 
   const today = new Date().toLocaleDateString(lang === "en" ? "en-US" : "fr-FR", { weekday: "long", day: "numeric", month: "long" });
   const current = NAV.find((n) => pathname.startsWith(n.href));
+  const settingsActive = pathname.startsWith("/settings");
 
   return (
     <ModalCtx.Provider value={{ openLog: () => setShowLog(true) }}>
@@ -98,7 +105,7 @@ export function AppShell({ children }) {
           <div className="font-mono text-[12px] font-extrabold tracking-[3px]">
             My<span className="text-accent">Trade</span>Book
           </div>
-          <div className="text-[12px] text-muted2">/ <b className="font-semibold text-muted">{current?.label || t(current?.key || "nav_dashboard")}</b></div>
+          <div className="text-[12px] text-muted2">/ <b className="font-semibold text-muted">{settingsActive ? t("settings_title") : (current?.label || t(current?.key || "nav_dashboard"))}</b></div>
           <div className="flex-1" />
           <button onClick={() => setShowLog(true)} className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-[12px] font-bold text-black hover:brightness-110">
             <Plus size={15} /> {t("log_trade")}
@@ -121,7 +128,10 @@ export function AppShell({ children }) {
               );
             })}
             <div className="mt-auto flex flex-col gap-0.5 border-t border-line pt-3">
-              <button onClick={() => { setShowSettings(true); setOpen(false); }} className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[12.5px] text-muted2 hover:bg-panel2 hover:text-white"><Settings size={15} /> {t("settings")}</button>
+              <Link href="/settings" onClick={() => setOpen(false)}
+                className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[12.5px] ${settingsActive ? "bg-accentDim text-accent" : "text-muted2 hover:bg-panel2 hover:text-white"}`}>
+                <Settings size={15} /> {t("settings")}
+              </Link>
               <button onClick={() => { setLocked(true); setOpen(false); }} className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[12.5px] text-muted2 hover:bg-panel2 hover:text-white"><Lock size={15} /> {t("lock")}</button>
               <button onClick={signOut} className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[12.5px] text-muted2 hover:bg-panel2 hover:text-white"><LogOut size={15} /> {t("signout")}</button>
             </div>
@@ -133,7 +143,6 @@ export function AppShell({ children }) {
         </div>
 
         {showLog && <LogTradeModal onClose={() => setShowLog(false)} />}
-        {showSettings && <SettingsModal onClose={() => setShowSettings(false)} onReplayTutorial={() => { setShowSettings(false); setShowTutorial(true); }} />}
         <Tutorial open={showTutorial} lang={lang} onClose={() => setShowTutorial(false)} onFinish={finishTutorial} />
 
         {splash && (
