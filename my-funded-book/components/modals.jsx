@@ -194,7 +194,7 @@ export function ExpenseModal({ onClose }) {
   );
 }
 
-export function SettingsModal({ onClose }) {
+export function SettingsModal({ onClose, onReplayTutorial }) {
   const { profile, saveProfile, trades, lang, setLang, t, notify, subscription, reload } = useBook();
   const [f, setF] = useState({ name: profile.name, pin: profile.pin });
   const [portalLoading, setPortalLoading] = useState(false);
@@ -273,6 +273,14 @@ export function SettingsModal({ onClose }) {
           <Chip active={lang === "en"} onClick={() => setLang("en")}>English</Chip>
         </div>
       </Field>
+
+      <Field label={lang === "en" ? "Help" : "Aide"}>
+        <GhostBtn className="w-full" onClick={() => { if (onReplayTutorial) onReplayTutorial(); }}>
+          {lang === "en" ? "↻ Replay demo" : "↻ Revoir la démo"}
+        </GhostBtn>
+        <div className="mt-1.5 text-[11px] text-muted2">{lang === "en" ? "Take the guided tour of the app again." : "Refaire le tour guidé de l'application."}</div>
+      </Field>
+
       <Field label={t("sub_section")}>
         {isActive ? (
           <div className="rounded-xl border border-line2 bg-panel2 p-4">
