@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   LayoutGrid, Table2, ListChecks, PenLine, BookOpen, Grid3x3, Award, Receipt,
-  Settings, Lock, LogOut, Plus, Menu, FlaskConical,
+  Settings, Lock, LogOut, Plus, Menu, FlaskConical, Medal,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useBook } from "./BookProvider";
@@ -16,6 +16,7 @@ const NAV = [
   { href: "/accounts", key: "nav_accounts", icon: Table2 },
   { href: "/journal", key: "nav_journal", icon: ListChecks },
   { href: "/backtest", label: "Backtest", icon: FlaskConical },
+  { href: "/badges", label: "Badges", icon: Medal },
   { href: "/review", key: "nav_review", icon: PenLine },
   { href: "/playbook", key: "nav_playbook", icon: BookOpen },
   { href: "/breakdown", key: "nav_breakdown", icon: Grid3x3 },
@@ -30,19 +31,17 @@ export function AppShell({ children }) {
   const pathname = usePathname();
   const router = useRouter();
   const { profile, t, lang } = useBook();
-  const [open, setOpen] = useState(false);        // tiroir mobile
-  const [collapsed, setCollapsed] = useState(false); // repli PC
+  const [open, setOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
   const [showLog, setShowLog] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
   const [locked, setLocked] = useState(false);
   const [pin, setPin] = useState("");
 
-  // Restaure l'état "replié" sur PC
   useEffect(() => {
     try { setCollapsed(localStorage.getItem("sidebarCollapsed") === "1"); } catch {}
   }, []);
 
-  // Le burger : sur PC il replie/déplie la sidebar, sur mobile il ouvre le tiroir
   function toggleSidebar() {
     if (typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches) {
       setCollapsed((c) => {
@@ -55,7 +54,6 @@ export function AppShell({ children }) {
     }
   }
 
-  // Écran de bienvenue au chargement (min ~1,3s + fondu)
   const [splash, setSplash] = useState(true);
   const [splashOut, setSplashOut] = useState(false);
   useEffect(() => {
@@ -76,7 +74,6 @@ export function AppShell({ children }) {
   return (
     <ModalCtx.Provider value={{ openLog: () => setShowLog(true) }}>
       <div className="min-h-screen bg-ink text-white">
-        {/* top bar */}
         <div className="sticky top-0 z-40 flex h-[52px] items-center gap-3 border-b border-line bg-ink/90 px-4 backdrop-blur">
           <button className="rounded-lg p-1.5 text-white/80 hover:bg-panel2" onClick={toggleSidebar} aria-label="Menu">
             <Menu size={20} />
@@ -92,10 +89,8 @@ export function AppShell({ children }) {
         </div>
 
         <div className="flex">
-          {/* scrim mobile */}
           {open && <div className="fixed inset-0 z-[45] bg-black/60 lg:hidden" onClick={() => setOpen(false)} />}
 
-          {/* sidebar */}
           <aside className={`fixed top-0 z-[50] flex h-screen w-[224px] flex-shrink-0 flex-col gap-0.5 border-r border-line bg-ink2 p-3 transition-transform lg:sticky lg:top-[52px] lg:h-[calc(100vh-52px)] lg:translate-x-0 ${open ? "translate-x-0" : "-translate-x-full"} ${collapsed ? "lg:hidden" : ""}`}>
             <div className="px-2.5 pb-1.5 pt-2.5 text-[10px] font-bold uppercase tracking-widest text-muted2">{t("nav_label")}</div>
             {NAV.map((n) => {
@@ -115,7 +110,6 @@ export function AppShell({ children }) {
             </div>
           </aside>
 
-          {/* main */}
           <main className="mx-auto w-full max-w-[1180px] flex-1 p-4 sm:p-6">
             {children}
           </main>
@@ -124,7 +118,6 @@ export function AppShell({ children }) {
         {showLog && <LogTradeModal onClose={() => setShowLog(false)} />}
         {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
 
-        {/* écran de bienvenue (chargement) */}
         {splash && (
           <div className={`fixed inset-0 z-[110] flex flex-col items-center justify-center gap-4 bg-ink transition-opacity duration-500 ${splashOut ? "opacity-0" : "opacity-100"}`}>
             <div className="font-mono text-[13px] font-extrabold tracking-[6px] text-muted2">
@@ -140,7 +133,6 @@ export function AppShell({ children }) {
           </div>
         )}
 
-        {/* lock screen */}
         {locked && (
           <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-5 bg-ink">
             <div className="font-mono text-[13px] font-extrabold tracking-[6px] text-muted2">MYTRADEBOOK</div>
