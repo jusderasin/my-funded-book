@@ -1,233 +1,120 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
-import { useBook } from "@/components/BookProvider";
-import { createClient } from "@/lib/supabase/client";
-import { computeBadges, badgeSummary, TIER_NAMES } from "@/lib/badges";
-import { X } from "lucide-react";
+const TILT_TAGS = ["tilt", "revenge", "vengeance", "fomo", "overtrade", "surtrade"];
 
-const TIER_COLOR = ["#3a3f4a", "#cd7f3f", "#c3ccd6", "#f5b301", "#00d301", "#ff66e4"];
-const TIER_GLYPH = ["#6b7280", "#e0975a", "#dfe6ec", "#ffd54a", "#3ef05a", "#ff9ff0"];
-
-function Emblem({ type, color }) {
-  const s = { fill: "none", stroke: color, strokeWidth: 1.9, strokeLinecap: "round", strokeLinejoin: "round" };
-  switch (type) {
-    case "shield": return <g><path d="M0 -10 L8 -6 L8 4 Q8 11 0 14 Q-8 11 -8 4 L-8 -6 Z" {...s} /><path d="M-4 0 L-1 3 L5 -5" {...s} strokeWidth={2.1} /></g>;
-    case "lines": return <path d="M-7 -6 h14 M-7 0 h14 M-7 6 h9" {...s} />;
-    case "drop": return <path d="M0 -11 Q7 0 7 4 A7 7 0 1 1 -7 4 Q-7 0 0 -11 Z" {...s} />;
-    case "R": return <text x="0" y="6" textAnchor="middle" style={{ fontFamily: "sans-serif", fontSize: 18, fontWeight: 600, fill: color }}>R</text>;
-    case "target": return <g><circle r="9" {...s} /><circle r="3" style={{ fill: color }} /></g>;
-    case "flame": return <path d="M-6 6 Q-6 -2 0 -10 Q2 -3 5 -1 Q8 3 5 6 A6 6 0 0 1 -6 6 Z" {...s} />;
-    case "flask": return <path d="M-4 -9 h8 M-3 -9 v6 L-8 8 a2 2 0 0 0 2 3 h12 a2 2 0 0 0 2 -3 L3 -3 v-6 M-6 4 h12" {...s} />;
-    case "bank": return <path d="M-9 -4 L0 -9 L9 -4 M-7 -2 v8 M0 -2 v8 M7 -2 v8 M-9 7 h18" {...s} strokeWidth={1.7} />;
-    case "calendar": return <g><rect x="-8" y="-7" width="16" height="14" rx="2" {...s} /><path d="M-8 -3 h16 M-4 -10 v4 M4 -10 v4" {...s} /></g>;
-    case "hourglass": return <path d="M-7 -9 h14 M-7 9 h14 M-7 -9 L7 9 M7 -9 L-7 9" {...s} strokeWidth={1.7} />;
-    case "star": return <path d="M0 -10 L2.4 -3 L9 -3 L3.8 1 L5.8 8 L0 4 L-5.8 8 L-3.8 1 L-9 -3 L-2.4 -3 Z" {...s} />;
-    case "hash": return <path d="M-6 -8 L-8 8 M6 -8 L4 8 M-9 -3 h18 M-9 3 h18" {...s} />;
-    case "spark": return <path d="M0 -10 L2 -2 L10 0 L2 2 L0 10 L-2 2 L-10 0 L-2 -2 Z" {...s} />;
-    default: return <circle r="4" style={{ fill: color }} />;
-  }
+function maxStreak(arr, pred) {
+  let cur = 0, max = 0;
+  for (const x of arr) { if (pred(x)) { cur++; if (cur > max) max = cur; } else cur = 0; }
+  return max;
 }
 
-function BadgeMedal({ tier }) {
-  const c = TIER_COLOR[tier];
-  if (tier <= 0) return <path d="M46 60 L64 60 L64 78 Q64 92 46 100 Q28 92 28 78 L28 60 Z" fill="#14171c" stroke="#3a3f4a" strokeWidth="2.2" />;
-  if (tier === 1) return <path d="M46 60 L64 60 L64 78 Q64 92 46 100 Q28 92 28 78 L28 60 Z" fill="#14171c" stroke={c} strokeWidth="2.4" />;
-  if (tier === 2) return (
-    <g>
-      <path d="M46 60 L64 60 L64 78 Q64 92 46 100 Q28 92 28 78 L28 60 Z" fill="#14171c" stroke={c} strokeWidth="2.4" />
-      <path d="M30 66 Q22 80 30 96" fill="none" stroke="#8a93a6" strokeWidth="1.3" strokeDasharray="2 3" />
-      <path d="M62 66 Q70 80 62 96" fill="none" stroke="#8a93a6" strokeWidth="1.3" strokeDasharray="2 3" />
-    </g>
-  );
-  if (tier === 3) return (
-    <g>
-      <circle cx="46" cy="80" r="21" fill="none" stroke={c} strokeWidth="6" strokeDasharray="2 6" />
-      <circle cx="46" cy="80" r="17.5" fill="#1c1808" stroke={c} strokeWidth="1.4" />
-    </g>
-  );
-  if (tier === 4) return (
-    <g>
-      <path d="M70 80 L58 100.8 L34 100.8 L22 80 L34 59.2 L58 59.2 Z" fill="#0c1a10" stroke={c} strokeWidth="2.4" />
-      <g fill={c}><circle cx="70" cy="80" r="2.2" /><circle cx="22" cy="80" r="2.2" /><circle cx="58" cy="100.8" r="2.2" /><circle cx="34" cy="100.8" r="2.2" /><circle cx="58" cy="59.2" r="2.2" /><circle cx="34" cy="59.2" r="2.2" /></g>
-    </g>
-  );
-  return (
-    <g>
-      <path className="badge-pulse" d="M73 80 L59 104.2 L33 104.2 L19 80 L33 55.8 L59 55.8 Z" fill="none" stroke="#ff66e4" strokeWidth="2.4" />
-      <path d="M69 80 L57 100.8 L35 100.8 L23 80 L35 59.2 L57 59.2 Z" fill="#1a0c18" stroke="#00d301" strokeWidth="1.9" />
-      <g fill="#ff66e4"><circle cx="42" cy="63" r="1.6" /><circle cx="46" cy="61" r="1.6" /><circle cx="50" cy="63" r="1.6" /></g>
-    </g>
-  );
+function derive(ctx) {
+  const trades = ctx.trades || [];
+  const chrono = [...trades].sort((a, b) => {
+    const da = a.date || "", db = b.date || "";
+    if (da !== db) return da < db ? -1 : 1;
+    const ca = a.created_at || "", cb = b.created_at || "";
+    return ca < cb ? -1 : ca > cb ? 1 : 0;
+  });
+
+  const byDay = {};
+  for (const t of chrono) byDay[t.date] = (byDay[t.date] || 0) + Number(t.pnl || 0);
+  const days = Object.keys(byDay).sort();
+
+  return {
+    total: trades.length,
+    planStreak: maxStreak(chrono, (t) => t.plan === true),
+    whyCount: trades.filter((t) => t.why && String(t.why).trim()).length,
+    calmStreak: maxStreak(chrono, (t) => !(t.tags || []).some((x) => TILT_TAGS.includes(String(x).toLowerCase()))),
+    sumR: Math.round(chrono.reduce((a, t) => a + Number(t.r || 0), 0)),
+    winStreak: maxStreak(chrono, (t) => Number(t.pnl) > 0),
+    greenDayStreak: maxStreak(days, (d) => byDay[d] > 0),
+    distinctDays: days.length,
+    aPlusStreak: maxStreak(chrono, (t) => t.grade === "A+"),
+    fundedCount: (ctx.accounts || []).filter((a) => a.type === "funded" || ["funded", "paid"].includes(a.status)).length,
+    vetDays: ctx.profile?.created_at ? Math.max(0, Math.floor((ctx.now - new Date(ctx.profile.created_at).getTime()) / 86400000)) : 0,
+    btCount: ctx.btCount || 0,
+  };
 }
 
-function BadgeCard({ b, L, onClick }) {
-  const c = TIER_COLOR[b.tier];
-  const g = TIER_GLYPH[b.tier];
-  return (
-    <button onClick={onClick} className={`rounded-xl border bg-panel p-3 text-left transition-colors hover:border-accent ${b.unlocked ? "border-line2" : "border-line"}`}>
-      <div className="flex flex-col items-center text-center">
-        <svg width="92" height="118" viewBox="0 0 92 130">
-          <BadgeMedal tier={b.tier} />
-          <g transform="translate(46,80)"><Emblem type={b.emblem} color={g} /></g>
-        </svg>
-        <div className={`text-[12.5px] font-bold ${b.unlocked ? "text-white" : "text-muted2"}`}>{b.name[L]}</div>
-        <div className="mt-0.5 text-[10px]" style={{ color: b.unlocked ? c : "#6b7280" }}>
-          {b.tier > 0 ? TIER_NAMES[b.tier][L] : (L === "en" ? "Locked" : "Verrouillé")}
-        </div>
-        <div className="mt-1.5 h-1.5 w-full overflow-hidden rounded-full bg-panel2">
-          <div className="h-full rounded-full" style={{ width: `${Math.round(b.progress * 100)}%`, background: b.unlocked ? c : "#3a3f4a" }} />
-        </div>
-        <div className="mt-1 font-mono text-[10px] text-muted2">
-          {b.maxed ? "MAX" : `${b.value} / ${b.nextThreshold} ${b.unit}`}
-        </div>
-      </div>
-    </button>
-  );
+export const BADGES = [
+  { id: "premier_sang", cat: "meta", emblem: "spark", unit: "trade", thresholds: [1], metric: (d) => d.total,
+    name: { fr: "Premier sang", en: "First blood" }, desc: { fr: "Ton tout premier trade loggé", en: "Your very first logged trade" },
+    how: { fr: "Logge ton tout premier trade depuis le bouton \u00ab Log trade \u00bb.", en: "Log your very first trade from the \u00ab Log trade \u00bb button." } },
+  { id: "centurion", cat: "meta", emblem: "hash", unit: "trades", thresholds: [10, 50, 200, 500, 1000], metric: (d) => d.total,
+    name: { fr: "Centurion", en: "Centurion" }, desc: { fr: "Nombre total de trades loggés", en: "Total trades logged" },
+    how: { fr: "Continue de logger tous tes trades. Chaque trade enregistr\u00e9 fait monter ce badge.", en: "Keep logging every trade. Each one raises this badge." } },
+  { id: "plan_de_fer", cat: "process", emblem: "shield", unit: "d'affilée", thresholds: [5, 15, 30, 60, 120], metric: (d) => d.planStreak,
+    name: { fr: "Plan de fer", en: "Iron plan" }, desc: { fr: "Trades \u00ab plan respect\u00e9 \u00bb d'affil\u00e9e", en: "Plan-followed trades in a row" },
+    how: { fr: "Mets \u00ab Plan respect\u00e9 : Oui \u00bb sur des trades cons\u00e9cutifs. Un seul \u00ab Non \u00bb remet la s\u00e9rie \u00e0 z\u00e9ro.", en: "Set \u00ab Plan followed: Yes \u00bb on consecutive trades. A single \u00ab No \u00bb resets the streak." } },
+  { id: "journaliste", cat: "process", emblem: "lines", unit: "WHY", thresholds: [5, 25, 75, 200, 500], metric: (d) => d.whyCount,
+    name: { fr: "Journaliste", en: "Journalist" }, desc: { fr: "Trades avec le WHY rempli", en: "Trades with the WHY written" },
+    how: { fr: "Remplis le champ WHY (pourquoi ce trade) \u00e0 chaque log. Le total grimpe \u00e0 vie.", en: "Fill the WHY field on each log. The total grows for life." } },
+  { id: "sang_froid", cat: "process", emblem: "drop", unit: "d'affilée", thresholds: [3, 7, 14, 30, 60], metric: (d) => d.calmStreak,
+    name: { fr: "Sang-froid", en: "Cold blood" }, desc: { fr: "Trades sans tag tilt/revenge d'affil\u00e9e", en: "Trades with no tilt/revenge tag in a row" },
+    how: { fr: "\u00c9vite les tags tilt, revenge, fomo, overtrade sur tes trades. La s\u00e9rie casse au premier tag de ce type.", en: "Avoid tilt, revenge, fomo, overtrade tags. The streak breaks on the first such tag." } },
+  { id: "machine_r", cat: "perf", emblem: "R", unit: "R", thresholds: [10, 25, 50, 100, 250], metric: (d) => d.sumR,
+    name: { fr: "Machine \u00e0 R", en: "R machine" }, desc: { fr: "Cumul de R sur tes trades", en: "Cumulative R across your trades" },
+    how: { fr: "Accumule du R positif. Renseigne le champ R de chaque trade \u2014 le total se cumule.", en: "Stack positive R. Fill the R field on each trade \u2014 it accumulates." } },
+  { id: "sniper", cat: "perf", emblem: "target", unit: "gains", thresholds: [3, 5, 8, 12, 20], metric: (d) => d.winStreak,
+    name: { fr: "Sniper", en: "Sniper" }, desc: { fr: "Trades gagnants d'affil\u00e9e", en: "Winning trades in a row" },
+    how: { fr: "Encha\u00eene des trades gagnants (PnL positif). Une perte remet la s\u00e9rie \u00e0 z\u00e9ro.", en: "Chain winning trades (positive PnL). A loss resets the streak." } },
+  { id: "serie_verte", cat: "perf", emblem: "flame", unit: "jours", thresholds: [3, 5, 10, 20, 40], metric: (d) => d.greenDayStreak,
+    name: { fr: "S\u00e9rie verte", en: "Green streak" }, desc: { fr: "Jours verts cons\u00e9cutifs", en: "Consecutive green days" },
+    how: { fr: "Termine tes journ\u00e9es de trading en positif, plusieurs jours d'affil\u00e9e.", en: "End your trading days positive, several days in a row." } },
+  { id: "backtester", cat: "meta", emblem: "flask", unit: "sessions", thresholds: [1, 3, 10, 25, 50], metric: (d) => d.btCount,
+    name: { fr: "Backtester", en: "Backtester" }, desc: { fr: "Sessions de backtest cr\u00e9\u00e9es", en: "Backtest sessions created" },
+    how: { fr: "Cr\u00e9e des sessions dans l'onglet Backtest pour tester tes strat\u00e9gies sur l'historique.", en: "Create sessions in the Backtest tab to test your strategies on history." } },
+  { id: "funded", cat: "prop", emblem: "bank", unit: "comptes", thresholds: [1, 2, 3, 5, 10], metric: (d) => d.fundedCount,
+    name: { fr: "Funded", en: "Funded" }, desc: { fr: "Comptes financ\u00e9s obtenus", en: "Funded accounts earned" },
+    how: { fr: "Ajoute tes comptes financ\u00e9s dans l'onglet Comptes (type \u00ab Funded \u00bb ou statut Funded).", en: "Add your funded accounts in the Accounts tab (type \u00ab Funded \u00bb or Funded status)." } },
+  { id: "rituel", cat: "process", emblem: "calendar", unit: "jours", thresholds: [5, 20, 50, 120, 250], metric: (d) => d.distinctDays,
+    name: { fr: "Rituel", en: "Ritual" }, desc: { fr: "Jours de trading distincts", en: "Distinct trading days" },
+    how: { fr: "Logge au moins un trade par jour de trading. Ce badge compte tes jours actifs distincts.", en: "Log at least one trade per trading day. This badge counts your distinct active days." } },
+  { id: "veteran", cat: "meta", emblem: "hourglass", unit: "j", thresholds: [30, 90, 180, 365, 730], metric: (d) => d.vetDays,
+    name: { fr: "V\u00e9t\u00e9ran", en: "Veteran" }, desc: { fr: "Anciennet\u00e9 de ton compte", en: "Your account age" },
+    how: { fr: "Il suffit de rester ! Ce badge monte tout seul avec l'anciennet\u00e9 de ton compte.", en: "Just stick around! This badge rises on its own with your account age." } },
+  { id: "perfectionniste", cat: "perf", emblem: "star", unit: "A+ d'affilée", thresholds: [3, 5, 10, 20, 40], metric: (d) => d.aPlusStreak,
+    name: { fr: "Perfectionniste", en: "Perfectionist" }, desc: { fr: "Trades not\u00e9s A+ d'affil\u00e9e", en: "A+ graded trades in a row" },
+    how: { fr: "Note tes trades A+ (ex\u00e9cution parfaite) plusieurs fois d'affil\u00e9e, sans grade inf\u00e9rieur entre.", en: "Grade your trades A+ (perfect execution) several times in a row." } },
+];
+
+export const TIER_NAMES = [
+  { fr: "\u2014", en: "\u2014" },
+  { fr: "D\u00e9butant", en: "Novice" },
+  { fr: "Confirm\u00e9", en: "Skilled" },
+  { fr: "Expert", en: "Expert" },
+  { fr: "Ma\u00eetre", en: "Master" },
+  { fr: "L\u00e9gende", en: "Legend" },
+];
+
+function tierOf(value, thresholds) {
+  let t = 0;
+  for (const th of thresholds) { if (value >= th) t++; else break; }
+  return t;
 }
 
-function BadgeDetail({ b, L, onClose }) {
-  const c = TIER_COLOR[b.tier];
-  const g = TIER_GLYPH[b.tier];
-  const remaining = b.maxed ? 0 : Math.max(0, b.nextThreshold - b.value);
-  return (
-    <div className="fixed inset-0 z-[80] flex items-center justify-center bg-black/70 p-4" onClick={onClose}>
-      <div className="w-[min(440px,94vw)] rounded-2xl border border-line2 bg-panel p-5" onClick={(e) => e.stopPropagation()}>
-        <div className="mb-3 flex items-start justify-between">
-          <div className="text-[10px] font-bold uppercase tracking-widest text-muted2">Badge</div>
-          <button onClick={onClose} className="rounded-md p-1 text-muted2 hover:bg-panel2 hover:text-white"><X size={16} /></button>
-        </div>
-
-        <div className="flex flex-col items-center text-center">
-          <svg width="120" height="150" viewBox="0 0 92 130">
-            <BadgeMedal tier={b.tier} />
-            <g transform="translate(46,80)"><Emblem type={b.emblem} color={g} /></g>
-          </svg>
-          <div className="text-[18px] font-extrabold">{b.name[L]}</div>
-          <div className="text-[12px]" style={{ color: b.unlocked ? c : "#6b7280" }}>
-            {b.tier > 0 ? `${TIER_NAMES[b.tier][L]} · ${L === "en" ? "tier" : "palier"} ${b.tier}/${b.maxTier}` : (L === "en" ? "Locked" : "Verrouillé")}
-          </div>
-          <div className="mt-1 text-[12.5px] text-muted">{b.desc[L]}</div>
-        </div>
-
-        <div className="mt-4 rounded-xl border border-line bg-panel2 p-3">
-          <div className="flex items-center justify-between text-[12px]">
-            <span className="text-muted2">{L === "en" ? "Current" : "Actuel"}</span>
-            <span className="font-mono font-bold text-white">{b.value} {b.unit}</span>
-          </div>
-          <div className="mt-2 h-2 w-full overflow-hidden rounded-full bg-ink">
-            <div className="h-full rounded-full" style={{ width: `${Math.round(b.progress * 100)}%`, background: b.unlocked ? c : "#3a3f4a" }} />
-          </div>
-          <div className="mt-2 text-center text-[12px]">
-            {b.maxed
-              ? <span className="font-semibold text-accent">{L === "en" ? "Max tier reached! 🏆" : "Palier max atteint ! 🏆"}</span>
-              : <span className="text-muted">{L === "en" ? `${remaining} more ${b.unit} to reach ` : `Encore ${remaining} ${b.unit} pour atteindre `}<b style={{ color: TIER_COLOR[b.tier + 1] }}>{TIER_NAMES[b.tier + 1][L]}</b></span>}
-          </div>
-        </div>
-
-        <div className="mt-3">
-          <div className="mb-1.5 text-[10px] font-bold uppercase tracking-widest text-muted2">{L === "en" ? "Tiers" : "Paliers"}</div>
-          <div className="flex flex-col gap-1">
-            {b.thresholds.map((th, i) => {
-              const tierN = i + 1;
-              const reached = b.tier >= tierN;
-              return (
-                <div key={i} className={`flex items-center justify-between rounded-lg px-2.5 py-1.5 text-[12px] ${reached ? "bg-panel2" : ""}`}>
-                  <span className="flex items-center gap-2">
-                    <span className="inline-block h-2 w-2 rounded-full" style={{ background: reached ? TIER_COLOR[tierN] : "#3a3f4a" }} />
-                    <span className={reached ? "font-semibold text-white" : "text-muted2"}>{TIER_NAMES[tierN][L]}</span>
-                  </span>
-                  <span className="font-mono text-muted2">{th} {b.unit}{reached ? " ✓" : ""}</span>
-                </div>
-              );
-            })}
-          </div>
-        </div>
-
-        <div className="mt-3 rounded-xl border p-3" style={{ borderColor: "rgba(0,211,1,0.3)", background: "rgba(0,211,1,0.06)" }}>
-          <div className="mb-1 text-[10px] font-bold uppercase tracking-widest" style={{ color: "#00d301" }}>{L === "en" ? "How to progress" : "Comment progresser"}</div>
-          <div className="text-[12.5px] leading-relaxed text-white/85">{b.how[L]}</div>
-        </div>
-      </div>
-    </div>
-  );
+export function computeBadges(ctx) {
+  const d = derive({ ...ctx, now: ctx.now || Date.now() });
+  return BADGES.map((b) => {
+    const value = b.metric(d);
+    const tier = tierOf(value, b.thresholds);
+    const maxTier = b.thresholds.length;
+    const maxed = tier >= maxTier;
+    const nextThreshold = maxed ? null : b.thresholds[tier];
+    const prevBase = tier === 0 ? 0 : b.thresholds[tier - 1];
+    const progress = maxed ? 1 : Math.max(0, Math.min(1, (value - prevBase) / (nextThreshold - prevBase)));
+    return {
+      id: b.id, cat: b.cat, emblem: b.emblem, unit: b.unit, name: b.name, desc: b.desc, how: b.how,
+      thresholds: b.thresholds,
+      value, tier, maxTier, maxed, nextThreshold, progress, unlocked: tier >= 1,
+    };
+  });
 }
 
-export default function BadgesPage() {
-  const { trades, accounts, certificates, profile, lang, notify } = useBook();
-  const supabase = useMemo(() => createClient(), []);
-  const [btCount, setBtCount] = useState(0);
-  const [loaded, setLoaded] = useState(false);
-  const [selected, setSelected] = useState(null);
-  const L = lang === "en" ? "en" : "fr";
-
-  useEffect(() => {
-    (async () => {
-      const { count } = await supabase.from("bt_sessions").select("id", { count: "exact", head: true });
-      setBtCount(count || 0);
-      setLoaded(true);
-    })();
-  }, [supabase]);
-
-  const badges = useMemo(
-    () => computeBadges({ trades, accounts, certificates, profile, btCount }),
-    [trades, accounts, certificates, profile, btCount]
-  );
-  const sum = badgeSummary(badges);
-
-  useEffect(() => {
-    if (!loaded) return;
-    (async () => {
-      const { data: rows } = await supabase.from("badge_unlocks").select("badge_id, tier");
-      const stored = {};
-      (rows || []).forEach((r) => { stored[r.badge_id] = r.tier; });
-      const ups = [];
-      for (const b of badges) {
-        const prev = stored[b.id] ?? 0;
-        if (b.tier > prev) {
-          ups.push({ badge_id: b.id, tier: b.tier, updated_at: new Date().toISOString() });
-          if (prev === 0) notify(`\ud83c\udfc5 Badge d\u00e9bloqu\u00e9 : ${b.name[L]} !`);
-          else notify(`\u2b06\ufe0f ${b.name[L]} \u2192 ${TIER_NAMES[b.tier][L]} !`);
-        }
-      }
-      if (ups.length) await supabase.from("badge_unlocks").upsert(ups, { onConflict: "user_id,badge_id" });
-    })();
-  }, [loaded, badges, supabase, L, notify]);
-
-  const CATS = { process: "Process & discipline", perf: "Performance", prop: "Prop firm", meta: L === "en" ? "Milestones" : "Progression" };
-  const order = ["process", "perf", "prop", "meta"];
-
-  return (
-    <div>
-      <style>{`.badge-pulse{animation:bpz 2.6s ease-in-out infinite}@keyframes bpz{0%,100%{opacity:.45}50%{opacity:1}}`}</style>
-
-      <div className="mb-4 flex flex-wrap items-center gap-3 rounded-2xl border border-line bg-panel px-5 py-4">
-        <div className="flex items-center gap-2 text-[16px] font-extrabold"><span className="text-accent">🏅</span> Badges</div>
-        <div className="flex-1" />
-        <div className="flex gap-5 text-center">
-          <div><div className="font-mono text-[20px] font-extrabold text-accent">{sum.unlocked}<span className="text-muted2">/{sum.total}</span></div><div className="text-[10px] uppercase tracking-wide text-muted2">{L === "en" ? "unlocked" : "débloqués"}</div></div>
-          <div><div className="font-mono text-[20px] font-extrabold text-white">{sum.earnedTiers}<span className="text-muted2">/{sum.totalTiers}</span></div><div className="text-[10px] uppercase tracking-wide text-muted2">{L === "en" ? "tiers" : "paliers"}</div></div>
-        </div>
-      </div>
-
-      {order.map((cat) => {
-        const list = badges.filter((b) => b.cat === cat);
-        if (!list.length) return null;
-        return (
-          <div key={cat} className="mb-4">
-            <div className="mb-2 text-[10px] font-bold uppercase tracking-widest text-muted2">{CATS[cat]}</div>
-            <div className="grid grid-cols-2 gap-2.5 sm:grid-cols-3 md:grid-cols-4">
-              {list.map((b) => <BadgeCard key={b.id} b={b} L={L} onClick={() => setSelected(b)} />)}
-            </div>
-          </div>
-        );
-      })}
-
-      <div className="mt-2 rounded-xl border border-dashed border-line bg-panel/50 p-3 text-center text-[11px] text-muted2">
-        {L === "en" ? "Social badges (trader of the month, leaderboard…) coming with the leaderboard." : "Badges sociaux (trader du mois, classement…) à venir avec le leaderboard."}
-      </div>
-
-      {selected && <BadgeDetail b={selected} L={L} onClose={() => setSelected(null)} />}
-    </div>
-  );
+export function badgeSummary(list) {
+  const unlocked = list.filter((b) => b.unlocked).length;
+  const totalTiers = list.reduce((a, b) => a + b.maxTier, 0);
+  const earnedTiers = list.reduce((a, b) => a + b.tier, 0);
+  return { unlocked, total: list.length, totalTiers, earnedTiers };
 }
