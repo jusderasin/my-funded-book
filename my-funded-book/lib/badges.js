@@ -1,3 +1,42 @@
+"use client";
+
+const TILT_TAGS = ["tilt", "revenge", "vengeance", "fomo", "overtrade", "surtrade"];
+
+function maxStreak(arr, pred) {
+  let cur = 0, max = 0;
+  for (const x of arr) { if (pred(x)) { cur++; if (cur > max) max = cur; } else cur = 0; }
+  return max;
+}
+
+function derive(ctx) {
+  const trades = ctx.trades || [];
+  const chrono = [...trades].sort((a, b) => {
+    const da = a.date || "", db = b.date || "";
+    if (da !== db) return da < db ? -1 : 1;
+    const ca = a.created_at || "", cb = b.created_at || "";
+    return ca < cb ? -1 : ca > cb ? 1 : 0;
+  });
+
+  const byDay = {};
+  for (const t of chrono) byDay[t.date] = (byDay[t.date] || 0) + Number(t.pnl || 0);
+  const days = Object.keys(byDay).sort();
+
+  return {
+    total: trades.length,
+    planStreak: maxStreak(chrono, (t) => t.plan === true),
+    whyCount: trades.filter((t) => t.why && String(t.why).trim()).length,
+    calmStreak: maxStreak(chrono, (t) => !(t.tags || []).some((x) => TILT_TAGS.includes(String(x).toLowerCase()))),
+    sumR: Math.round(chrono.reduce((a, t) => a + Number(t.r || 0), 0)),
+    winStreak: maxStreak(chrono, (t) => Number(t.pnl) > 0),
+    greenDayStreak: maxStreak(days, (d) => byDay[d] > 0),
+    distinctDays: days.length,
+    aPlusStreak: maxStreak(chrono, (t) => t.grade === "A+"),
+    fundedCount: (ctx.accounts || []).filter((a) => a.type === "funded" || ["funded", "paid"].includes(a.status)).length,
+    vetDays: ctx.profile?.created_at ? Math.max(0, Math.floor((ctx.now - new Date(ctx.profile.created_at).getTime()) / 86400000)) : 0,
+    btCount: ctx.btCount || 0,
+  };
+}
+
 export const BADGES = [
   { id: "premier_sang", cat: "meta", emblem: "spark", unit: "trade", thresholds: [1], metric: (d) => d.total,
     name: { fr: "Premier sang", en: "First blood" }, desc: { fr: "Ton tout premier trade loggé", en: "Your very first logged trade" },
@@ -39,3 +78,43 @@ export const BADGES = [
     name: { fr: "Perfectionniste", en: "Perfectionist" }, desc: { fr: "Trades not\u00e9s A+ d'affil\u00e9e", en: "A+ graded trades in a row" },
     how: { fr: "Note tes trades A+ (ex\u00e9cution parfaite) plusieurs fois d'affil\u00e9e, sans grade inf\u00e9rieur entre.", en: "Grade your trades A+ (perfect execution) several times in a row." } },
 ];
+
+export const TIER_NAMES = [
+  { fr: "\u2014", en: "\u2014" },
+  { fr: "D\u00e9butant", en: "Novice" },
+  { fr: "Confirm\u00e9", en: "Skilled" },
+  { fr: "Expert", en: "Expert" },
+  { fr: "Ma\u00eetre", en: "Master" },
+  { fr: "L\u00e9gende", en: "Legend" },
+];
+
+function tierOf(value, thresholds) {
+  let t = 0;
+  for (const th of thresholds) { if (value >= th) t++; else break; }
+  return t;
+}
+
+export function computeBadges(ctx) {
+  const d = derive({ ...ctx, now: ctx.now || Date.now() });
+  return BADGES.map((b) => {
+    const value = b.metric(d);
+    const tier = tierOf(value, b.thresholds);
+    const maxTier = b.thresholds.length;
+    const maxed = tier >= maxTier;
+    const nextThreshold = maxed ? null : b.thresholds[tier];
+    const prevBase = tier === 0 ? 0 : b.thresholds[tier - 1];
+    const progress = maxed ? 1 : Math.max(0, Math.min(1, (value - prevBase) / (nextThreshold - prevBase)));
+    return {
+      id: b.id, cat: b.cat, emblem: b.emblem, unit: b.unit, name: b.name, desc: b.desc, how: b.how,
+      thresholds: b.thresholds,
+      value, tier, maxTier, maxed, nextThreshold, progress, unlocked: tier >= 1,
+    };
+  });
+}
+
+export function badgeSummary(list) {
+  const unlocked = list.filter((b) => b.unlocked).length;
+  const totalTiers = list.reduce((a, b) => a + b.maxTier, 0);
+  const earnedTiers = list.reduce((a, b) => a + b.tier, 0);
+  return { unlocked, total: list.length, totalTiers, earnedTiers };
+}
