@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect, createContext, useContext } from "react";
+import { useState, useEffect, useRef, createContext, useContext } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
@@ -10,6 +10,7 @@ import {
 import { createClient } from "@/lib/supabase/client";
 import { useBook } from "./BookProvider";
 import { LogTradeModal, SettingsModal } from "./modals";
+import { Tutorial } from "./Tutorial";
 
 const NAV = [
   { href: "/dashboard", key: "nav_dashboard", icon: LayoutGrid },
@@ -30,17 +31,34 @@ export const useModals = () => useContext(ModalCtx);
 export function AppShell({ children }) {
   const pathname = usePathname();
   const router = useRouter();
-  const { profile, t, lang } = useBook();
+  const { profile, saveProfile, t, lang, loading } = useBook();
   const [open, setOpen] = useState(false);
   const [collapsed, setCollapsed] = useState(false);
   const [showLog, setShowLog] = useState(false);
   const [showSettings, setShowSettings] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(false);
   const [locked, setLocked] = useState(false);
   const [pin, setPin] = useState("");
+  const tutChecked = useRef(false);
 
   useEffect(() => {
     try { setCollapsed(localStorage.getItem("sidebarCollapsed") === "1"); } catch {}
   }, []);
+
+  // Ouvre le tuto au 1er login (une seule fois, après chargement du profil)
+  useEffect(() => {
+    if (!loading && profile && !tutChecked.current) {
+      tutChecked.current = true;
+      if (!profile.tutorial_seen) setShowTutorial(true);
+    }
+  }, [loading, profile]);
+
+  function finishTutorial() {
+    if (!profile?.tutorial_seen) {
+      const supabase = createClient();
+      supabase.from("profiles").update({ tutorial_seen: true }).eq("id", profile.id);
+    }
+  }
 
   function toggleSidebar() {
     if (typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches) {
@@ -116,7 +134,8 @@ export function AppShell({ children }) {
         </div>
 
         {showLog && <LogTradeModal onClose={() => setShowLog(false)} />}
-        {showSettings && <SettingsModal onClose={() => setShowSettings(false)} />}
+        {showSettings && <SettingsModal onClose={() => setShowSettings(false)} onReplayTutorial={() => { setShowSettings(false); setShowTutorial(true); }} />}
+        <Tutorial open={showTutorial} lang={lang} onClose={() => setShowTutorial(false)} onFinish={finishTutorial} />
 
         {splash && (
           <div className={`fixed inset-0 z-[110] flex flex-col items-center justify-center gap-4 bg-ink transition-opacity duration-500 ${splashOut ? "opacity-0" : "opacity-100"}`}>
