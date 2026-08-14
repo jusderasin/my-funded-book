@@ -53,10 +53,9 @@ export function AppShell({ children }) {
     }
   }, [loading, profile]);
 
-  function finishTutorial() {
-    if (!profile?.tutorial_seen) {
-      const supabase = createClient();
-      supabase.from("profiles").update({ tutorial_seen: true }).eq("id", profile.id);
+ function finishTutorial() {
+    if (!profile?.tutorial_seen && profile?.id) {
+      saveProfile({ tutorial_seen: true });
     }
   }
 
