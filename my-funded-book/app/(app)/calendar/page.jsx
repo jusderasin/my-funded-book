@@ -3,8 +3,9 @@
 import { useEffect, useMemo, useState } from "react";
 import { useBook } from "@/components/BookProvider";
 import { createClient } from "@/lib/supabase/client";
+import { cityFor } from "@/components/WorldClock";
 import { Modal, Field, inputCls, Chip, PrimaryBtn, GhostBtn } from "@/components/ui";
-import { CalendarDays, Plus, Pencil, Trash2 } from "lucide-react";
+import { CalendarDays, Plus, Pencil, Trash2, Clock } from "lucide-react";
 
 const ADMIN_ID = "302ef29a-104a-4fe0-bfb3-2fbfdea5bc09";
 
@@ -33,40 +34,46 @@ export default function CalendarPage() {
   const supabase = useMemo(() => createClient(), []);
   const L = lang === "en" ? "en" : "fr";
   const isAdmin = profile?.id === ADMIN_ID;
+  const tz = profile?.timezone || "Europe/Paris";
 
   const [events, setEvents] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [fImp, setFImp] = useState(0);      // 0 = toutes
+  const [fImp, setFImp] = useState(0);
   const [fCountry, setFCountry] = useState("ALL");
-  const [scope, setScope] = useState("upcoming"); // upcoming | all
+  const [scope, setScope] = useState("upcoming");
   const [showForm, setShowForm] = useState(false);
   const [editing, setEditing] = useState(null);
   const [form, setForm] = useState(emptyForm);
 
   useEffect(() => {
     (async () => {
-      const { data } = await supabase.from("econ_events").select("*").order("event_date", { ascending: true });
+      const { data } = await supabase.from("econ_events").select("*").order("event_at", { ascending: true });
       setEvents(data || []);
       setLoading(false);
     })();
   }, [supabase]);
 
-  const todayStr = new Date().toISOString().slice(0, 10);
+  // Helpers d'affichage dans le fuseau choisi
+  const dayKey = (iso) => new Intl.DateTimeFormat("en-CA", { timeZone: tz, year: "numeric", month: "2-digit", day: "2-digit" }).format(new Date(iso));
+  const timeStr = (iso) => new Date(iso).toLocaleTimeString(L === "en" ? "en-US" : "fr-FR", { timeZone: tz, hour: "2-digit", minute: "2-digit" });
+  const dayLabel = (iso) => new Date(iso).toLocaleDateString(L === "en" ? "en-US" : "fr-FR", { timeZone: tz, weekday: "long", day: "numeric", month: "long" });
 
   const filtered = useMemo(() => {
+    const nowMs = Date.now();
     return events.filter((e) => {
+      if (!e.event_at) return false;
       if (fImp && e.importance !== fImp) return false;
       if (fCountry !== "ALL" && e.country !== fCountry) return false;
-      if (scope === "upcoming" && e.event_date < todayStr) return false;
+      if (scope === "upcoming" && new Date(e.event_at).getTime() < nowMs) return false;
       return true;
     });
-  }, [events, fImp, fCountry, scope, todayStr]);
+  }, [events, fImp, fCountry, scope]);
 
   const grouped = useMemo(() => {
     const g = {};
-    filtered.forEach((e) => { (g[e.event_date] = g[e.event_date] || []).push(e); });
-    return Object.keys(g).sort().map((d) => [d, g[d].sort((a, b) => (a.event_time || "").localeCompare(b.event_time || ""))]);
-  }, [filtered]);
+    filtered.forEach((e) => { const k = dayKey(e.event_at); (g[k] = g[k] || []).push(e); });
+    return Object.keys(g).sort().map((k) => [k, g[k].sort((a, b) => new Date(a.event_at) - new Date(b.event_at))]);
+  }, [filtered, tz]);
 
   function openNew() { setEditing(null); setForm(emptyForm); setShowForm(true); }
   function openEdit(e) {
@@ -102,8 +109,6 @@ export default function CalendarPage() {
     setEvents((s) => s.filter((x) => x.id !== id));
   }
 
-  const fmtDay = (d) => new Date(d + "T00:00:00").toLocaleDateString(L === "en" ? "en-US" : "fr-FR", { weekday: "long", day: "numeric", month: "long" });
-
   if (loading) return <div className="py-10 text-center text-[13px] text-muted2">…</div>;
 
   return (
@@ -111,7 +116,11 @@ export default function CalendarPage() {
       <div className="mb-4 flex items-start justify-between gap-3">
         <div>
           <h2 className="flex items-center gap-2 text-[16px] font-extrabold"><CalendarDays size={18} className="text-accent" /> {L === "en" ? "Economic calendar" : "Calendrier économique"}</h2>
-          <div className="mt-0.5 text-[12px] text-muted2">{L === "en" ? "Key macro releases to watch." : "Les échéances macro à surveiller."}</div>
+          <div className="mt-0.5 flex items-center gap-1.5 text-[12px] text-muted2">
+            <Clock size={12} className="text-accent" />
+            {L === "en" ? "Times shown in" : "Heures affichées à"} : <b className="text-muted">{cityFor(tz)}</b>
+            <span className="text-muted2">· {L === "en" ? "change it from the top clock" : "modifie-le via l'horloge en haut"}</span>
+          </div>
         </div>
         {isAdmin && (
           <button onClick={openNew} className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-[12px] font-bold text-black hover:brightness-110">
@@ -120,7 +129,6 @@ export default function CalendarPage() {
         )}
       </div>
 
-      {/* Filtres */}
       <div className="mb-4 space-y-2.5 rounded-2xl border border-line bg-panel p-3.5">
         <div className="flex flex-wrap items-center gap-1.5">
           <span className="mr-1 text-[10px] font-bold uppercase tracking-wide text-muted2">{L === "en" ? "Impact" : "Importance"}</span>
@@ -151,14 +159,14 @@ export default function CalendarPage() {
         <div className="space-y-4">
           {grouped.map(([day, list]) => (
             <div key={day}>
-              <div className="mb-2 text-[11px] font-bold uppercase tracking-widest text-muted2">{fmtDay(day)}</div>
+              <div className="mb-2 text-[11px] font-bold uppercase tracking-widest text-muted2">{dayLabel(list[0].event_at)}</div>
               <div className="overflow-hidden rounded-2xl border border-line bg-panel">
                 {list.map((e, i) => {
                   const imp = IMP[e.importance] || IMP[2];
                   const c = COUNTRIES[e.country] || { flag: "🏳️", [L]: e.country };
                   return (
                     <div key={e.id} className={`flex items-center gap-3 px-4 py-3 ${i > 0 ? "border-t border-line" : ""}`}>
-                      <div className="w-12 shrink-0 font-mono text-[12px] text-muted2">{e.event_time || "—"}</div>
+                      <div className="w-12 shrink-0 font-mono text-[12px] text-muted2">{timeStr(e.event_at)}</div>
                       <div className="flex w-1.5 shrink-0 justify-center">
                         <span className="h-2 w-2 rounded-full" style={{ background: imp.color }} title={imp[L]} />
                       </div>
@@ -193,7 +201,7 @@ export default function CalendarPage() {
           footer={<><GhostBtn className="flex-1" onClick={() => { setShowForm(false); setEditing(null); }}>{L === "en" ? "Cancel" : "Annuler"}</GhostBtn><PrimaryBtn className="flex-1" onClick={saveEvent}>{L === "en" ? "Save" : "Enregistrer"}</PrimaryBtn></>}>
           <div className="grid grid-cols-2 gap-3">
             <Field label={L === "en" ? "Date" : "Date"}><input type="date" className={inputCls} value={form.event_date} onChange={(e) => setForm((f) => ({ ...f, event_date: e.target.value }))} /></Field>
-            <Field label={L === "en" ? "Time" : "Heure"}><input className={inputCls} value={form.event_time} onChange={(e) => setForm((f) => ({ ...f, event_time: e.target.value }))} placeholder="14:30" /></Field>
+            <Field label={L === "en" ? "Time (Paris)" : "Heure (Paris)"}><input className={inputCls} value={form.event_time} onChange={(e) => setForm((f) => ({ ...f, event_time: e.target.value }))} placeholder="14:30" /></Field>
           </div>
           <Field label={L === "en" ? "Event" : "Événement"}><input className={inputCls} value={form.title} onChange={(e) => setForm((f) => ({ ...f, title: e.target.value }))} placeholder="CPI (YoY), NFP, FOMC…" /></Field>
           <div className="grid grid-cols-2 gap-3">
