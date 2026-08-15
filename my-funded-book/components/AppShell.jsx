@@ -11,6 +11,7 @@ import { createClient } from "@/lib/supabase/client";
 import { useBook } from "./BookProvider";
 import { LogTradeModal } from "./modals";
 import { Tutorial } from "./Tutorial";
+import { WorldClock } from "./WorldClock";
 
 const NAV = [
   { href: "/dashboard", key: "nav_dashboard", icon: LayoutGrid },
@@ -104,8 +105,9 @@ export function AppShell({ children }) {
           <div className="font-mono text-[12px] font-extrabold tracking-[3px]">
             My<span className="text-accent">Trade</span>Book
           </div>
-          <div className="text-[12px] text-muted2">/ <b className="font-semibold text-muted">{settingsActive ? t("settings_title") : (current?.label || t(current?.key || "nav_dashboard"))}</b></div>
+          <div className="hidden text-[12px] text-muted2 sm:block">/ <b className="font-semibold text-muted">{settingsActive ? t("settings_title") : (current?.label || t(current?.key || "nav_dashboard"))}</b></div>
           <div className="flex-1" />
+          <WorldClock />
           <button onClick={() => setShowLog(true)} className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-[12px] font-bold text-black hover:brightness-110">
             <Plus size={15} /> {t("log_trade")}
           </button>
