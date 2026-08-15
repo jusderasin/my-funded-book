@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   LayoutGrid, Table2, ListChecks, PenLine, BookOpen, Grid3x3, Award, Receipt,
-  Settings, Lock, LogOut, Plus, Menu, FlaskConical, Medal,
+  Settings, Lock, LogOut, Plus, Menu, FlaskConical, Medal, CalendarDays,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useBook } from "./BookProvider";
@@ -18,6 +18,7 @@ const NAV = [
   { href: "/journal", key: "nav_journal", icon: ListChecks },
   { href: "/backtest", label: "Backtest", icon: FlaskConical },
   { href: "/badges", label: "Badges", icon: Medal },
+  { href: "/calendar", label: "Calendrier", icon: CalendarDays },
   { href: "/review", key: "nav_review", icon: PenLine },
   { href: "/playbook", key: "nav_playbook", icon: BookOpen },
   { href: "/breakdown", key: "nav_breakdown", icon: Grid3x3 },
@@ -44,7 +45,6 @@ export function AppShell({ children }) {
     try { setCollapsed(localStorage.getItem("sidebarCollapsed") === "1"); } catch {}
   }, []);
 
-  // Ouvre le tuto au 1er login (une seule fois, après chargement du profil)
   useEffect(() => {
     if (!loading && profile && !tutChecked.current) {
       tutChecked.current = true;
@@ -52,7 +52,6 @@ export function AppShell({ children }) {
     }
   }, [loading, profile]);
 
-  // Relance le tuto quand la page Réglages émet l'événement
   useEffect(() => {
     const replay = () => setShowTutorial(true);
     window.addEventListener("mtb-replay-tutorial", replay);
