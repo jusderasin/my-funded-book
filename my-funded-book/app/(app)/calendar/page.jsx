@@ -1,49 +1,20 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useState, useEffect } from "react";
 import { useBook } from "@/components/BookProvider";
 import { CalendarDays, Sun, Moon } from "lucide-react";
 
 export default function CalendarPage() {
   const { lang } = useBook();
   const L = lang === "en" ? "en" : "fr";
-  const ref = useRef(null);
   const [theme, setTheme] = useState("dark");
-  const [ready, setReady] = useState(false);
 
-  // Restaure le thème choisi
   useEffect(() => {
     try {
       const saved = localStorage.getItem("calendarTheme");
       if (saved === "light" || saved === "dark") setTheme(saved);
     } catch {}
-    setReady(true);
   }, []);
-
-  // (Re)charge le widget à chaque changement de thème/langue
-  useEffect(() => {
-    if (!ready) return;
-    const el = ref.current;
-    if (!el) return;
-    el.innerHTML = "";
-    const inner = document.createElement("div");
-    inner.className = "tradingview-widget-container__widget";
-    el.appendChild(inner);
-    const script = document.createElement("script");
-    script.src = "https://s3.tradingview.com/external-embedding/embed-widget-events.js";
-    script.async = true;
-    script.type = "text/javascript";
-    script.innerHTML = JSON.stringify({
-      colorTheme: theme,
-      isTransparent: true,
-      locale: L === "en" ? "en" : "fr",
-      countryFilter: "us,eu,fr,gb,de,it,jp,ca,cn",
-      importanceFilter: "-1,0,1",
-      width: "100%",
-      height: 640,
-    });
-    el.appendChild(script);
-  }, [ready, L, theme]);
 
   function toggleTheme() {
     setTheme((t) => {
@@ -52,6 +23,16 @@ export default function CalendarPage() {
       return nv;
     });
   }
+
+  const themeParam = theme === "dark" ? "darkTheme" : "lightTheme";
+  const src =
+    "https://sslecal2.investing.com?" +
+    "columns=exc_flags,exc_currency,exc_importance,exc_actual,exc_forecast,exc_previous" +
+    "&features=datepicker,timezone,filters" +
+    "&countries=5,22,4,17,35,37,6,10,72" +
+    "&calType=week&timeZone=8" +
+    "&lang=1" +
+    "&theme=" + themeParam;
 
   return (
     <div>
@@ -76,11 +57,22 @@ export default function CalendarPage() {
         </button>
       </div>
 
-      <div className={`overflow-hidden rounded-2xl border border-line p-2 ${theme === "light" ? "bg-white" : "bg-panel"}`}>
-        <div key={`${theme}-${L}`} className="tradingview-widget-container" ref={ref}></div>
+      <div className={`overflow-hidden rounded-2xl border border-line p-1 ${theme === "light" ? "bg-white" : "bg-panel"}`}>
+        <iframe
+          key={themeParam}
+          src={src}
+          width="100%"
+          height="660"
+          frameBorder="0"
+          allowTransparency="true"
+          marginWidth="0"
+          marginHeight="0"
+          style={{ display: "block", borderRadius: "12px" }}
+          title="Calendrier économique"
+        />
         <div className={`px-2 pb-1 pt-1 text-right text-[11px] ${theme === "light" ? "text-gray-400" : "text-muted2"}`}>
-          <a href="https://www.tradingview.com/" rel="noopener nofollow" target="_blank" className="hover:text-accent">
-            Track all markets on TradingView
+          <a href="https://www.investing.com/" rel="nofollow" target="_blank" className="hover:text-accent">
+            Calendrier économique fourni par Investing.com
           </a>
         </div>
       </div>
