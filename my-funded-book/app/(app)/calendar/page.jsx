@@ -9,6 +9,7 @@ export default function CalendarPage() {
   const L = lang === "en" ? "en" : "fr";
   const ref = useRef(null);
   const [theme, setTheme] = useState("dark");
+  const [ready, setReady] = useState(false);
 
   // Restaure le thème choisi
   useEffect(() => {
@@ -16,13 +17,18 @@ export default function CalendarPage() {
       const saved = localStorage.getItem("calendarTheme");
       if (saved === "light" || saved === "dark") setTheme(saved);
     } catch {}
+    setReady(true);
   }, []);
 
-  // (Re)charge le widget quand le thème ou la langue change
+  // (Re)charge le widget à chaque changement de thème/langue
   useEffect(() => {
+    if (!ready) return;
     const el = ref.current;
     if (!el) return;
     el.innerHTML = "";
+    const inner = document.createElement("div");
+    inner.className = "tradingview-widget-container__widget";
+    el.appendChild(inner);
     const script = document.createElement("script");
     script.src = "https://s3.tradingview.com/external-embedding/embed-widget-events.js";
     script.async = true;
@@ -37,7 +43,7 @@ export default function CalendarPage() {
       height: 640,
     });
     el.appendChild(script);
-  }, [L, theme]);
+  }, [ready, L, theme]);
 
   function toggleTheme() {
     setTheme((t) => {
@@ -71,7 +77,7 @@ export default function CalendarPage() {
       </div>
 
       <div className={`overflow-hidden rounded-2xl border border-line p-2 ${theme === "light" ? "bg-white" : "bg-panel"}`}>
-        <div className="tradingview-widget-container" ref={ref}></div>
+        <div key={`${theme}-${L}`} className="tradingview-widget-container" ref={ref}></div>
         <div className={`px-2 pb-1 pt-1 text-right text-[11px] ${theme === "light" ? "text-gray-400" : "text-muted2"}`}>
           <a href="https://www.tradingview.com/" rel="noopener nofollow" target="_blank" className="hover:text-accent">
             Track all markets on TradingView
