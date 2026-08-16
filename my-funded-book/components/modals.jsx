@@ -111,12 +111,28 @@ export function LogTradeModal({ editing, onClose }) {
 }
 
 export function AccountModal({ onClose }) {
-  const { addAccount, t } = useBook();
-  const [f, setF] = useState({ firm: "MFF", size: 50000, cost: 0, type: "eval", status: "active", date: todayISO(), note: "" });
+  const { addAccount, t, lang } = useBook();
+  const [f, setF] = useState({
+    firm: "MFF", size: 50000, cost: 0, type: "eval", status: "active", date: todayISO(), note: "",
+    daily_loss_limit: "", max_drawdown: "", profit_target: "", trailing_drawdown: true,
+  });
   const set = (k, v) => setF((s) => ({ ...s, [k]: v }));
+  const numOrNull = (v) => (v === "" || v == null ? null : Number(v));
+  const L = lang === "en" ? "en" : "fr";
   return (
     <Modal title={t("m_new_account")} onClose={onClose}
-      footer={<><GhostBtn className="flex-1" onClick={onClose}>{t("m_cancel")}</GhostBtn><PrimaryBtn className="flex-1" onClick={async () => { await addAccount({ ...f, size: Number(f.size) || 0, cost: Number(f.cost) || 0 }); onClose(); }}>{t("m_save")}</PrimaryBtn></>}>
+      footer={<><GhostBtn className="flex-1" onClick={onClose}>{t("m_cancel")}</GhostBtn><PrimaryBtn className="flex-1" onClick={async () => {
+        await addAccount({
+          ...f,
+          size: Number(f.size) || 0,
+          cost: Number(f.cost) || 0,
+          daily_loss_limit: numOrNull(f.daily_loss_limit),
+          max_drawdown: numOrNull(f.max_drawdown),
+          profit_target: numOrNull(f.profit_target),
+          trailing_drawdown: !!f.trailing_drawdown,
+        });
+        onClose();
+      }}>{t("m_save")}</PrimaryBtn></>}>
       <Field label={t("m_firm")}><select className={inputCls} value={f.firm} onChange={(e) => set("firm", e.target.value)}>{firmOptions.map((x) => <option key={x}>{x}</option>)}</select></Field>
       <div className="grid grid-cols-2 gap-3">
         <Field label={t("m_size")}><input type="number" className={inputCls} value={f.size} onChange={(e) => set("size", e.target.value)} /></Field>
@@ -126,6 +142,24 @@ export function AccountModal({ onClose }) {
         <Field label={t("m_type")}><select className={inputCls} value={f.type} onChange={(e) => set("type", e.target.value)}><option value="eval">{t("m_eval")}</option><option value="funded">{t("m_funded")}</option></select></Field>
         <Field label={t("m_status")}><select className={inputCls} value={f.status} onChange={(e) => set("status", e.target.value)}><option value="active">{t("m_st_active")}</option><option value="passed">{t("m_st_passed")}</option><option value="funded">{t("m_funded")}</option><option value="failed">{t("m_st_failed")}</option><option value="paid">{t("m_st_paid")}</option></select></Field>
       </div>
+
+      <div className="mb-1 mt-1 border-t border-line pt-2.5 text-[11px] font-bold uppercase tracking-widest text-muted2">
+        {L === "en" ? "Risk rules (optional)" : "Règles de risque (optionnel)"}
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label={L === "en" ? "Daily loss limit ($)" : "Perte max / jour ($)"}><input type="number" className={inputCls} value={f.daily_loss_limit} onChange={(e) => set("daily_loss_limit", e.target.value)} placeholder="500" /></Field>
+        <Field label={L === "en" ? "Max drawdown ($)" : "Drawdown max ($)"}><input type="number" className={inputCls} value={f.max_drawdown} onChange={(e) => set("max_drawdown", e.target.value)} placeholder="1500" /></Field>
+      </div>
+      <div className="grid grid-cols-2 gap-3">
+        <Field label={L === "en" ? "Profit target ($)" : "Objectif de profit ($)"}><input type="number" className={inputCls} value={f.profit_target} onChange={(e) => set("profit_target", e.target.value)} placeholder="1500" /></Field>
+        <Field label={L === "en" ? "Trailing drawdown" : "Drawdown trailing"}>
+          <div className="flex gap-1.5">
+            <Chip active={f.trailing_drawdown} onClick={() => set("trailing_drawdown", true)}>{t("m_yes")}</Chip>
+            <Chip active={!f.trailing_drawdown} onClick={() => set("trailing_drawdown", false)}>{t("m_no")}</Chip>
+          </div>
+        </Field>
+      </div>
+
       <Field label={t("m_date")}><input type="date" className={inputCls} value={f.date} onChange={(e) => set("date", e.target.value)} /></Field>
       <Field label={t("m_note")}><input className={inputCls} value={f.note} onChange={(e) => set("note", e.target.value)} placeholder="Rapid 50K, static drawdown…" /></Field>
     </Modal>
