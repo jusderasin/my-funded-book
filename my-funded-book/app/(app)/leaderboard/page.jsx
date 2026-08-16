@@ -50,10 +50,10 @@ export default function LeaderboardPage() {
           </div>
         </div>
         <div className="flex gap-1.5">
-          {["week", "month"].map((p) => (
+          {["week", "month", "year"].map((p) => (
             <button key={p} onClick={() => setPeriod(p)}
               className={`rounded-lg border px-3 py-1.5 text-[12px] font-semibold ${period === p ? "border-accent bg-accentDim text-accent" : "border-line2 bg-panel2 text-muted2 hover:text-white"}`}>
-              {p === "week" ? (L === "en" ? "This week" : "Semaine") : (L === "en" ? "This month" : "Mois")}
+              {p === "week" ? (L === "en" ? "This week" : "Semaine") : p === "month" ? (L === "en" ? "This month" : "Mois") : (L === "en" ? "This year" : "Année")}
             </button>
           ))}
         </div>
