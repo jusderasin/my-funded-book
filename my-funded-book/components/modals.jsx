@@ -6,16 +6,21 @@ import { FilePicker } from "./FilePicker";
 import { useBook } from "./BookProvider";
 import { uploadFile } from "@/lib/upload";
 import { FIRMS, SESSIONS, GRADES, TAG_LIB } from "@/lib/constants";
-import { todayISO } from "@/lib/format";
+import { todayISO, fmtMoney } from "@/lib/format";
 
 const firmOptions = Object.keys(FIRMS);
 
 export function LogTradeModal({ editing, onClose }) {
-  const { addTrade, updateTrade, playbooks, notify, t } = useBook();
+  const { addTrade, updateTrade, playbooks, accounts, notify, t, lang } = useBook();
+  const defaultAccountId =
+    accounts.find((a) => a.type === "funded" && a.status === "active")?.id ||
+    accounts.find((a) => a.status === "active")?.id ||
+    accounts[0]?.id ||
+    "";
   const [f, setF] = useState(
     editing || {
       symbol: "MNQ", date: todayISO(), dir: "long", session: "NY AM", grade: "A+",
-      r: "", pnl: "", setup: "", tags: [], why: "", plan: true,
+      r: "", pnl: "", setup: "", tags: [], why: "", plan: true, account_id: defaultAccountId,
     }
   );
   const [file, setFile] = useState(null);
@@ -40,6 +45,7 @@ export function LogTradeModal({ editing, onClose }) {
       symbol: (f.symbol || "MNQ").toUpperCase(), date: f.date, dir: f.dir, session: f.session,
       grade: f.grade, r: Number(f.r) || 0, pnl: Number(f.pnl) || 0, setup: f.setup || null,
       tags: f.tags, why: f.why || null, plan: !!f.plan, screenshot_url: screenshot_url || null,
+      account_id: f.account_id || null,
     };
     if (editing) await updateTrade(editing.id, row);
     else await addTrade(row);
@@ -63,6 +69,16 @@ export function LogTradeModal({ editing, onClose }) {
         <Field label={t("m_instrument")}><input className={inputCls} value={f.symbol} onChange={(e) => set("symbol", e.target.value)} placeholder="MNQ, NQ, MGC…" /></Field>
         <Field label={t("m_date")}><input type="date" className={inputCls} value={f.date} onChange={(e) => set("date", e.target.value)} /></Field>
       </div>
+      {accounts.length > 0 && (
+        <Field label={lang === "en" ? "Account" : "Compte"}>
+          <select className={inputCls} value={f.account_id || ""} onChange={(e) => set("account_id", e.target.value)}>
+            <option value="">{lang === "en" ? "None" : "Aucun"}</option>
+            {accounts.map((a) => (
+              <option key={a.id} value={a.id}>{a.firm} · {fmtMoney(a.size)}{a.note ? " · " + a.note : ""}</option>
+            ))}
+          </select>
+        </Field>
+      )}
       <Field label={t("m_direction")}>
         <div className="flex gap-1.5">
           {["long", "short"].map((d) => <Chip key={d} active={f.dir === d} onClick={() => set("dir", d)}>{d === "long" ? "LONG" : "SHORT"}</Chip>)}
