@@ -5,6 +5,7 @@ import { useBook } from "@/components/BookProvider";
 import { Kpi } from "@/components/ui";
 import { Radar, Area, Bars, Gauge, Calendar } from "@/components/charts";
 import { fmtMoney, fmtK, frDate } from "@/lib/format";
+import RiskBanner from "@/components/RiskBanner";
 
 export default function DashboardPage() {
   const { stats: s, profile, trades, t } = useBook();
@@ -26,6 +27,8 @@ export default function DashboardPage() {
 
   return (
     <div>
+      {/* Bannière risque compte prop firm */}
+      <RiskBanner />
       {/* KPIs */}
       <div className="mb-3.5 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
         <Kpi label={t("kpi_net")} big tone={s.net >= 0 ? "pos" : "neg"} value={fmtMoney(s.net, true)} />
