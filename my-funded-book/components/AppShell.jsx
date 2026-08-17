@@ -99,25 +99,27 @@ export function AppShell({ children }) {
   return (
     <ModalCtx.Provider value={{ openLog: () => setShowLog(true) }}>
       <div className="min-h-screen bg-ink text-white">
-        <div className="sticky top-0 z-40 flex h-[52px] items-center gap-3 border-b border-line bg-ink/90 px-4 backdrop-blur">
-          <button className="rounded-lg p-1.5 text-white/80 hover:bg-panel2" onClick={toggleSidebar} aria-label="Menu">
-            <Menu size={20} />
-          </button>
-          <div className="font-mono text-[12px] font-extrabold tracking-[3px]">
-            My<span className="text-accent">Trade</span>Book
+        <div className="sticky top-0 z-40 border-b border-line bg-ink/90 backdrop-blur" style={{ paddingTop: "env(safe-area-inset-top)" }}>
+          <div className="flex h-[52px] items-center gap-2 px-3 sm:gap-3 sm:px-4">
+            <button className="shrink-0 rounded-lg p-1.5 text-white/80 hover:bg-panel2" onClick={toggleSidebar} aria-label="Menu">
+              <Menu size={20} />
+            </button>
+            <div className="shrink-0 font-mono text-[12px] font-extrabold tracking-[2px] sm:tracking-[3px]">
+              My<span className="text-accent">Trade</span>Book
+            </div>
+            <div className="hidden text-[12px] text-muted2 sm:block">/ <b className="font-semibold text-muted">{settingsActive ? t("settings_title") : (current?.label || t(current?.key || "nav_dashboard"))}</b></div>
+            <div className="flex-1" />
+            <div className="hidden sm:flex"><WorldClock /></div>
+            <button onClick={() => setShowLog(true)} className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg bg-accent px-2.5 py-2 text-[12px] font-bold text-black hover:brightness-110 sm:px-3">
+              <Plus size={15} /> {t("log_trade")}
+            </button>
           </div>
-          <div className="hidden text-[12px] text-muted2 sm:block">/ <b className="font-semibold text-muted">{settingsActive ? t("settings_title") : (current?.label || t(current?.key || "nav_dashboard"))}</b></div>
-          <div className="flex-1" />
-          <WorldClock />
-          <button onClick={() => setShowLog(true)} className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3 py-2 text-[12px] font-bold text-black hover:brightness-110">
-            <Plus size={15} /> {t("log_trade")}
-          </button>
         </div>
 
         <div className="flex">
           {open && <div className="fixed inset-0 z-[45] bg-black/60 lg:hidden" onClick={() => setOpen(false)} />}
 
-          <aside className={`fixed top-0 z-[50] flex h-screen w-[224px] flex-shrink-0 flex-col gap-0.5 border-r border-line bg-ink2 p-3 transition-transform lg:sticky lg:top-[52px] lg:h-[calc(100vh-52px)] lg:translate-x-0 ${open ? "translate-x-0" : "-translate-x-full"} ${collapsed ? "lg:hidden" : ""}`}>
+          <aside className={`fixed top-0 z-[50] flex h-screen w-[224px] flex-shrink-0 flex-col gap-0.5 border-r border-line bg-ink2 p-3 transition-transform lg:sticky lg:top-[52px] lg:h-[calc(100vh-52px)] lg:translate-x-0 ${open ? "translate-x-0" : "-translate-x-full"} ${collapsed ? "lg:hidden" : ""}`} style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}>
             <div className="px-2.5 pb-1.5 pt-2.5 text-[10px] font-bold uppercase tracking-widest text-muted2">{t("nav_label")}</div>
             {NAV.map((n) => {
               const active = pathname.startsWith(n.href);
@@ -139,7 +141,7 @@ export function AppShell({ children }) {
             </div>
           </aside>
 
-          <main className="mx-auto w-full max-w-[1180px] flex-1 p-4 sm:p-6">
+          <main className="mx-auto w-full max-w-[1180px] flex-1 p-4 sm:p-6" style={{ paddingBottom: "calc(1rem + env(safe-area-inset-bottom))" }}>
             {children}
           </main>
         </div>
