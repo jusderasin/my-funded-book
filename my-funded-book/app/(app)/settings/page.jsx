@@ -30,6 +30,9 @@ export default function SettingsPage() {
   const [curPwd, setCurPwd] = useState("");
   const [newPwd, setNewPwd] = useState("");
   const [pwdLoading, setPwdLoading] = useState(false);
+  const [delOpen, setDelOpen] = useState(false);
+  const [delText, setDelText] = useState("");
+  const [delLoading, setDelLoading] = useState(false);
 
   const locale = lang === "fr" ? "fr-FR" : "en-US";
   const isActive = subscription && subscription.status === "active";
@@ -133,6 +136,23 @@ export default function SettingsPage() {
     setPwdLoading(false);
     if (error) notify(error.message, true);
     else { setCurPwd(""); setNewPwd(""); notify(lang === "en" ? "Password updated." : "Mot de passe mis à jour."); }
+  }
+
+  async function deleteAccount() {
+    setDelLoading(true);
+    try {
+      const res = await fetch("/api/account/delete", { method: "POST" });
+      if (!res.ok) {
+        setDelLoading(false);
+        notify(lang === "en" ? "Deletion failed. Try again or contact support." : "Échec de la suppression. Réessaie ou contacte le support.", true);
+        return;
+      }
+      await supabase.auth.signOut();
+      window.location.href = "/";
+    } catch (e) {
+      setDelLoading(false);
+      notify(e.message, true);
+    }
   }
 
   async function signOut() {
@@ -305,6 +325,44 @@ export default function SettingsPage() {
             <button onClick={signOut} className="w-full rounded-lg border border-line2 bg-panel2 py-2.5 text-[12px] font-bold text-muted2 hover:text-white">
               {lang === "en" ? "Sign out" : "Se déconnecter"}
             </button>
+          </div>
+
+          <div className="rounded-2xl border p-[18px]" style={{ borderColor: "rgba(255,59,92,.35)", background: "rgba(255,59,92,.05)" }}>
+            <div className="mb-3 text-[11px] font-bold uppercase tracking-widest" style={{ color: "#ff3b5c" }}>
+              {lang === "en" ? "Danger zone" : "Zone de danger"}
+            </div>
+            {!delOpen ? (
+              <>
+                <div className="mb-3 text-[12.5px] text-muted2">
+                  {lang === "en"
+                    ? "Permanently delete your account and all your data (trades, accounts, badges…). This cannot be undone."
+                    : "Supprime définitivement ton compte et toutes tes données (trades, comptes, badges…). Action irréversible."}
+                </div>
+                <button onClick={() => { setDelOpen(true); setDelText(""); }}
+                  className="rounded-lg px-4 py-2 text-[12px] font-bold text-white" style={{ background: "#ff3b5c" }}>
+                  {lang === "en" ? "Delete my account" : "Supprimer mon compte"}
+                </button>
+              </>
+            ) : (
+              <>
+                <div className="mb-2 text-[12.5px] text-white">
+                  {lang === "en" ? "Type DELETE to confirm permanent deletion." : "Tape SUPPRIMER pour confirmer la suppression définitive."}
+                </div>
+                <input className={inputCls} value={delText} onChange={(e) => setDelText(e.target.value)}
+                  placeholder={lang === "en" ? "DELETE" : "SUPPRIMER"} />
+                <div className="mt-3 flex gap-2">
+                  <button onClick={() => { if (!delLoading) setDelOpen(false); }}
+                    className="flex-1 rounded-lg border border-line2 bg-panel2 py-2 text-xs font-semibold text-white">
+                    {lang === "en" ? "Cancel" : "Annuler"}
+                  </button>
+                  <button onClick={() => { if (!delLoading) deleteAccount(); }}
+                    disabled={delLoading || delText.trim().toUpperCase() !== (lang === "en" ? "DELETE" : "SUPPRIMER")}
+                    className="flex-1 rounded-lg py-2 text-xs font-bold text-white disabled:opacity-40" style={{ background: "#ff3b5c" }}>
+                    {delLoading ? "…" : (lang === "en" ? "Delete forever" : "Supprimer définitivement")}
+                  </button>
+                </div>
+              </>
+            )}
           </div>
         </div>
       )}
