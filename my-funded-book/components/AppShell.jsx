@@ -5,7 +5,7 @@ import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   LayoutGrid, Table2, ListChecks, PenLine, BookOpen, Grid3x3, Award, Receipt,
-  Settings, Lock, LogOut, Plus, Menu, FlaskConical, Medal, CalendarDays, Trophy,
+  Settings, Lock, LogOut, Plus, Menu, FlaskConical, Medal, CalendarDays, Trophy, Sparkles,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useBook } from "./BookProvider";
@@ -24,6 +24,7 @@ const NAV = [
   { href: "/review", key: "nav_review", icon: PenLine },
   { href: "/playbook", key: "nav_playbook", icon: BookOpen },
   { href: "/breakdown", key: "nav_breakdown", icon: Grid3x3 },
+  { href: "/report", label: "Rapport IA", icon: Sparkles },
   { href: "/certificates", key: "nav_certificates", icon: Award },
   { href: "/expenses", key: "nav_expenses", icon: Receipt },
 ];
