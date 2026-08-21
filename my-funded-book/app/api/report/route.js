@@ -136,7 +136,7 @@ Sois direct, honnête, chiffré. Tu parles directement à ${name}. N'invente auc
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
     body: JSON.stringify({
-      model: "llama-3.3-70b-versatile",
+      model: "openai/gpt-oss-120b",
       messages: [{ role: "user", content: prompt }],
       max_tokens: 4000,
       temperature: 0.7,
