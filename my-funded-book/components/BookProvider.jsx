@@ -152,6 +152,17 @@ export function BookProvider({ user, children }) {
     [trades, profile.starting_balance]
   );
 
+  // Trades toujours triés par DATE du trade (récent en haut), puis par date d'ajout.
+  const sortedTrades = useMemo(
+    () =>
+      [...trades].sort((a, b) => {
+        const d = String(b.date || "").localeCompare(String(a.date || ""));
+        if (d !== 0) return d;
+        return String(b.created_at || "").localeCompare(String(a.created_at || ""));
+      }),
+    [trades]
+  );
+
   const value = {
     loading,
     lang,
@@ -159,7 +170,7 @@ export function BookProvider({ user, children }) {
     t,
     user,
     profile,
-    trades,
+    trades: sortedTrades,
     accounts,
     certificates,
     expenses,
