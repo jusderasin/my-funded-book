@@ -20,7 +20,7 @@ export function LogTradeModal({ editing, onClose }) {
   const [f, setF] = useState(
     editing || {
       symbol: "MNQ", date: todayISO(), dir: "long", session: "NY AM", grade: "A+",
-      r: "", pnl: "", setup: "", tags: [], why: "", plan: true, account_id: defaultAccountId,
+      r: "", pnl: "", setup: "", tags: [], why: "", plan: true, account_id: defaultAccountId, outcome: "",
     }
   );
   const [file, setFile] = useState(null);
@@ -46,6 +46,7 @@ export function LogTradeModal({ editing, onClose }) {
       grade: f.grade, r: Number(f.r) || 0, pnl: Number(f.pnl) || 0, setup: f.setup || null,
       tags: f.tags, why: f.why || null, plan: !!f.plan, screenshot_url: screenshot_url || null,
       account_id: f.account_id || null,
+      outcome: f.outcome || null,
     };
     if (editing) await updateTrade(editing.id, row);
     else await addTrade(row);
@@ -94,6 +95,13 @@ export function LogTradeModal({ editing, onClose }) {
         <Field label="R"><input type="number" step="0.1" className={inputCls} value={f.r} onChange={(e) => set("r", e.target.value)} placeholder="1" /></Field>
         <Field label={t("m_pnl_net")}><input type="number" step="0.01" className={inputCls} value={f.pnl} onChange={(e) => set("pnl", e.target.value)} placeholder="520" /></Field>
       </div>
+      <Field label={lang === "en" ? "Exit (TP/SL/BE)" : "Sortie (TP/SL/BE)"}>
+        <div className="flex gap-1.5">
+          {["TP", "SL", "BE"].map((o) => (
+            <Chip key={o} active={f.outcome === o} onClick={() => set("outcome", f.outcome === o ? "" : o)}>{o}</Chip>
+          ))}
+        </div>
+      </Field>
       <Field label={t("m_setup")}>
         <select className={inputCls} value={f.setup || ""} onChange={(e) => set("setup", e.target.value)}>
           <option value="">{t("m_none")}</option>
@@ -252,7 +260,6 @@ export function SettingsModal({ onClose, onReplayTutorial }) {
   const [cancelLoading, setCancelLoading] = useState(false);
   const set = (k, v) => setF((s) => ({ ...s, [k]: v }));
 
-  // --- Abonnement (affichage) ---
   const locale = lang === "fr" ? "fr-FR" : "en-US";
   const isActive = subscription && subscription.status === "active";
   const isCanceling = subscription?.cancel_at_period_end === true;
