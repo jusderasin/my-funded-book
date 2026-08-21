@@ -1,28 +1,23 @@
 "use client";
-
 import { useState } from "react";
 import { useBook } from "@/components/BookProvider";
 import { Pill, EmptyState, PrimaryBtn, GhostBtn } from "@/components/ui";
 import { LogTradeModal } from "@/components/modals";
 import { gradeClass } from "@/lib/constants";
 import { fmtMoney } from "@/lib/format";
-
 const gradeColors = {
   ap: "bg-accentDim text-accent", a: "bg-cyanx/15 text-cyanx",
   b: "bg-goldx/15 text-goldx", c: "bg-pinkx/15 text-pinkx", f: "bg-lossDim text-loss",
 };
-
 export default function JournalPage() {
   const { trades, deleteTrade, t } = useBook();
   const [editing, setEditing] = useState(null);
-
   return (
     <div>
       <div className="mb-3 flex items-center justify-between">
         <div className="text-[11px] font-semibold uppercase tracking-wide text-muted2">{t("jrn_title")}</div>
         <PrimaryBtn className="px-3 py-1.5 text-[12px]" onClick={() => setEditing("new")}>{t("jrn_add")}</PrimaryBtn>
       </div>
-
       {trades.length === 0 ? (
         <EmptyState icon="≡" title={t("jrn_empty_t")} sub={t("jrn_empty_s")} />
       ) : (
@@ -38,6 +33,7 @@ export default function JournalPage() {
                     <Pill tone="gray">{(tr.r >= 0 ? "+" : "") + Number(tr.r).toFixed(0)}R</Pill>
                     {tr.date} · <b className="text-muted">{tr.symbol}</b>
                     <Pill tone={tr.dir === "long" ? "green" : "red"}>{tr.dir === "long" ? "LONG" : "SHORT"}</Pill>
+                    {tr.outcome && <Pill tone={tr.outcome === "TP" ? "green" : tr.outcome === "SL" ? "red" : "gray"}>{tr.outcome}</Pill>}
                     {tr.session} {tr.setup ? "· " + tr.setup : ""}
                   </span>
                 </div>
