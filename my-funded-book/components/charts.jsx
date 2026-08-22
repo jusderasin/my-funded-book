@@ -140,7 +140,7 @@ export function Gauge({ pct, color = "#00E676" }) {
 }
 
 // ---------- Monthly calendar ----------
-export function Calendar({ byDay, tradesByDay, month, onShift, t }) {
+export function Calendar({ byDay, tradesByDay, month, onShift, t, onDayClick }) {
   const today = new Date();
   const safe = month || { y: today.getFullYear(), m: today.getMonth() + 1 };
   const { y, m } = safe;
@@ -155,8 +155,13 @@ export function Calendar({ byDay, tradesByDay, month, onShift, t }) {
     const pnl = byDay[key];
     const nT = tradesByDay[key] || 0;
     const cls = pnl > 0 ? "bg-accentDim border-accent/30" : pnl < 0 ? "bg-lossDim border-loss/30" : "bg-panel2 border-transparent";
+    const clickable = nT > 0 && typeof onDayClick === "function";
     cells.push(
-      <div key={d} className={`flex aspect-square min-h-[44px] flex-col justify-between rounded-lg border p-1.5 ${cls}`}>
+      <div
+        key={d}
+        onClick={clickable ? () => onDayClick(key) : undefined}
+        className={`flex aspect-square min-h-[44px] flex-col justify-between rounded-lg border p-1.5 ${cls} ${clickable ? "cursor-pointer transition hover:brightness-125" : ""}`}
+      >
         <div className="font-mono text-[9px] text-muted2">{d}</div>
         {pnl != null && (
           <div>
