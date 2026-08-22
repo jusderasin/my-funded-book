@@ -3,17 +3,22 @@
 import { useState } from "react";
 import { useBook } from "@/components/BookProvider";
 import { Kpi } from "@/components/ui";
+import { Modal, GhostBtn } from "@/components/ui";
 import { Radar, Area, Bars, Gauge, Calendar } from "@/components/charts";
 import { fmtMoney, fmtK, frDate } from "@/lib/format";
 import RiskBanner from "@/components/RiskBanner";
+import { LogTradeModal } from "@/components/modals";
 
 export default function DashboardPage() {
-  const { stats: s, profile, trades, t } = useBook();
+  const { stats: s, profile, trades, t, lang } = useBook();
+  const L = lang === "en" ? "en" : "fr";
   const [cal, setCal] = useState(() => {
     const last = s.days[s.days.length - 1] || new Date().toISOString().slice(0, 10);
     const [y, m] = last.split("-");
     return { y: +y, m: +m };
   });
+  const [dayKey, setDayKey] = useState(null);
+  const [editing, setEditing] = useState(null);
   const shift = (dir) => {
     let m = cal.m + dir, y = cal.y;
     if (m < 1) { m = 12; y--; }
@@ -24,12 +29,11 @@ export default function DashboardPage() {
   const tradesByDay = {};
   trades.forEach((t) => { tradesByDay[t.date] = (tradesByDay[t.date] || 0) + 1; });
   const recent = trades.slice(0, 8);
+  const dayTrades = dayKey ? trades.filter((tr) => tr.date === dayKey) : [];
 
   return (
     <div>
-      {/* Bannière risque compte prop firm */}
       <RiskBanner />
-      {/* KPIs */}
       <div className="mb-3.5 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
         <Kpi label={t("kpi_net")} big tone={s.net >= 0 ? "pos" : "neg"} value={fmtMoney(s.net, true)} />
         <Kpi label={t("kpi_trade_wr")} tone={s.wr >= 50 ? "pos" : "warn"} value={s.wr.toFixed(2) + "%"} gauge={<Gauge pct={s.wr} color={s.wr >= 50 ? "#00E676" : "#f5b301"} />} />
@@ -37,16 +41,12 @@ export default function DashboardPage() {
         <Kpi label={t("kpi_day_wr")} tone={s.dayWr >= 50 ? "pos" : "warn"} value={s.dayWr.toFixed(2) + "%"} gauge={<Gauge pct={s.dayWr} />} />
         <Kpi label={t("kpi_avg_wl")} tone={s.wl >= 1 ? "pos" : "warn"} value={s.wl.toFixed(2)} sub={`${fmtK(s.avgW)} / -${fmtK(s.avgL).replace("-", "")}`} />
       </div>
-
-      {/* streak */}
       <div className="mb-3.5 flex flex-wrap items-center gap-4 rounded-xl border border-line bg-panel px-4 py-3 text-[12.5px]">
         <span className="flex items-center gap-1.5 text-muted">🔥 <b className="font-mono font-extrabold text-white">{s.streak}</b> {t("streak_plan")}</span>
         <span className="flex items-center gap-1.5 text-muted"><b className="font-mono font-extrabold text-white">{s.days.length}</b> {t("streak_days")}</span>
         <span className="flex items-center gap-1.5 text-accent"><b className="font-mono font-extrabold">{s.planPct.toFixed(0)}%</b> {t("streak_adher")}</span>
         <span className="flex items-center gap-1.5 text-muted"><b className="font-mono font-extrabold text-white">{s.greenDays}</b> {t("streak_green")}</span>
       </div>
-
-      {/* radar + courbes */}
       <div className="mb-3.5 grid gap-3.5 lg:grid-cols-[340px_1fr]">
         <div className="rounded-2xl border border-line bg-panel p-[18px]">
           <H>{t("edge_score")}</H>
@@ -67,8 +67,6 @@ export default function DashboardPage() {
           <Bars byDay={s.byDay} days={s.days} />
         </div>
       </div>
-
-      {/* recent + calendar */}
       <div className="mb-3.5 grid gap-3.5 lg:grid-cols-[1fr_1fr]">
         <div className="rounded-2xl border border-line bg-panel p-[18px]">
           <H>{t("recent_trades")}</H>
@@ -102,11 +100,9 @@ export default function DashboardPage() {
           )}
         </div>
         <div className="rounded-2xl border border-line bg-panel p-[18px]">
-          <Calendar byDay={s.byDay} tradesByDay={tradesByDay} month={cal} onShift={shift} t={t} />
+          <Calendar byDay={s.byDay} tradesByDay={tradesByDay} month={cal} onShift={shift} t={t} onDayClick={setDayKey} />
         </div>
       </div>
-
-      {/* balance + drawdown */}
       <div className="grid gap-3.5 md:grid-cols-2">
         <div className="rounded-2xl border border-line bg-panel p-[18px]">
           <H>{t("account_balance")} <span className={`float-right font-mono ${s.net >= 0 ? "text-accent" : "text-loss"}`}>{fmtMoney(s.balance)}</span></H>
@@ -119,6 +115,26 @@ export default function DashboardPage() {
           <Area values={s.ddSeries} color="#ff66e4" fill="#ff66e4" />
         </div>
       </div>
+      {dayKey && (
+        <Modal title={frDate(dayKey)} onClose={() => setDayKey(null)}
+          footer={<GhostBtn className="flex-1" onClick={() => setDayKey(null)}>{L === "en" ? "Close" : "Fermer"}</GhostBtn>}>
+          {dayTrades.length === 0 ? (
+            <div className="py-4 text-center text-[12px] text-muted2">{L === "en" ? "No trade this day." : "Aucun trade ce jour."}</div>
+          ) : (
+            <div className="flex flex-col gap-2">
+              {dayTrades.map((tr) => (
+                <div key={tr.id} className="flex flex-wrap items-center gap-3 rounded-lg border border-line bg-panel2 px-3 py-2.5">
+                  <span className={`font-mono text-[15px] font-extrabold ${tr.pnl >= 0 ? "text-accent" : "text-loss"}`}>{(tr.pnl >= 0 ? "+" : "") + fmtMoney(tr.pnl)}</span>
+                  <span className="font-mono text-[11px] text-muted2">{tr.symbol} · {tr.dir === "long" ? "LONG" : "SHORT"} · {(tr.r >= 0 ? "+" : "") + Number(tr.r).toFixed(0)}R{tr.session ? " · " + tr.session : ""}</span>
+                  <div className="flex-1" />
+                  <GhostBtn className="px-3 py-1.5 text-[12px]" onClick={() => { setEditing(tr); setDayKey(null); }}>{L === "en" ? "Edit" : "Éditer"}</GhostBtn>
+                </div>
+              ))}
+            </div>
+          )}
+        </Modal>
+      )}
+      {editing && <LogTradeModal editing={editing} onClose={() => setEditing(null)} />}
     </div>
   );
 }
