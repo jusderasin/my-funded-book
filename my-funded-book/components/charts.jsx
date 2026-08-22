@@ -1,9 +1,37 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useRef, useEffect } from "react";
 import { fmtK } from "@/lib/format";
 
 const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+// ---------- Hook tooltip : survol (souris) + tap (tactile) ----------
+// - PC : onMouseEnter/Leave affiche/masque au survol
+// - Mobile : tap affiche, re-tap sur le même point masque, tap ailleurs ferme
+function useChartTip() {
+  const [hi, setHi] = useState(null);
+  const ref = useRef(null);
+  useEffect(() => {
+    if (hi == null) return;
+    const onDoc = (e) => {
+      if (ref.current && !ref.current.contains(e.target)) setHi(null);
+    };
+    document.addEventListener("pointerdown", onDoc);
+    return () => document.removeEventListener("pointerdown", onDoc);
+  }, [hi]);
+  // props à étaler sur chaque zone de survol/tap
+  const zone = (i) => ({
+    onMouseEnter: () => setHi(i),
+    onMouseLeave: () => setHi(null),
+    onPointerDown: (e) => {
+      if (e.pointerType === "touch") {
+        e.preventDefault(); // coupe les events souris synthétiques du tap
+        setHi((cur) => (cur === i ? null : i));
+      }
+    },
+  });
+  return { hi, ref, zone };
+}
 
 // ---------- Tooltip overlay (HTML, positionné en % du conteneur) ----------
 function Tip({ leftPct, topPct, place = "top", children }) {
@@ -23,7 +51,7 @@ function Tip({ leftPct, topPct, place = "top", children }) {
 
 // ---------- Radar Edge Score ----------
 export function Radar({ axes }) {
-  const [hi, setHi] = useState(null);
+  const { hi, ref, zone } = useChartTip();
   const keys = Object.keys(axes);
   const N = keys.length;
   const cx = 140, cy = 125, R = 78;
@@ -65,15 +93,7 @@ export function Radar({ axes }) {
   const hotspots = keys.map((k, i) => {
     const [x, y] = pt(i, (R * axes[k]) / 100);
     return (
-      <circle
-        key={i}
-        cx={x.toFixed(1)}
-        cy={y.toFixed(1)}
-        r="13"
-        fill="transparent"
-        onMouseEnter={() => setHi(i)}
-        onMouseLeave={() => setHi(null)}
-      />
+      <circle key={i} cx={x.toFixed(1)} cy={y.toFixed(1)} r="13" fill="transparent" style={{ touchAction: "none" }} {...zone(i)} />
     );
   });
   let tip = null;
@@ -89,7 +109,7 @@ export function Radar({ axes }) {
     );
   }
   return (
-    <div className="relative w-full">
+    <div ref={ref} className="relative w-full">
       <svg viewBox={`0 0 ${VB_W} ${VB_H}`} className="w-full overflow-visible">
         {rings}
         {spokes}
@@ -105,7 +125,7 @@ export function Radar({ axes }) {
 
 // ---------- Area chart ----------
 export function Area({ values, color = "#00E676", fill = "#00E676", labels, fmt }) {
-  const [hi, setHi] = useState(null);
+  const { hi, ref, zone } = useChartTip();
   if (!values || values.length < 2) return <ChartEmpty />;
   const W = 560, H = 150, pad = 8;
   const mn = Math.min(...values), mx = Math.max(...values);
@@ -121,7 +141,7 @@ export function Area({ values, color = "#00E676", fill = "#00E676", labels, fmt 
   const step = (W - pad * 2) / (values.length - 1);
   const format = fmt || ((v) => (v >= 0 ? "+" : "") + (Number.isInteger(v) ? v : v.toFixed(2)));
   return (
-    <div className="relative w-full">
+    <div ref={ref} className="relative w-full">
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full">
         <defs>
           <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
@@ -139,16 +159,7 @@ export function Area({ values, color = "#00E676", fill = "#00E676", labels, fmt 
           </g>
         )}
         {values.map((v, i) => (
-          <rect
-            key={i}
-            x={(x(i) - step / 2).toFixed(1)}
-            y="0"
-            width={step.toFixed(1)}
-            height={H}
-            fill="transparent"
-            onMouseEnter={() => setHi(i)}
-            onMouseLeave={() => setHi(null)}
-          />
+          <rect key={i} x={(x(i) - step / 2).toFixed(1)} y="0" width={step.toFixed(1)} height={H} fill="transparent" style={{ touchAction: "none" }} {...zone(i)} />
         ))}
       </svg>
       {hi != null && (
@@ -163,7 +174,7 @@ export function Area({ values, color = "#00E676", fill = "#00E676", labels, fmt 
 
 // ---------- Bars (net daily) ----------
 export function Bars({ byDay, days, labels, fmt }) {
-  const [hi, setHi] = useState(null);
+  const { hi, ref, zone } = useChartTip();
   if (!days || !days.length) return <ChartEmpty />;
   const W = 560, H = 150, pad = 8;
   const vals = days.map((d) => byDay[d]);
@@ -173,7 +184,7 @@ export function Bars({ byDay, days, labels, fmt }) {
   const zeroY = H / 2;
   const format = fmt || fmtK;
   return (
-    <div className="relative w-full">
+    <div ref={ref} className="relative w-full">
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full">
         <line x1={pad} y1={zeroY} x2={W - pad} y2={zeroY} stroke="#2e3340" />
         {days.map((d, i) => {
@@ -196,16 +207,7 @@ export function Bars({ byDay, days, labels, fmt }) {
         {days.map((d, i) => {
           const cx = pad + step * (i + 0.5);
           return (
-            <rect
-              key={"h" + i}
-              x={(cx - step / 2).toFixed(1)}
-              y="0"
-              width={step.toFixed(1)}
-              height={H}
-              fill="transparent"
-              onMouseEnter={() => setHi(i)}
-              onMouseLeave={() => setHi(null)}
-            />
+            <rect key={"h" + i} x={(cx - step / 2).toFixed(1)} y="0" width={step.toFixed(1)} height={H} fill="transparent" style={{ touchAction: "none" }} {...zone(i)} />
           );
         })}
       </svg>
