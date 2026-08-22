@@ -1,12 +1,33 @@
 "use client";
 
+import { useState } from "react";
 import { fmtK } from "@/lib/format";
+
+const clamp = (v, lo, hi) => Math.max(lo, Math.min(hi, v));
+
+// ---------- Tooltip overlay (HTML, positionné en % du conteneur) ----------
+function Tip({ leftPct, topPct, place = "top", children }) {
+  const transform =
+    place === "bottom"
+      ? "translate(-50%, 8px)"
+      : "translate(-50%, calc(-100% - 8px))";
+  return (
+    <div
+      className="pointer-events-none absolute z-20 whitespace-nowrap rounded-md border border-line2 bg-ink2/95 px-2 py-1 text-center font-mono text-[10px] leading-tight shadow-lg"
+      style={{ left: `${clamp(leftPct, 3, 97)}%`, top: `${topPct}%`, transform }}
+    >
+      {children}
+    </div>
+  );
+}
 
 // ---------- Radar Edge Score ----------
 export function Radar({ axes }) {
+  const [hi, setHi] = useState(null);
   const keys = Object.keys(axes);
   const N = keys.length;
   const cx = 140, cy = 125, R = 78;
+  const VB_W = 280, VB_H = 250;
   const pt = (i, r) => {
     const a = -Math.PI / 2 + (i * 2 * Math.PI) / N;
     return [cx + Math.cos(a) * r, cy + Math.sin(a) * r];
@@ -39,21 +60,52 @@ export function Radar({ axes }) {
   });
   const dots = keys.map((k, i) => {
     const [x, y] = pt(i, (R * axes[k]) / 100);
-    return <circle key={i} cx={x.toFixed(1)} cy={y.toFixed(1)} r="2.4" fill="#00E676" />;
+    return <circle key={i} cx={x.toFixed(1)} cy={y.toFixed(1)} r={hi === i ? "3.6" : "2.4"} fill="#00E676" />;
   });
+  const hotspots = keys.map((k, i) => {
+    const [x, y] = pt(i, (R * axes[k]) / 100);
+    return (
+      <circle
+        key={i}
+        cx={x.toFixed(1)}
+        cy={y.toFixed(1)}
+        r="13"
+        fill="transparent"
+        onMouseEnter={() => setHi(i)}
+        onMouseLeave={() => setHi(null)}
+      />
+    );
+  });
+  let tip = null;
+  if (hi != null) {
+    const [x, y] = pt(hi, (R * axes[keys[hi]]) / 100);
+    tip = (
+      <Tip leftPct={(x / VB_W) * 100} topPct={(y / VB_H) * 100} place={y / VB_H < 0.35 ? "bottom" : "top"}>
+        <div className="text-muted2">{keys[hi]}</div>
+        <div className="font-extrabold" style={{ color: "#00E676" }}>
+          {Math.round(axes[keys[hi]])}<span className="text-muted2">/100</span>
+        </div>
+      </Tip>
+    );
+  }
   return (
-    <svg viewBox="0 0 280 250" className="w-full overflow-visible">
-      {rings}
-      {spokes}
-      <path d={poly + "Z"} fill="rgba(0,230,118,0.14)" stroke="#00E676" strokeWidth="1.6" />
-      {dots}
-      {labels}
-    </svg>
+    <div className="relative w-full">
+      <svg viewBox={`0 0 ${VB_W} ${VB_H}`} className="w-full overflow-visible">
+        {rings}
+        {spokes}
+        <path d={poly + "Z"} fill="rgba(0,230,118,0.14)" stroke="#00E676" strokeWidth="1.6" />
+        {dots}
+        {labels}
+        {hotspots}
+      </svg>
+      {tip}
+    </div>
   );
 }
 
 // ---------- Area chart ----------
-export function Area({ values, color = "#00E676", fill = "#00E676" }) {
+export function Area({ values, color = "#00E676", fill = "#00E676", labels, fmt }) {
+  const [hi, setHi] = useState(null);
   if (!values || values.length < 2) return <ChartEmpty />;
   const W = 560, H = 150, pad = 8;
   const mn = Math.min(...values), mx = Math.max(...values);
@@ -66,23 +118,52 @@ export function Area({ values, color = "#00E676", fill = "#00E676" }) {
     values.map((v, i) => "L" + x(i).toFixed(1) + "," + y(v).toFixed(1)).join(" ") +
     ` L${x(values.length - 1).toFixed(1)},${H - pad} Z`;
   const gid = "g" + Math.abs(values.length * 7 + Math.round(mx)).toString(36);
+  const step = (W - pad * 2) / (values.length - 1);
+  const format = fmt || ((v) => (v >= 0 ? "+" : "") + (Number.isInteger(v) ? v : v.toFixed(2)));
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full">
-      <defs>
-        <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
-          <stop offset="0" stopColor={fill} stopOpacity="0.35" />
-          <stop offset="1" stopColor={fill} stopOpacity="0" />
-        </linearGradient>
-      </defs>
-      {zeroY != null && <line x1={pad} y1={zeroY.toFixed(1)} x2={W - pad} y2={zeroY.toFixed(1)} stroke="#2e3340" strokeDasharray="3 3" />}
-      <path d={area} fill={`url(#${gid})`} />
-      <path d={line} fill="none" stroke={color} strokeWidth="2" />
-    </svg>
+    <div className="relative w-full">
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full">
+        <defs>
+          <linearGradient id={gid} x1="0" y1="0" x2="0" y2="1">
+            <stop offset="0" stopColor={fill} stopOpacity="0.35" />
+            <stop offset="1" stopColor={fill} stopOpacity="0" />
+          </linearGradient>
+        </defs>
+        {zeroY != null && <line x1={pad} y1={zeroY.toFixed(1)} x2={W - pad} y2={zeroY.toFixed(1)} stroke="#2e3340" strokeDasharray="3 3" />}
+        <path d={area} fill={`url(#${gid})`} />
+        <path d={line} fill="none" stroke={color} strokeWidth="2" />
+        {hi != null && (
+          <g>
+            <line x1={x(hi).toFixed(1)} y1={pad} x2={x(hi).toFixed(1)} y2={H - pad} stroke="#3a4150" strokeWidth="1" strokeDasharray="3 3" />
+            <circle cx={x(hi).toFixed(1)} cy={y(values[hi]).toFixed(1)} r="3.5" fill={color} stroke="#0b0d12" strokeWidth="1.5" />
+          </g>
+        )}
+        {values.map((v, i) => (
+          <rect
+            key={i}
+            x={(x(i) - step / 2).toFixed(1)}
+            y="0"
+            width={step.toFixed(1)}
+            height={H}
+            fill="transparent"
+            onMouseEnter={() => setHi(i)}
+            onMouseLeave={() => setHi(null)}
+          />
+        ))}
+      </svg>
+      {hi != null && (
+        <Tip leftPct={(x(hi) / W) * 100} topPct={(y(values[hi]) / H) * 100} place={y(values[hi]) / H < 0.35 ? "bottom" : "top"}>
+          {labels && labels[hi] != null && <div className="text-muted2">{labels[hi]}</div>}
+          <div className="font-extrabold" style={{ color }}>{format(values[hi])}</div>
+        </Tip>
+      )}
+    </div>
   );
 }
 
 // ---------- Bars (net daily) ----------
-export function Bars({ byDay, days }) {
+export function Bars({ byDay, days, labels, fmt }) {
+  const [hi, setHi] = useState(null);
   if (!days || !days.length) return <ChartEmpty />;
   const W = 560, H = 150, pad = 8;
   const vals = days.map((d) => byDay[d]);
@@ -90,27 +171,55 @@ export function Bars({ byDay, days }) {
   const step = (W - pad * 2) / days.length;
   const bw = Math.min(26, step * 0.6);
   const zeroY = H / 2;
+  const format = fmt || fmtK;
   return (
-    <svg viewBox={`0 0 ${W} ${H}`} className="w-full">
-      <line x1={pad} y1={zeroY} x2={W - pad} y2={zeroY} stroke="#2e3340" />
-      {days.map((d, i) => {
-        const v = byDay[d];
-        const h = (Math.abs(v) / mx) * (H / 2 - 14);
-        const cx = pad + step * (i + 0.5);
+    <div className="relative w-full">
+      <svg viewBox={`0 0 ${W} ${H}`} className="w-full">
+        <line x1={pad} y1={zeroY} x2={W - pad} y2={zeroY} stroke="#2e3340" />
+        {days.map((d, i) => {
+          const v = byDay[d];
+          const h = (Math.abs(v) / mx) * (H / 2 - 14);
+          const cx = pad + step * (i + 0.5);
+          return (
+            <rect
+              key={i}
+              x={(cx - bw / 2).toFixed(1)}
+              y={(v >= 0 ? zeroY - h : zeroY).toFixed(1)}
+              width={bw.toFixed(1)}
+              height={Math.max(1, h).toFixed(1)}
+              rx="2"
+              fill={v >= 0 ? "#00E676" : "#FF5252"}
+              opacity={hi === i ? "1" : "0.9"}
+            />
+          );
+        })}
+        {days.map((d, i) => {
+          const cx = pad + step * (i + 0.5);
+          return (
+            <rect
+              key={"h" + i}
+              x={(cx - step / 2).toFixed(1)}
+              y="0"
+              width={step.toFixed(1)}
+              height={H}
+              fill="transparent"
+              onMouseEnter={() => setHi(i)}
+              onMouseLeave={() => setHi(null)}
+            />
+          );
+        })}
+      </svg>
+      {hi != null && (() => {
+        const v = byDay[days[hi]];
+        const cx = pad + step * (hi + 0.5);
         return (
-          <rect
-            key={i}
-            x={(cx - bw / 2).toFixed(1)}
-            y={(v >= 0 ? zeroY - h : zeroY).toFixed(1)}
-            width={bw.toFixed(1)}
-            height={Math.max(1, h).toFixed(1)}
-            rx="2"
-            fill={v >= 0 ? "#00E676" : "#FF5252"}
-            opacity="0.9"
-          />
+          <Tip leftPct={(cx / W) * 100} topPct={(zeroY / H) * 100} place={v >= 0 ? "top" : "bottom"}>
+            <div className="text-muted2">{labels && labels[hi] != null ? labels[hi] : days[hi]}</div>
+            <div className="font-extrabold" style={{ color: v >= 0 ? "#00E676" : "#FF5252" }}>{format(v)}</div>
+          </Tip>
         );
-      })}
-    </svg>
+      })()}
+    </div>
   );
 }
 
