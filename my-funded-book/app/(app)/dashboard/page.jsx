@@ -125,7 +125,7 @@ export default function DashboardPage() {
               {dayTrades.map((tr) => (
                 <div key={tr.id} className="flex flex-wrap items-center gap-3 rounded-lg border border-line bg-panel2 px-3 py-2.5">
                   <span className={`font-mono text-[15px] font-extrabold ${tr.pnl >= 0 ? "text-accent" : "text-loss"}`}>{(tr.pnl >= 0 ? "+" : "") + fmtMoney(tr.pnl)}</span>
-                  <span className="font-mono text-[11px] text-muted2">{tr.symbol} · {tr.dir === "long" ? "LONG" : "SHORT"} · {(tr.r >= 0 ? "+" : "") + Number(tr.r).toFixed(0)}R{tr.session ? " · " + tr.session : ""}</span>
+                  <span className="font-mono text-[11px] text-muted2">{frDate(tr.date)} · {tr.symbol} · {tr.dir === "long" ? "LONG" : "SHORT"} · {fmtR(tr.r)}{tr.session ? " · " + tr.session : ""}</span>
                   <div className="flex-1" />
                   <GhostBtn className="px-3 py-1.5 text-[12px]" onClick={() => { setEditing(tr); setDayKey(null); }}>{L === "en" ? "Edit" : "Éditer"}</GhostBtn>
                 </div>
@@ -141,4 +141,10 @@ export default function DashboardPage() {
 
 function H({ children, className = "" }) {
   return <h3 className={`mb-3.5 text-[12px] font-semibold uppercase tracking-wide text-muted2 ${className}`}>{children}</h3>;
+}
+
+// Format R : 1 décimale + signe explicite (+2.5R / -1.0R)
+function fmtR(r) {
+  const n = Number(r) || 0;
+  return (n >= 0 ? "+" : "") + n.toFixed(1) + "R";
 }
