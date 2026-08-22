@@ -8,12 +8,13 @@ function fromDate(period) {
   if (period === "week") d.setDate(d.getDate() - 7);
   else if (period === "month") d.setMonth(d.getMonth() - 1);
   else if (period === "year") d.setFullYear(d.getFullYear() - 1);
-  else return null; // "all" -> tout l'historique
+  else return null;
   return d.toISOString().slice(0, 10);
 }
 
+const num = (v) => Number(v) || 0;
+
 function calcStats(trades) {
-  const num = (v) => Number(v) || 0;
   const wins = trades.filter((t) => num(t.pnl) > 0);
   const losses = trades.filter((t) => num(t.pnl) < 0);
   const bes = trades.filter((t) => num(t.pnl) === 0);
@@ -25,17 +26,14 @@ function calcStats(trades) {
   const pf = lossR > 0 ? (winR / lossR).toFixed(2) : wins.length ? "∞" : "0.0";
   const totalPnl = trades.reduce((s, t) => s + num(t.pnl), 0);
   const exp = total ? (sumR / total).toFixed(2) : "0";
-
   let peak = 0, cum = 0, maxDd = 0;
   [...trades]
     .sort((a, b) => (a.date + (a.created_at || "")).localeCompare(b.date + (b.created_at || "")))
     .forEach((t) => { cum += num(t.r); if (cum > peak) peak = cum; const dd = peak - cum; if (dd > maxDd) maxDd = dd; });
-
   const byDay = {};
   trades.forEach((t) => { byDay[t.date] = (byDay[t.date] || 0) + num(t.pnl); });
   const greenDays = Object.values(byDay).filter((v) => v > 0).length;
   const redDays = Object.values(byDay).filter((v) => v < 0).length;
-
   return {
     total, wins: wins.length, losses: losses.length, bes: bes.length,
     wr, pf, totalR: sumR.toFixed(1), totalPnl: totalPnl.toFixed(0),
@@ -52,7 +50,6 @@ export async function POST(req) {
   const key = process.env.GROQ_API_KEY;
   if (!key) return NextResponse.json({ error: "missing_groq_key" }, { status: 500 });
 
-  // Trades de la période (RLS : l'utilisateur ne lit que les siens)
   const from = fromDate(period);
   let q = supabase.from("trades").select("*").eq("user_id", user.id).order("date");
   if (from) q = q.gte("date", from);
@@ -63,23 +60,37 @@ export async function POST(req) {
   const { data: profile } = await supabase.from("profiles").select("name").eq("id", user.id).maybeSingle();
   const name = profile?.name || "Trader";
   const stats = calcStats(trades);
-  const num = (v) => Number(v) || 0;
 
-  // Agrégats
-  const bySession = {}, bySetup = {}, tagCounts = {};
+  // --- Agrégats pour les graphiques ---
+  const sessAgg = {}, setupAgg = {}, tagCounts = {};
+  const outcomes = { TP: 0, SL: 0, BE: 0, none: 0 };
   trades.forEach((t) => {
     const sess = t.session || "N/A";
-    if (!bySession[sess]) bySession[sess] = { wins: 0, losses: 0, r: 0, total: 0 };
-    bySession[sess].total++; bySession[sess].r += num(t.r);
-    if (num(t.pnl) > 0) bySession[sess].wins++; else if (num(t.pnl) < 0) bySession[sess].losses++;
+    if (!sessAgg[sess]) sessAgg[sess] = { session: sess, total: 0, wins: 0, r: 0 };
+    sessAgg[sess].total++; sessAgg[sess].r += num(t.r);
+    if (num(t.pnl) > 0) sessAgg[sess].wins++;
 
     const st = t.setup || "Sans setup";
-    if (!bySetup[st]) bySetup[st] = { wins: 0, total: 0, r: 0 };
-    bySetup[st].total++; bySetup[st].r += num(t.r);
-    if (num(t.pnl) > 0) bySetup[st].wins++;
+    if (!setupAgg[st]) setupAgg[st] = { setup: st, total: 0, wins: 0, r: 0 };
+    setupAgg[st].total++; setupAgg[st].r += num(t.r);
+    if (num(t.pnl) > 0) setupAgg[st].wins++;
 
     (Array.isArray(t.tags) ? t.tags : []).forEach((tag) => { tagCounts[tag] = (tagCounts[tag] || 0) + 1; });
+
+    if (t.outcome === "TP") outcomes.TP++;
+    else if (t.outcome === "SL") outcomes.SL++;
+    else if (t.outcome === "BE") outcomes.BE++;
+    else outcomes.none++;
   });
+
+  const round1 = (n) => Math.round(n * 10) / 10;
+  const bySession = Object.values(sessAgg).map((d) => ({ ...d, r: round1(d.r), wr: d.total ? Math.round((d.wins / d.total) * 100) : 0 }));
+  const bySetup = Object.values(setupAgg).map((d) => ({ ...d, r: round1(d.r), wr: d.total ? Math.round((d.wins / d.total) * 100) : 0 }));
+
+  let cum = 0;
+  const cumulative = [...trades]
+    .sort((a, b) => (a.date + (a.created_at || "")).localeCompare(b.date + (b.created_at || "")))
+    .map((t) => { cum += num(t.r); return { date: t.date, cumR: round1(cum) }; });
 
   const offPlan = trades.filter((t) => t.plan === false);
   let maxLossStreak = 0, cur = 0;
@@ -91,46 +102,41 @@ export async function POST(req) {
     : period === "month" ? "le dernier mois"
     : period === "year" ? "la dernière année" : "tout l'historique";
 
-  const prompt = `Tu es un coach de trading professionnel expert. Voici les données du trader ${name} sur ${periodLabel}.
+  const prompt = `Tu es un coach de trading professionnel de très haut niveau. Analyse en profondeur les données du trader ${name} sur ${periodLabel}.
 
-# PROFIL
-- Instrument principal : MNQ/NQ (Futures)
+# STATISTIQUES
+- Total : ${stats.total} trades (${stats.wins}W · ${stats.losses}L · ${stats.bes}BE)
+- Win Rate : ${stats.wr}% · Profit Factor : ${stats.pf} · Expectancy : ${stats.exp}R/trade
+- Total R : ${stats.totalR}R · PnL : $${stats.totalPnl} · Max Drawdown : ${stats.maxDd}R
+- Jours verts/rouges : ${stats.greenDays}/${stats.redDays} · Pire série de pertes : ${maxLossStreak}
+- Trades HORS PLAN : ${offPlan.length}/${stats.total}
+- Sorties : ${outcomes.TP} en TP (take profit), ${outcomes.SL} en SL (stop loss), ${outcomes.BE} en break-even, ${outcomes.none} non renseignées
 
-# STATISTIQUES CLÉS
-- Total trades : ${stats.total} (${stats.wins}W · ${stats.losses}L · ${stats.bes}BE)
-- Win Rate : ${stats.wr}%
-- Profit Factor : ${stats.pf}
-- Total R : ${stats.totalR}R
-- PnL Total : $${stats.totalPnl}
-- Max Drawdown : ${stats.maxDd}R
-- Expectancy : ${stats.exp}R/trade
-- Jours verts / rouges : ${stats.greenDays} / ${stats.redDays}
-- Série max de pertes consécutives : ${maxLossStreak}
-- Trades pris HORS PLAN : ${offPlan.length} / ${stats.total}
+# PAR SESSION
+${bySession.map((d) => `- ${d.session} : ${d.total} trades, ${d.wr}% WR, ${d.r >= 0 ? "+" : ""}${d.r}R`).join("\n")}
 
-# PERFORMANCE PAR SESSION
-${Object.entries(bySession).map(([s, d]) => `- ${s} : ${d.total} trades, ${d.total > 0 ? Math.round((d.wins / d.total) * 100) : 0}% WR, ${d.r >= 0 ? "+" : ""}${d.r.toFixed(1)}R`).join("\n") || "- Non renseigné"}
+# PAR SETUP
+${bySetup.map((d) => `- ${d.setup} : ${d.total} trades, ${d.wr}% WR, ${d.r >= 0 ? "+" : ""}${d.r}R`).join("\n")}
 
-# PERFORMANCE PAR SETUP
-${Object.entries(bySetup).map(([s, d]) => `- ${s} : ${d.total} trades, ${d.total > 0 ? Math.round((d.wins / d.total) * 100) : 0}% WR, ${d.r >= 0 ? "+" : ""}${d.r.toFixed(1)}R`).join("\n") || "- Aucun setup renseigné"}
-
-# TAGS LES PLUS FRÉQUENTS
-${Object.entries(tagCounts).sort((a, b) => b[1] - a[1]).slice(0, 8).map(([tag, c]) => `- ${tag} : ${c} fois`).join("\n") || "- Aucun tag"}
+# TAGS (comportement)
+${Object.entries(tagCounts).sort((a, b) => b[1] - a[1]).map(([tag, c]) => `- ${tag} : ${c} fois`).join("\n") || "- Aucun tag"}
 
 ---
 
-Génère un rapport d'analyse de trading COMPLET, PROFESSIONNEL et PERSONNALISÉ en français pour ${name}. Structure ton rapport avec ces sections :
+Rédige un rapport d'analyse COMPLET, PRO et PERSONNALISÉ en français pour ${name}, avec ces sections :
 
 1. RÉSUMÉ EXÉCUTIF (3-4 phrases percutantes)
-2. POINTS FORTS (ce qui marche, avec chiffres précis)
-3. POINTS D'AMÉLIORATION (problèmes identifiés avec exemples chiffrés)
-4. ANALYSE PAR SESSION (meilleures/pires sessions avec recommandations)
-5. ANALYSE PAR SETUP (quel setup performe, lequel éviter)
-6. DISCIPLINE (respect du plan : ${offPlan.length} trades hors-plan — impact et correctifs)
-7. RECOMMANDATIONS CONCRÈTES (3-5 actions à mettre en place immédiatement)
-8. OBJECTIF POUR LA PROCHAINE PÉRIODE
+2. POINTS FORTS (chiffrés)
+3. POINTS D'AMÉLIORATION (chiffrés, avec l'impact)
+4. ANALYSE PAR SESSION (meilleures/pires + recos)
+5. ANALYSE PAR SETUP (lequel garder, lequel couper)
+6. GESTION DES SORTIES (interprète le ratio TP/SL/BE : sors-tu trop tôt ? laisses-tu courir ?)
+7. ANALYSE COMPORTEMENTALE (exploite les tags : FOMO, revenge, oversized… quel schéma se répète et comment le corriger)
+8. DISCIPLINE (respect du plan : ${offPlan.length} hors-plan)
+9. PLAN D'ACTION (3-5 actions concrètes, priorisées)
+10. OBJECTIF CHIFFRÉ pour la prochaine période
 
-Sois direct, honnête, chiffré. Tu parles directement à ${name}. N'invente aucune donnée : base-toi uniquement sur les chiffres fournis.`;
+Règles : direct, honnête, chiffré. Tu parles à ${name}. N'invente aucune donnée. Utilise du gras (**...**) pour les chiffres clés. Pas de tableaux markdown, uniquement des listes à puces.`;
 
   const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
@@ -147,5 +153,8 @@ Sois direct, honnête, chiffré. Tu parles directement à ${name}. N'invente auc
   if (!res.ok) return NextResponse.json({ error: data?.error?.message || "groq_error" }, { status: 500 });
 
   const report = data.choices?.[0]?.message?.content || "";
-  return NextResponse.json({ ok: true, report, stats, period, n_trades: trades.length });
+  return NextResponse.json({
+    ok: true, report, stats, period, n_trades: trades.length,
+    bySession, bySetup, outcomes, cumulative,
+  });
 }
