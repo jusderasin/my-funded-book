@@ -151,7 +151,7 @@ export function AppShell({ children }) {
 
           <aside className={`fixed top-0 z-[50] flex h-screen w-[224px] flex-shrink-0 flex-col gap-0.5 border-r border-line bg-ink2 p-3 transition-transform lg:sticky lg:top-[52px] lg:h-[calc(100vh-52px)] lg:translate-x-0 ${open ? "translate-x-0" : "-translate-x-full"} ${collapsed ? "lg:hidden" : ""}`} style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}>
             <div className="shrink-0 px-2.5 pb-1.5 pt-2.5 text-[10px] font-bold uppercase tracking-widest text-muted2">{t("nav_label")}</div>
-            <nav className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto" style={{ scrollbarWidth: "thin" }}>
+            <nav className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto no-scrollbar">
               {orderedNav.filter((n) => !n.hidden).map((n) => {
                 const active = pathname.startsWith(n.href);
                 const Icon = n.icon;
