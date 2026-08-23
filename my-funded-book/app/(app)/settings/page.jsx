@@ -5,7 +5,7 @@ import Link from "next/link";
 import { useBook } from "@/components/BookProvider";
 import { createClient } from "@/lib/supabase/client";
 import { Field, inputCls, Chip, PrimaryBtn, GhostBtn } from "@/components/ui";
-import { User, CreditCard, Lock, Eye } from "lucide-react";
+import { User, CreditCard, Lock, Eye, SlidersHorizontal } from "lucide-react";
 
 export default function SettingsPage() {
   const { profile, saveProfile, trades, lang, setLang, t, notify, subscription, reload } = useBook();
@@ -76,6 +76,10 @@ export default function SettingsPage() {
 
   function replayTutorial() {
     if (typeof window !== "undefined") window.dispatchEvent(new Event("mtb-replay-tutorial"));
+  }
+
+  function openNavCustomizer() {
+    if (typeof window !== "undefined") window.dispatchEvent(new Event("mtb-open-nav-customizer"));
   }
 
   function exportCSV() {
@@ -221,6 +225,14 @@ export default function SettingsPage() {
                 <Eye size={14} /> {lang === "en" ? "View public profile" : "Voir mon profil public"}
               </Link>
             </div>
+          </div>
+
+          <div className={cardCls}>
+            <div className={sectionLabel}>{lang === "en" ? "Menu" : "Menu"}</div>
+            <GhostBtn className="flex w-full items-center justify-center gap-1.5" onClick={openNavCustomizer}>
+              <SlidersHorizontal size={14} /> {lang === "en" ? "Customize menu" : "Personnaliser le menu"}
+            </GhostBtn>
+            <div className="mt-1.5 text-[11px] text-muted2">{lang === "en" ? "Reorder the sidebar tabs and choose which ones to show." : "Réordonne les onglets du menu latéral et choisis lesquels afficher."}</div>
           </div>
 
           <div className={cardCls}>
