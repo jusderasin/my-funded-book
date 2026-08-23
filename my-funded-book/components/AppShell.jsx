@@ -6,7 +6,6 @@ import Link from "next/link";
 import {
   LayoutGrid, Table2, ListChecks, PenLine, BookOpen, Grid3x3, Award, Receipt,
   Settings, Lock, LogOut, Plus, Menu, FlaskConical, Medal, CalendarDays, Trophy, Sparkles,
-  SlidersHorizontal,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useBook } from "./BookProvider";
@@ -85,6 +84,12 @@ export function AppShell({ children }) {
     return () => window.removeEventListener("mtb-replay-tutorial", replay);
   }, []);
 
+  useEffect(() => {
+    const openCust = () => setShowNavCust(true);
+    window.addEventListener("mtb-open-nav-customizer", openCust);
+    return () => window.removeEventListener("mtb-open-nav-customizer", openCust);
+  }, []);
+
   function finishTutorial() {
     if (!profile?.tutorial_seen && profile?.id) {
       saveProfile({ tutorial_seen: true });
@@ -145,22 +150,20 @@ export function AppShell({ children }) {
           {open && <div className="fixed inset-0 z-[45] bg-black/60 lg:hidden" onClick={() => setOpen(false)} />}
 
           <aside className={`fixed top-0 z-[50] flex h-screen w-[224px] flex-shrink-0 flex-col gap-0.5 border-r border-line bg-ink2 p-3 transition-transform lg:sticky lg:top-[52px] lg:h-[calc(100vh-52px)] lg:translate-x-0 ${open ? "translate-x-0" : "-translate-x-full"} ${collapsed ? "lg:hidden" : ""}`} style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}>
-            <div className="px-2.5 pb-1.5 pt-2.5 text-[10px] font-bold uppercase tracking-widest text-muted2">{t("nav_label")}</div>
-            {orderedNav.filter((n) => !n.hidden).map((n) => {
-              const active = pathname.startsWith(n.href);
-              const Icon = n.icon;
-              return (
-                <Link key={n.href} href={n.href} onClick={() => setOpen(false)}
-                  className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13.5px] font-medium ${active ? "bg-accentDim text-accent" : "text-muted hover:bg-panel2 hover:text-white"}`}>
-                  <Icon size={16} /> {n.label || t(n.key)}
-                </Link>
-              );
-            })}
-            <div className="mt-auto flex flex-col gap-0.5 border-t border-line pt-3">
-              <button onClick={() => { setShowNavCust(true); setOpen(false); }}
-                className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[12.5px] text-muted2 hover:bg-panel2 hover:text-white">
-                <SlidersHorizontal size={15} /> {lang === "en" ? "Customize menu" : "Personnaliser le menu"}
-              </button>
+            <div className="shrink-0 px-2.5 pb-1.5 pt-2.5 text-[10px] font-bold uppercase tracking-widest text-muted2">{t("nav_label")}</div>
+            <nav className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto" style={{ scrollbarWidth: "thin" }}>
+              {orderedNav.filter((n) => !n.hidden).map((n) => {
+                const active = pathname.startsWith(n.href);
+                const Icon = n.icon;
+                return (
+                  <Link key={n.href} href={n.href} onClick={() => setOpen(false)}
+                    className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13.5px] font-medium ${active ? "bg-accentDim text-accent" : "text-muted hover:bg-panel2 hover:text-white"}`}>
+                    <Icon size={16} /> {n.label || t(n.key)}
+                  </Link>
+                );
+              })}
+            </nav>
+            <div className="shrink-0 flex flex-col gap-0.5 border-t border-line pt-3">
               <Link href="/settings" onClick={() => setOpen(false)}
                 className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[12.5px] ${settingsActive ? "bg-accentDim text-accent" : "text-muted2 hover:bg-panel2 hover:text-white"}`}>
                 <Settings size={15} /> {t("settings")}
