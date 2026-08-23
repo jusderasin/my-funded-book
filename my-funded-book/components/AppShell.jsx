@@ -1,17 +1,19 @@
 "use client";
 
-import { useState, useEffect, useRef, createContext, useContext } from "react";
+import { useState, useEffect, useRef, useMemo, createContext, useContext } from "react";
 import { usePathname, useRouter } from "next/navigation";
 import Link from "next/link";
 import {
   LayoutGrid, Table2, ListChecks, PenLine, BookOpen, Grid3x3, Award, Receipt,
   Settings, Lock, LogOut, Plus, Menu, FlaskConical, Medal, CalendarDays, Trophy, Sparkles,
+  SlidersHorizontal,
 } from "lucide-react";
 import { createClient } from "@/lib/supabase/client";
 import { useBook } from "./BookProvider";
 import { LogTradeModal } from "./modals";
 import { Tutorial } from "./Tutorial";
 import { WorldClock } from "./WorldClock";
+import { NavCustomizer } from "./NavCustomizer";
 
 const NAV = [
   { href: "/dashboard", key: "nav_dashboard", icon: LayoutGrid },
@@ -29,6 +31,25 @@ const NAV = [
   { href: "/expenses", key: "nav_expenses", icon: Receipt },
 ];
 
+// Fusionne la préférence stockée (profile.nav_layout) avec la constante NAV :
+// - ignore les href inconnus (ancienne prefs / onglet supprimé)
+// - ajoute en fin les onglets neufs jamais vus (une mise à jour de l'app ne les cache pas)
+function resolveNav(stored) {
+  const byHref = Object.fromEntries(NAV.map((n) => [n.href, n]));
+  const seen = new Set();
+  const out = [];
+  if (Array.isArray(stored)) {
+    for (const s of stored) {
+      const base = byHref[s && s.id];
+      if (!base || seen.has(base.href)) continue;
+      seen.add(base.href);
+      out.push({ ...base, hidden: !!(s && s.hidden) });
+    }
+  }
+  for (const n of NAV) if (!seen.has(n.href)) out.push({ ...n, hidden: false });
+  return out;
+}
+
 const ModalCtx = createContext(null);
 export const useModals = () => useContext(ModalCtx);
 
@@ -40,9 +61,12 @@ export function AppShell({ children }) {
   const [collapsed, setCollapsed] = useState(false);
   const [showLog, setShowLog] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
+  const [showNavCust, setShowNavCust] = useState(false);
   const [locked, setLocked] = useState(false);
   const [pin, setPin] = useState("");
   const tutChecked = useRef(false);
+
+  const orderedNav = useMemo(() => resolveNav(profile?.nav_layout), [profile?.nav_layout]);
 
   useEffect(() => {
     try { setCollapsed(localStorage.getItem("sidebarCollapsed") === "1"); } catch {}
@@ -122,7 +146,7 @@ export function AppShell({ children }) {
 
           <aside className={`fixed top-0 z-[50] flex h-screen w-[224px] flex-shrink-0 flex-col gap-0.5 border-r border-line bg-ink2 p-3 transition-transform lg:sticky lg:top-[52px] lg:h-[calc(100vh-52px)] lg:translate-x-0 ${open ? "translate-x-0" : "-translate-x-full"} ${collapsed ? "lg:hidden" : ""}`} style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}>
             <div className="px-2.5 pb-1.5 pt-2.5 text-[10px] font-bold uppercase tracking-widest text-muted2">{t("nav_label")}</div>
-            {NAV.map((n) => {
+            {orderedNav.filter((n) => !n.hidden).map((n) => {
               const active = pathname.startsWith(n.href);
               const Icon = n.icon;
               return (
@@ -133,6 +157,10 @@ export function AppShell({ children }) {
               );
             })}
             <div className="mt-auto flex flex-col gap-0.5 border-t border-line pt-3">
+              <button onClick={() => { setShowNavCust(true); setOpen(false); }}
+                className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[12.5px] text-muted2 hover:bg-panel2 hover:text-white">
+                <SlidersHorizontal size={15} /> {lang === "en" ? "Customize menu" : "Personnaliser le menu"}
+              </button>
               <Link href="/settings" onClick={() => setOpen(false)}
                 className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[12.5px] ${settingsActive ? "bg-accentDim text-accent" : "text-muted2 hover:bg-panel2 hover:text-white"}`}>
                 <Settings size={15} /> {t("settings")}
@@ -149,6 +177,20 @@ export function AppShell({ children }) {
 
         {showLog && <LogTradeModal onClose={() => setShowLog(false)} />}
         <Tutorial open={showTutorial} lang={lang} onClose={() => setShowTutorial(false)} onFinish={finishTutorial} />
+
+        {showNavCust && (
+          <NavCustomizer
+            nav={NAV}
+            layout={orderedNav}
+            t={t}
+            lang={lang}
+            onClose={() => setShowNavCust(false)}
+            onSave={async (nav_layout) => {
+              await saveProfile({ nav_layout });
+              setShowNavCust(false);
+            }}
+          />
+        )}
 
         {splash && (
           <div className={`fixed inset-0 z-[110] flex flex-col items-center justify-center gap-4 bg-ink transition-opacity duration-500 ${splashOut ? "opacity-0" : "opacity-100"}`}>
