@@ -62,9 +62,15 @@ export default function DashboardPage() {
         </div>
         <div className="rounded-2xl border border-line bg-panel p-[18px]">
           <H>{t("daily_cum")}</H>
-          <Area values={s.cumSeries} color="#00E676" fill="#00E676" />
+          <Area
+            values={s.cumSeries}
+            color="#00E676"
+            fill="#00E676"
+            labels={s.days.map(frDate)}
+            fmt={(v) => (v >= 0 ? "+" : "") + fmtMoney(v)}
+          />
           <H className="mt-5">{t("net_daily")}</H>
-          <Bars byDay={s.byDay} days={s.days} />
+          <Bars byDay={s.byDay} days={s.days} labels={s.days.map(frDate)} />
         </div>
       </div>
       <div className="mb-3.5 grid gap-3.5 lg:grid-cols-[1fr_1fr]">
@@ -107,12 +113,24 @@ export default function DashboardPage() {
         <div className="rounded-2xl border border-line bg-panel p-[18px]">
           <H>{t("account_balance")} <span className={`float-right font-mono ${s.net >= 0 ? "text-accent" : "text-loss"}`}>{fmtMoney(s.balance)}</span></H>
           <div className="mb-2 text-[11px] text-muted2">{t("starting_balance_lbl")} <span className="font-mono text-white">{fmtMoney(profile.starting_balance)}</span></div>
-          <Area values={s.curve.map((c) => c.eq)} color="#e8edf5" fill="#8a93a6" />
+          <Area
+            values={s.curve.map((c) => c.eq)}
+            color="#e8edf5"
+            fill="#8a93a6"
+            labels={s.curve.map((c) => frDate(c.d))}
+            fmt={fmtMoney}
+          />
         </div>
         <div className="rounded-2xl border border-line bg-panel p-[18px]">
           <H>{t("drawdown")} <span className="float-right font-mono text-loss">{fmtMoney(-s.maxDD)}</span></H>
           <div className="h-[26px]" />
-          <Area values={s.ddSeries} color="#ff66e4" fill="#ff66e4" />
+          <Area
+            values={s.ddSeries}
+            color="#ff66e4"
+            fill="#ff66e4"
+            labels={s.curve.map((c) => frDate(c.d))}
+            fmt={fmtMoney}
+          />
         </div>
       </div>
       {dayKey && (
