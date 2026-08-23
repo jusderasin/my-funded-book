@@ -14,3 +14,7 @@ html, body { background: #0D0F12; }
 input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.7); }
 
 .font-mono { font-variant-numeric: tabular-nums; }
+
+/* Masque la scrollbar tout en gardant le scroll (molette, trackpad, tactile) */
+.no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
+.no-scrollbar::-webkit-scrollbar { display: none; }
