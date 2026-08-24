@@ -1,13 +1,13 @@
 "use client";
 
-import { useEffect, useRef, useState } from "react";
+import { useEffect, useRef, useState, forwardRef } from "react";
 import {
   ArrowRight, BookOpen, ShieldAlert, Target, CalendarDays, BarChart3, Gauge,
   Check, ChevronDown, Lock, Sparkles, TrendingUp, Clock, Activity,
 } from "lucide-react";
 
 /* ======================= TARIF (à remplacer) ======================= */
-const PRICING = { currency: "€", annual: 149, trialDays: 14 };
+const PRICING = { currency: "€", annual: 149, monthly: 19, trialDays: 14 }; // monthly = placeholder
 const monthlyEq = Math.round((PRICING.annual / 12) * 100) / 100;
 const price = (n) => `${n}${PRICING.currency}`;
 const fmtR = (v) => `${v >= 0 ? "+" : ""}${v.toFixed(1)}R`;
@@ -22,9 +22,9 @@ const SIM_TRADES = [
 ];
 
 const REASONS = [
-  { icon: ShieldAlert, title: "Ne crame plus une éval", body: "La bannière de risque te garde dans ta daily loss, en direct. Le trade de trop en fin de session, tu le vois venir avant de le prendre.", accent: "text-loss" },
-  { icon: Sparkles, title: "Ta review s'écrit toute seule", body: "Chaque trade fermé devient de la donnée propre : R, PnL, WHY, session. Plus de tableur qui casse — ta review ne dépend plus de ta mémoire.", accent: "text-accent" },
-  { icon: Target, title: "Ton edge, chiffré", body: "L'Edge Score te dit noir sur blanc quels setups et quelles sessions te rapportent. Tu concentres ton capital là où tu gagnes vraiment.", accent: "text-goldx" },
+  { icon: ShieldAlert, title: "Ne crame plus une éval", body: "La bannière de risque te garde dans ta daily loss, en direct. Le trade de trop en fin de session, tu le vois venir avant de le prendre.", accent: "text-loss", glow: "#ff3b5c" },
+  { icon: Sparkles, title: "Ta review s'écrit toute seule", body: "Chaque trade fermé devient de la donnée propre : R, PnL, WHY, session. Plus de tableur qui casse — ta review ne dépend plus de ta mémoire.", accent: "text-accent", glow: "#00d301" },
+  { icon: Target, title: "Ton edge, chiffré", body: "L'Edge Score te dit noir sur blanc quels setups et quelles sessions te rapportent. Tu concentres ton capital là où tu gagnes vraiment.", accent: "text-goldx", glow: "#f5b301" },
 ];
 
 const TIMELINE = [
@@ -57,7 +57,7 @@ const STYLES = `
 @keyframes mtbStream { from { opacity:0; transform:translateY(10px);} to { opacity:1; transform:none; } }
 @keyframes mtbGlow { 0%,100% { opacity:.4; } 50% { opacity:.85; } }
 @keyframes mtbMarquee { from { transform:translateX(0);} to { transform:translateX(-50%);} }
-@keyframes mtbPulse { 0%,100% { opacity:.4; transform:scale(1);} 50% { opacity:1; transform:scale(1.4);} }
+@keyframes mtbPulse { 0%,100% { opacity:.55; transform:scale(1);} 50% { opacity:1; transform:scale(1.22);} }
 @keyframes mtbBlink { 0%,100% { opacity:.5;} 50% { opacity:1;} }
 
 .hero-item { opacity:0; animation: mtbFadeUp .9s ${EASE} forwards; }
@@ -67,7 +67,7 @@ const STYLES = `
 .mtb-glow { animation: mtbGlow 6s ease-in-out infinite; }
 .mtb-marquee { animation: mtbMarquee 34s linear infinite; }
 .mtb-marquee-wrap:hover .mtb-marquee { animation-play-state:paused; }
-.mtb-pulse { animation: mtbPulse 2s ease-in-out infinite; }
+.mtb-pulse { animation: mtbPulse 2.8s ease-in-out infinite; }
 .mtb-livedot { animation: mtbBlink 1.6s ease-in-out infinite; }
 .mtb-grid {
   background-image:
@@ -78,23 +78,23 @@ const STYLES = `
   mask-image: radial-gradient(70% 55% at 50% 0%, #000, transparent 78%);
 }
 
-/* --- spotlight couleur qui suit la souris (section features) --- */
+/* --- spotlight couleur qui suit la souris (cartes du site) --- */
 .mtb-spot { position:relative; isolation:isolate; }
-.mtb-spot > * { position:relative; z-index:1; }
+.mtb-spot > :not(.mtb-spot-glow):not(.mtb-spot-border) { position:relative; z-index:1; }
 .mtb-spot .mtb-spot-glow {
-  position:absolute; inset:0; border-radius:1rem; pointer-events:none; z-index:0;
+  position:absolute; inset:0; border-radius:inherit; pointer-events:none; z-index:0;
   opacity:0; transition:opacity .4s ease;
   background: radial-gradient(240px circle at var(--x,50%) var(--y,50%), var(--glow,#00d301), transparent 55%);
 }
 .mtb-spot:hover .mtb-spot-glow { opacity:.15; }
 .mtb-spot .mtb-spot-border {
-  position:absolute; inset:0; border-radius:1rem; pointer-events:none; z-index:2;
+  position:absolute; inset:0; border-radius:inherit; pointer-events:none; z-index:2;
   opacity:0; transition:opacity .4s ease; padding:1px;
   background: radial-gradient(240px circle at var(--x,50%) var(--y,50%), var(--glow,#00d301), transparent 55%);
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
   -webkit-mask-composite: xor; mask-composite: exclude;
 }
-.mtb-spot:hover .mtb-spot-border { opacity:.55; }
+.mtb-spot:hover .mtb-spot-border { opacity:.5; }
 
 @media (prefers-reduced-motion: reduce) {
   .hero-item,.mtb-stream,.mtb-glow,.mtb-marquee,.mtb-pulse,.mtb-livedot { animation:none !important; }
@@ -148,8 +148,19 @@ function LiveJournal() {
 
   useEffect(() => {
     if (reduced) { setTick(SIM_TRADES.length); return; }
-    const id = setInterval(() => setTick((t) => (t >= SIM_TRADES.length ? 1 : t + 1)), 2200);
-    return () => clearInterval(id);
+    let id;
+    let cur = 1;
+    setTick(cur);
+    const run = () => {
+      const atEnd = cur >= SIM_TRADES.length;
+      id = setTimeout(() => {
+        cur = atEnd ? 1 : cur + 1;
+        setTick(cur);
+        run();
+      }, atEnd ? 3200 : 2600); // pause plus longue en fin de cycle
+    };
+    run();
+    return () => clearTimeout(id);
   }, [reduced]);
 
   useEffect(() => { if (pathRef.current) setLen(pathRef.current.getTotalLength()); }, []);
@@ -175,7 +186,7 @@ function LiveJournal() {
   const dot = coords[tick];
 
   return (
-    <div className="w-full rounded-2xl border border-line bg-panel p-2.5 shadow-2xl">
+    <SpotCard glow="#00d301" className="w-full rounded-2xl border border-line bg-panel p-2.5 shadow-2xl">
       <div className="rounded-xl border border-line2 bg-ink2/50 p-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
@@ -218,11 +229,11 @@ function LiveJournal() {
               style={{
                 strokeDasharray: len || 1,
                 strokeDashoffset: (len || 1) * (1 - frac),
-                transition: reduced ? "none" : `stroke-dashoffset 1.1s ${EASE}`,
+                transition: reduced ? "none" : `stroke-dashoffset 1.5s ${EASE}`,
               }}
             />
             {dot && (
-              <g style={{ transform: `translate(${dot[0]}px, ${dot[1]}px)`, transition: reduced ? "none" : `transform 1.1s ${EASE}` }}>
+              <g style={{ transform: `translate(${dot[0]}px, ${dot[1]}px)`, transition: reduced ? "none" : `transform 1.5s ${EASE}` }}>
                 <circle r="4.5" fill="#00d301" className="mtb-pulse" />
                 <circle r="2" fill="#fff" />
               </g>
@@ -236,7 +247,7 @@ function LiveJournal() {
             <span className="font-mono text-white">{lossUsed.toFixed(1)}R <span className="text-muted2">/ 3.0R</span></span>
           </div>
           <div className="mt-2 h-2 overflow-hidden rounded-full bg-ink2">
-            <div className={`h-full rounded-full transition-all duration-700 ${riskColor}`} style={{ width: `${Math.max(4, riskPct)}%` }} />
+            <div className={`h-full rounded-full transition-all duration-1000 ease-out ${riskColor}`} style={{ width: `${Math.max(4, riskPct)}%` }} />
           </div>
         </div>
 
@@ -257,7 +268,7 @@ function LiveJournal() {
           ))}
         </div>
       </div>
-    </div>
+    </SpotCard>
   );
 }
 
@@ -341,13 +352,13 @@ function Reasons() {
         <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-white sm:text-4xl">Un journal qui change ta séance, pour trois raisons.</h2>
       </Reveal>
       <div className="mt-16 grid gap-4 md:grid-cols-3">
-        {REASONS.map(({ icon: Icon, title, body, accent }, i) => (
+        {REASONS.map(({ icon: Icon, title, body, accent, glow }, i) => (
           <Reveal key={title} delay={i * 100}>
-            <div className="group h-full rounded-2xl border border-line bg-panel p-7 transition-all duration-300 hover:-translate-y-1 hover:border-accent/40">
+            <SpotCard glow={glow} className="group h-full rounded-2xl border border-line bg-panel p-7 transition-transform duration-300 hover:-translate-y-1">
               <div className="mb-5 inline-flex rounded-xl border border-line2 bg-ink2/40 p-3 transition-transform group-hover:scale-110"><Icon size={22} className={accent} /></div>
               <h3 className="text-xl font-bold text-white">{title}</h3>
               <p className="mt-3 leading-relaxed text-muted">{body}</p>
-            </div>
+            </SpotCard>
           </Reveal>
         ))}
       </div>
@@ -394,22 +405,31 @@ function FeatureDemo({ kind }) {
   return null;
 }
 
-function FeatureCard({ f }) {
+/* Carte generique avec lueur couleur qui suit la souris */
+const SpotCard = forwardRef(function SpotCard({ glow = "#00d301", className = "", children, ...rest }, ref) {
   const onMove = (e) => {
     const r = e.currentTarget.getBoundingClientRect();
     e.currentTarget.style.setProperty("--x", `${e.clientX - r.left}px`);
     e.currentTarget.style.setProperty("--y", `${e.clientY - r.top}px`);
   };
-  const Icon = f.icon;
   return (
-    <div onMouseMove={onMove} style={{ ["--glow"]: f.glow }} className="mtb-spot group flex h-full flex-col rounded-2xl border border-line bg-panel p-6 transition-transform duration-300 hover:-translate-y-1">
+    <div ref={ref} onMouseMove={onMove} style={{ ["--glow"]: glow }} className={`mtb-spot ${className}`} {...rest}>
       <span className="mtb-spot-glow" aria-hidden />
       <span className="mtb-spot-border" aria-hidden />
+      {children}
+    </div>
+  );
+});
+
+function FeatureCard({ f }) {
+  const Icon = f.icon;
+  return (
+    <SpotCard glow={f.glow} className="group flex h-full flex-col rounded-2xl border border-line bg-panel p-6 transition-transform duration-300 hover:-translate-y-1">
       <div className="mb-4 inline-flex w-fit rounded-xl border border-line2 bg-ink2/40 p-2.5 transition-transform group-hover:scale-110"><Icon size={20} className={f.accent} /></div>
       <h3 className="text-lg font-semibold text-white">{f.title}</h3>
       <p className="mt-2 flex-1 text-sm leading-relaxed text-muted">{f.body}</p>
       <div className="mt-5 flex min-h-[36px] items-center border-t border-line pt-4"><FeatureDemo kind={f.demo} /></div>
-    </div>
+    </SpotCard>
   );
 }
 
@@ -435,7 +455,7 @@ function RDistribution() {
     { h: 100, r: "0R", loss: false }, { h: 82, r: "+1R", loss: false }, { h: 55, r: "+2R", loss: false }, { h: 34, r: "+3R", loss: false },
   ];
   return (
-    <div ref={ref} className="rounded-2xl border border-line bg-panel p-4 shadow-xl">
+    <SpotCard glow="#00d301" ref={ref} className="rounded-2xl border border-line bg-panel p-4 shadow-xl">
       <div className="flex items-center justify-between">
         <span className="flex items-center gap-2 text-xs font-medium text-white"><Activity size={13} className="text-accent" /> Distribution des R</span>
         <span className="rounded-full border border-line2 px-2 py-0.5 text-[10px] uppercase tracking-widest text-muted2">aperçu</span>
@@ -453,7 +473,7 @@ function RDistribution() {
       <div className="mt-2 flex gap-2">
         {bars.map((b) => <span key={b.r} className="flex-1 text-center font-mono text-[10px] text-muted2">{b.r}</span>)}
       </div>
-    </div>
+    </SpotCard>
   );
 }
 
@@ -478,6 +498,11 @@ function Performance() {
 }
 
 function Pricing() {
+  const [billing, setBilling] = useState("annual");
+  const isA = billing === "annual";
+  const yearlyIfMonthly = PRICING.monthly * 12;
+  const savePct = Math.max(0, Math.round((1 - PRICING.annual / yearlyIfMonthly) * 100));
+
   return (
     <section id="tarif" className="mx-auto max-w-6xl px-5 py-24">
       <Reveal className="mx-auto max-w-2xl text-center">
@@ -485,16 +510,31 @@ function Pricing() {
         <h2 className="mt-4 text-3xl font-extrabold tracking-tight text-white sm:text-4xl">Un seul plan. Tout inclus.</h2>
         <p className="mt-4 text-muted">Commence par {PRICING.trialDays} jours gratuits. Tu ne paies que si l'app te sert vraiment.</p>
       </Reveal>
-      <Reveal className="mx-auto mt-14 max-w-md" delay={80}>
-        <div className="relative overflow-hidden rounded-3xl border border-accent/40 bg-panel p-8">
+
+      <Reveal className="mx-auto mt-10 flex w-fit items-center gap-1 rounded-full border border-line bg-panel p-1" delay={40}>
+        <button onClick={() => setBilling("annual")} className={`rounded-full px-5 py-2 text-sm font-semibold transition-colors ${isA ? "bg-accent text-ink" : "text-muted hover:text-white"}`}>
+          Annuel{savePct > 0 && <span className={`ml-1.5 ${isA ? "text-ink/70" : "text-accent"}`}>-{savePct}%</span>}
+        </button>
+        <button onClick={() => setBilling("monthly")} className={`rounded-full px-5 py-2 text-sm font-semibold transition-colors ${!isA ? "bg-accent text-ink" : "text-muted hover:text-white"}`}>
+          Mensuel
+        </button>
+      </Reveal>
+
+      <Reveal className="mx-auto mt-8 max-w-md" delay={80}>
+        <SpotCard glow="#00d301" className="relative overflow-hidden rounded-3xl border border-accent/40 bg-panel p-8">
           <div aria-hidden className="mtb-glow pointer-events-none absolute inset-x-0 top-0 h-40" style={{ background: "radial-gradient(80% 100% at 50% 0%, rgba(0,211,1,0.15), transparent 70%)" }} />
           <div className="relative">
             <div className="flex items-center justify-between">
               <span className="font-bold tracking-[0.2em] text-white">My<span className="text-accent">Trade</span>Book</span>
-              <span className="rounded-full border border-accent/30 bg-accent/5 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-accent">Annuel</span>
+              <span className="rounded-full border border-accent/30 bg-accent/5 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-accent">{isA ? "Annuel" : "Mensuel"}</span>
             </div>
-            <div className="mt-8 flex items-end gap-2"><span className="font-mono text-5xl font-extrabold text-white">{price(PRICING.annual)}</span><span className="mb-1.5 text-sm text-muted">/ an</span></div>
-            <p className="mt-1 font-mono text-sm text-muted2">soit ≈ {price(monthlyEq)} / mois</p>
+            <div key={billing} className="mtb-stream">
+              <div className="mt-8 flex items-end gap-2">
+                <span className="font-mono text-5xl font-extrabold text-white">{price(isA ? PRICING.annual : PRICING.monthly)}</span>
+                <span className="mb-1.5 text-sm text-muted">/ {isA ? "an" : "mois"}</span>
+              </div>
+              <p className="mt-1 font-mono text-sm text-muted2">{isA ? `soit ≈ ${price(monthlyEq)} / mois` : `soit ${price(yearlyIfMonthly)} / an · annulable chaque mois`}</p>
+            </div>
             <a href="/login" className="group mt-8 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3.5 text-base font-semibold text-ink transition-transform hover:scale-[1.02]">
               Démarrer l'essai {PRICING.trialDays} jours
               <ArrowRight size={18} className="transition-transform group-hover:translate-x-0.5" />
@@ -506,7 +546,7 @@ function Pricing() {
               ))}
             </ul>
           </div>
-        </div>
+        </SpotCard>
         <p className="mt-6 flex items-center justify-center gap-2 text-xs text-muted2"><Lock size={12} /> Paiement sécurisé · Tes données restent les tiennes</p>
       </Reveal>
     </section>
@@ -543,7 +583,7 @@ function CtaFooter() {
   return (
     <section className="mx-auto max-w-6xl px-5 py-24">
       <Reveal>
-        <div className="relative overflow-hidden rounded-3xl border border-line bg-panel px-6 py-16 text-center">
+        <SpotCard glow="#00d301" className="relative overflow-hidden rounded-3xl border border-line bg-panel px-6 py-16 text-center">
           <div aria-hidden className="mtb-glow pointer-events-none absolute inset-0" style={{ background: "radial-gradient(60% 80% at 50% 0%, rgba(0,211,1,0.13), transparent 70%)" }} />
           <div className="relative">
             <h2 className="mx-auto max-w-2xl text-3xl font-extrabold tracking-tight text-white sm:text-4xl">La prochaine séance que tu ne journalises pas, c'est l'erreur que tu répéteras.</h2>
@@ -552,7 +592,7 @@ function CtaFooter() {
               <ArrowRight size={18} className="transition-transform group-hover:translate-x-0.5" />
             </a>
           </div>
-        </div>
+        </SpotCard>
       </Reveal>
     </section>
   );
