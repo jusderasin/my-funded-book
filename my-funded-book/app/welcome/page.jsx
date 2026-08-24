@@ -2,25 +2,11 @@
 
 import { useEffect, useRef, useState } from "react";
 import {
-  ArrowRight,
-  BookOpen,
-  ShieldAlert,
-  Target,
-  CalendarDays,
-  BarChart3,
-  Gauge,
-  Check,
-  ChevronDown,
-  Lock,
-  Sparkles,
-  TrendingUp,
-  Clock,
-  Activity,
+  ArrowRight, BookOpen, ShieldAlert, Target, CalendarDays, BarChart3, Gauge,
+  Check, ChevronDown, Lock, Sparkles, TrendingUp, Clock, Activity,
 } from "lucide-react";
 
-/* =========================================================================
-   TARIF — Erwann : remplace ces valeurs par les vraies.
-   ========================================================================= */
+/* ======================= TARIF (à remplacer) ======================= */
 const PRICING = { currency: "€", annual: 149, trialDays: 14 };
 const monthlyEq = Math.round((PRICING.annual / 12) * 100) / 100;
 const price = (n) => `${n}${PRICING.currency}`;
@@ -28,7 +14,6 @@ const fmtR = (v) => `${v >= 0 ? "+" : ""}${v.toFixed(1)}R`;
 
 const PROP_FIRMS = ["MyFundedFutures", "TopStep", "Apex", "FundingPips", "Take Profit Trader"];
 
-/* Trades de démo pour la simulation live (illustratif) */
 const SIM_TRADES = [
   { sym: "NQ", side: "Long", r: 2.5, why: "Breakout NY AM", time: "15:32" },
   { sym: "MNQ", side: "Short", r: -1.0, why: "Fade VWAP — invalidé", time: "15:47" },
@@ -37,24 +22,9 @@ const SIM_TRADES = [
 ];
 
 const REASONS = [
-  {
-    icon: ShieldAlert,
-    title: "Ne crame plus une éval",
-    body: "La bannière de risque te garde dans ta daily loss, en direct. Le trade de trop en fin de session, tu le vois venir avant de le prendre.",
-    accent: "text-loss",
-  },
-  {
-    icon: Sparkles,
-    title: "Ta review s'écrit toute seule",
-    body: "Chaque trade fermé devient de la donnée propre : R, PnL, WHY, session. Plus de tableur qui casse — ta review ne dépend plus de ta mémoire.",
-    accent: "text-accent",
-  },
-  {
-    icon: Target,
-    title: "Ton edge, chiffré",
-    body: "L'Edge Score te dit noir sur blanc quels setups et quelles sessions te rapportent. Tu concentres ton capital là où tu gagnes vraiment.",
-    accent: "text-goldx",
-  },
+  { icon: ShieldAlert, title: "Ne crame plus une éval", body: "La bannière de risque te garde dans ta daily loss, en direct. Le trade de trop en fin de session, tu le vois venir avant de le prendre.", accent: "text-loss" },
+  { icon: Sparkles, title: "Ta review s'écrit toute seule", body: "Chaque trade fermé devient de la donnée propre : R, PnL, WHY, session. Plus de tableur qui casse — ta review ne dépend plus de ta mémoire.", accent: "text-accent" },
+  { icon: Target, title: "Ton edge, chiffré", body: "L'Edge Score te dit noir sur blanc quels setups et quelles sessions te rapportent. Tu concentres ton capital là où tu gagnes vraiment.", accent: "text-goldx" },
 ];
 
 const TIMELINE = [
@@ -65,12 +35,12 @@ const TIMELINE = [
 ];
 
 const FEATURES = [
-  { icon: BookOpen, title: "Journal & WHY", accent: "text-accent", body: "Chaque trade logué avec la raison qui l'a déclenché. Tes erreurs deviennent visibles, séance après séance.", demo: "why" },
-  { icon: ShieldAlert, title: "Bannière de risque", accent: "text-loss", body: "Tu sais en permanence où tu en es sur ta daily loss. Plus de compte cramé pour un trade de trop.", demo: "risk" },
-  { icon: Target, title: "Edge Score", accent: "text-goldx", body: "Quels setups et quelles sessions te rapportent réellement. Tu concentres ton capital là où ton edge existe.", demo: "score" },
-  { icon: CalendarDays, title: "Calendrier & sessions", accent: "text-cyanx", body: "Jour par jour, semaine par semaine. Tu vois quelles journées portent tes résultats, au lieu de deviner.", demo: "cal" },
-  { icon: BarChart3, title: "R-multiples & PnL", accent: "text-pinkx", body: "Chaque trade converti en données propres : R, expectancy, PnL. Des stats structurées, pas un tableur bancal.", demo: "rbadge" },
-  { icon: Gauge, title: "Courbe d'equity", accent: "text-accent", body: "Une courbe ancrée sur ton solde réel, une distribution de R et une perf hebdo. Ta progression d'un coup d'œil.", demo: "spark" },
+  { icon: BookOpen, title: "Journal & WHY", accent: "text-accent", glow: "#00d301", body: "Chaque trade logué avec la raison qui l'a déclenché. Tes erreurs deviennent visibles, séance après séance.", demo: "why" },
+  { icon: ShieldAlert, title: "Bannière de risque", accent: "text-loss", glow: "#ff3b5c", body: "Tu sais en permanence où tu en es sur ta daily loss. Plus de compte cramé pour un trade de trop.", demo: "risk" },
+  { icon: Target, title: "Edge Score", accent: "text-goldx", glow: "#f5b301", body: "Quels setups et quelles sessions te rapportent réellement. Tu concentres ton capital là où ton edge existe.", demo: "score" },
+  { icon: CalendarDays, title: "Calendrier & sessions", accent: "text-cyanx", glow: "#7fd0ff", body: "Jour par jour, semaine par semaine. Tu vois quelles journées portent tes résultats, au lieu de deviner.", demo: "cal" },
+  { icon: BarChart3, title: "R-multiples & PnL", accent: "text-pinkx", glow: "#ff66e4", body: "Chaque trade converti en données propres : R, expectancy, PnL. Des stats structurées, pas un tableur bancal.", demo: "rbadge" },
+  { icon: Gauge, title: "Courbe d'equity", accent: "text-accent", glow: "#00d301", body: "Une courbe ancrée sur ton solde réel, une distribution de R et une perf hebdo. Ta progression d'un coup d'œil.", demo: "spark" },
 ];
 
 const FAQ = [
@@ -81,25 +51,22 @@ const FAQ = [
 ];
 
 /* --------------------------------- motion --------------------------------- */
+const EASE = "cubic-bezier(.16,1,.3,1)";
 const STYLES = `
-@keyframes mtbFadeUp { from { opacity:0; transform:translateY(26px);} to { opacity:1; transform:none; } }
-@keyframes mtbStream { from { opacity:0; transform:translateY(10px) scale(.98);} to { opacity:1; transform:none; } }
+@keyframes mtbFadeUp { from { opacity:0; transform:translateY(28px);} to { opacity:1; transform:none; } }
+@keyframes mtbStream { from { opacity:0; transform:translateY(10px);} to { opacity:1; transform:none; } }
 @keyframes mtbGlow { 0%,100% { opacity:.4; } 50% { opacity:.85; } }
 @keyframes mtbMarquee { from { transform:translateX(0);} to { transform:translateX(-50%);} }
-@keyframes mtbDraw { to { stroke-dashoffset:0; } }
-@keyframes mtbBar { from { transform:scaleY(0);} to { transform:scaleY(1);} }
 @keyframes mtbPulse { 0%,100% { opacity:.4; transform:scale(1);} 50% { opacity:1; transform:scale(1.4);} }
 @keyframes mtbBlink { 0%,100% { opacity:.5;} 50% { opacity:1;} }
 
-.hero-item { opacity:0; animation: mtbFadeUp .8s cubic-bezier(.2,.7,.2,1) forwards; }
-.mtb-motion .reveal { opacity:0; transform:translateY(26px); transition: opacity .7s ease, transform .7s cubic-bezier(.2,.7,.2,1); }
+.hero-item { opacity:0; animation: mtbFadeUp .9s ${EASE} forwards; }
+.mtb-motion .reveal { opacity:0; transform:translateY(28px); will-change:opacity,transform; transition: opacity .85s ease, transform .85s ${EASE}; }
 .mtb-motion .reveal.in-view { opacity:1; transform:none; }
-.mtb-stream { animation: mtbStream .5s cubic-bezier(.2,.7,.2,1) both; }
+.mtb-stream { animation: mtbStream .55s ${EASE} both; }
 .mtb-glow { animation: mtbGlow 6s ease-in-out infinite; }
 .mtb-marquee { animation: mtbMarquee 34s linear infinite; }
 .mtb-marquee-wrap:hover .mtb-marquee { animation-play-state:paused; }
-.mtb-draw { stroke-dasharray:600; stroke-dashoffset:600; animation: mtbDraw 1.4s ease-out forwards; }
-.mtb-bar { transform-origin:bottom; transform:scaleY(0); animation: mtbBar .9s cubic-bezier(.2,.7,.2,1) forwards; }
 .mtb-pulse { animation: mtbPulse 2s ease-in-out infinite; }
 .mtb-livedot { animation: mtbBlink 1.6s ease-in-out infinite; }
 .mtb-grid {
@@ -110,11 +77,28 @@ const STYLES = `
   -webkit-mask-image: radial-gradient(70% 55% at 50% 0%, #000, transparent 78%);
   mask-image: radial-gradient(70% 55% at 50% 0%, #000, transparent 78%);
 }
+
+/* --- spotlight couleur qui suit la souris (section features) --- */
+.mtb-spot { position:relative; isolation:isolate; }
+.mtb-spot > * { position:relative; z-index:1; }
+.mtb-spot .mtb-spot-glow {
+  position:absolute; inset:0; border-radius:1rem; pointer-events:none; z-index:0;
+  opacity:0; transition:opacity .4s ease;
+  background: radial-gradient(240px circle at var(--x,50%) var(--y,50%), var(--glow,#00d301), transparent 55%);
+}
+.mtb-spot:hover .mtb-spot-glow { opacity:.15; }
+.mtb-spot .mtb-spot-border {
+  position:absolute; inset:0; border-radius:1rem; pointer-events:none; z-index:2;
+  opacity:0; transition:opacity .4s ease; padding:1px;
+  background: radial-gradient(240px circle at var(--x,50%) var(--y,50%), var(--glow,#00d301), transparent 55%);
+  -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0);
+  -webkit-mask-composite: xor; mask-composite: exclude;
+}
+.mtb-spot:hover .mtb-spot-border { opacity:.55; }
+
 @media (prefers-reduced-motion: reduce) {
-  .hero-item,.mtb-stream,.mtb-glow,.mtb-marquee,.mtb-draw,.mtb-bar,.mtb-pulse,.mtb-livedot { animation:none !important; }
+  .hero-item,.mtb-stream,.mtb-glow,.mtb-marquee,.mtb-pulse,.mtb-livedot { animation:none !important; }
   .hero-item,.mtb-motion .reveal { opacity:1 !important; transform:none !important; }
-  .mtb-draw { stroke-dashoffset:0 !important; }
-  .mtb-bar { transform:none !important; }
 }
 `;
 
@@ -130,31 +114,45 @@ function useReducedMotion() {
   return r;
 }
 
-function Reveal({ children, className = "", delay = 0 }) {
+function useInView(threshold = 0.2) {
   const ref = useRef(null);
+  const [inView, setInView] = useState(false);
   useEffect(() => {
     const el = ref.current;
     if (!el) return;
     const io = new IntersectionObserver(
-      (entries) => entries.forEach((e) => { if (e.isIntersecting) { el.classList.add("in-view"); io.unobserve(el); } }),
-      { threshold: 0.15 }
+      ([e]) => { if (e.isIntersecting) { setInView(true); io.disconnect(); } },
+      { threshold }
     );
     io.observe(el);
     return () => io.disconnect();
-  }, []);
-  return <div ref={ref} className={`reveal ${className}`} style={{ transitionDelay: `${delay}ms` }}>{children}</div>;
+  }, [threshold]);
+  return [ref, inView];
+}
+
+function Reveal({ children, className = "", delay = 0 }) {
+  const [ref, inView] = useInView(0.15);
+  return (
+    <div ref={ref} className={`reveal ${inView ? "in-view" : ""} ${className}`} style={{ transitionDelay: `${delay}ms` }}>
+      {children}
+    </div>
+  );
 }
 
 /* --------------------------- signature : live sim ------------------------- */
 function LiveJournal() {
   const reduced = useReducedMotion();
   const [tick, setTick] = useState(reduced ? SIM_TRADES.length : 1);
+  const pathRef = useRef(null);
+  const [len, setLen] = useState(0);
 
   useEffect(() => {
     if (reduced) { setTick(SIM_TRADES.length); return; }
-    const id = setInterval(() => setTick((t) => (t >= SIM_TRADES.length ? 1 : t + 1)), 1700);
+    const id = setInterval(() => setTick((t) => (t >= SIM_TRADES.length ? 1 : t + 1)), 2200);
     return () => clearInterval(id);
   }, [reduced]);
+
+  useEffect(() => { if (pathRef.current) setLen(pathRef.current.getTotalLength()); }, []);
 
   const visible = SIM_TRADES.slice(0, tick);
   const dayR = visible.reduce((s, t) => s + t.r, 0);
@@ -164,22 +162,21 @@ function LiveJournal() {
   const riskPct = (lossUsed / 3) * 100;
   const riskColor = riskPct > 80 ? "bg-loss" : riskPct > 45 ? "bg-goldx" : "bg-accent";
 
-  // equity sparkline from cumulative R
+  // courbe complète (fixe) — révélée progressivement via stroke-dashoffset (fluide)
   let acc = 0;
-  const cum = [0, ...visible.map((t) => (acc += t.r))];
-  const coords = cum.map((v, i) => {
+  const cumAll = [0, ...SIM_TRADES.map((t) => (acc += t.r))];
+  const coords = cumAll.map((v, i) => {
     const x = (i / SIM_TRADES.length) * 300;
     const y = 96 - ((Math.max(-2, Math.min(6, v)) + 2) / 8) * 84;
     return [x, y];
   });
   const linePath = coords.map((c, i) => `${i ? "L" : "M"}${c[0].toFixed(1)},${c[1].toFixed(1)}`).join(" ");
-  const areaPath = coords.length > 1 ? `${linePath} L${coords[coords.length - 1][0].toFixed(1)},100 L0,100 Z` : "";
-  const last = coords[coords.length - 1];
+  const frac = tick / SIM_TRADES.length;
+  const dot = coords[tick];
 
   return (
     <div className="w-full rounded-2xl border border-line bg-panel p-2.5 shadow-2xl">
       <div className="rounded-xl border border-line2 bg-ink2/50 p-4">
-        {/* header */}
         <div className="flex items-center justify-between">
           <div className="flex items-center gap-2">
             <span className="mtb-livedot h-2 w-2 rounded-full bg-accent shadow-[0_0_10px] shadow-accent/70" />
@@ -188,7 +185,6 @@ function LiveJournal() {
           <span className="rounded-full border border-line2 px-2 py-0.5 text-[10px] uppercase tracking-widest text-muted2">démo live</span>
         </div>
 
-        {/* KPIs */}
         <div className="mt-4 grid grid-cols-3 gap-2">
           {[
             { l: "R du jour", v: fmtR(dayR), c: dayR >= 0 ? "text-accent" : "text-loss" },
@@ -197,32 +193,43 @@ function LiveJournal() {
           ].map((k) => (
             <div key={k.l} className="rounded-lg border border-line2 bg-panel/60 p-2.5">
               <p className="text-[10px] uppercase tracking-wider text-muted2">{k.l}</p>
-              <p className={`mt-1 font-mono text-lg font-bold ${k.c}`}>{k.v}</p>
+              <p className={`mt-1 font-mono text-lg font-bold transition-colors duration-500 ${k.c}`}>{k.v}</p>
             </div>
           ))}
         </div>
 
-        {/* equity */}
         <div className="mt-3 rounded-lg border border-line2 bg-panel/40 p-3">
           <div className="flex items-center justify-between">
             <span className="text-[10px] uppercase tracking-wider text-muted2">Courbe d'equity</span>
             <TrendingUp size={12} className="text-accent" />
           </div>
-          <svg viewBox="0 0 300 100" className="mt-1 w-full" role="img" aria-label="Courbe d'equity de démo">
-            <defs>
-              <linearGradient id="mtbEq" x1="0" y1="0" x2="0" y2="1">
-                <stop offset="0%" stopColor="#00d301" stopOpacity="0.30" />
-                <stop offset="100%" stopColor="#00d301" stopOpacity="0" />
-              </linearGradient>
-            </defs>
-            {areaPath && <path d={areaPath} fill="url(#mtbEq)" />}
-            <path key={tick} className="mtb-draw" d={linePath} fill="none" stroke="#00d301" strokeWidth="2.5" strokeLinecap="round" strokeLinejoin="round" />
-            {last && <circle cx={last[0]} cy={last[1]} r="4.5" fill="#00d301" className="mtb-pulse" />}
-            {last && <circle cx={last[0]} cy={last[1]} r="2" fill="#fff" />}
+          <svg viewBox="0 0 300 100" className="mt-1 h-24 w-full" role="img" aria-label="Courbe d'equity de démo">
+            {[26, 54, 82].map((y) => (
+              <line key={y} x1="0" y1={y} x2="300" y2={y} stroke="currentColor" className="text-line2" strokeWidth="1" opacity="0.35" />
+            ))}
+            <path
+              ref={pathRef}
+              d={linePath}
+              fill="none"
+              stroke="#00d301"
+              strokeWidth="2.5"
+              strokeLinecap="round"
+              strokeLinejoin="round"
+              style={{
+                strokeDasharray: len || 1,
+                strokeDashoffset: (len || 1) * (1 - frac),
+                transition: reduced ? "none" : `stroke-dashoffset 1.1s ${EASE}`,
+              }}
+            />
+            {dot && (
+              <g style={{ transform: `translate(${dot[0]}px, ${dot[1]}px)`, transition: reduced ? "none" : `transform 1.1s ${EASE}` }}>
+                <circle r="4.5" fill="#00d301" className="mtb-pulse" />
+                <circle r="2" fill="#fff" />
+              </g>
+            )}
           </svg>
         </div>
 
-        {/* risk banner */}
         <div className="mt-3 rounded-lg border border-line2 bg-panel/40 p-3">
           <div className="flex items-center justify-between text-[11px]">
             <span className="uppercase tracking-wider text-muted2">Risque consommé</span>
@@ -233,8 +240,8 @@ function LiveJournal() {
           </div>
         </div>
 
-        {/* trade feed */}
-        <div className="mt-3 space-y-2">
+        {/* feed à hauteur fixe -> pas de saut de layout */}
+        <div className="mt-3 flex min-h-[224px] flex-col gap-2">
           {visible.map((t, i) => (
             <div key={i} className={`flex items-center justify-between rounded-lg border border-line2 bg-panel/60 px-3 py-2 ${i === visible.length - 1 ? "mtb-stream" : ""}`}>
               <div className="min-w-0">
@@ -256,11 +263,7 @@ function LiveJournal() {
 
 /* ------------------------------------------------------------------ */
 function Logo() {
-  return (
-    <span className="font-bold tracking-[0.25em] text-white select-none">
-      My<span className="text-accent">Trade</span>Book
-    </span>
-  );
+  return <span className="font-bold tracking-[0.25em] text-white select-none">My<span className="text-accent">Trade</span>Book</span>;
 }
 
 function Nav() {
@@ -294,9 +297,7 @@ function Hero() {
             <span className="mtb-livedot h-1.5 w-1.5 rounded-full bg-accent" /> Le journal du trader financé
           </span>
           <h1 className="hero-item mt-6 text-4xl font-extrabold leading-[1.05] tracking-tight text-white sm:text-6xl" style={{ animationDelay: ".1s" }}>
-            Ta séance se
-            <br />
-            journalise <span className="text-accent">toute seule.</span>
+            Ta séance se<br />journalise <span className="text-accent">toute seule.</span>
           </h1>
           <p className="hero-item mx-auto mt-6 max-w-xl text-lg leading-relaxed text-muted lg:mx-0" style={{ animationDelay: ".2s" }}>
             MyTradeBook logue chaque trade avec son WHY, calcule ton R et ton Edge Score, et te garde dans les clous de ta daily loss — en direct. Ta review ne dépend plus de ta mémoire.
@@ -306,17 +307,11 @@ function Hero() {
               Démarrer l'essai {PRICING.trialDays} jours
               <ArrowRight size={18} className="transition-transform group-hover:translate-x-0.5" />
             </a>
-            <a href="#features" className="inline-flex items-center gap-2 rounded-xl border border-line2 px-7 py-3.5 text-base font-semibold text-white transition-colors hover:bg-panel">
-              Voir comment ça marche
-            </a>
+            <a href="#features" className="inline-flex items-center gap-2 rounded-xl border border-line2 px-7 py-3.5 text-base font-semibold text-white transition-colors hover:bg-panel">Voir comment ça marche</a>
           </div>
-          <p className="hero-item mt-4 text-xs text-muted2" style={{ animationDelay: ".4s" }}>
-            Essai {PRICING.trialDays} jours · Sans engagement · Annulable à tout moment
-          </p>
+          <p className="hero-item mt-4 text-xs text-muted2" style={{ animationDelay: ".4s" }}>Essai {PRICING.trialDays} jours · Sans engagement · Annulable à tout moment</p>
         </div>
-        <div className="hero-item" style={{ animationDelay: ".35s" }}>
-          <LiveJournal />
-        </div>
+        <div className="hero-item" style={{ animationDelay: ".35s" }}><LiveJournal /></div>
       </div>
     </section>
   );
@@ -330,9 +325,7 @@ function LogosMarquee() {
         <p className="text-center text-xs font-semibold uppercase tracking-[0.25em] text-muted2">Pensé pour tes comptes financés</p>
         <div className="mtb-marquee-wrap mt-6 overflow-hidden [mask-image:linear-gradient(to_right,transparent,black_12%,black_88%,transparent)]">
           <div className="mtb-marquee flex w-max items-center gap-12">
-            {row.map((f, i) => (
-              <span key={`${f}-${i}`} className="whitespace-nowrap font-mono text-sm uppercase tracking-widest text-muted/70">{f}</span>
-            ))}
+            {row.map((f, i) => <span key={`${f}-${i}`} className="whitespace-nowrap font-mono text-sm uppercase tracking-widest text-muted/70">{f}</span>)}
           </div>
         </div>
       </div>
@@ -351,9 +344,7 @@ function Reasons() {
         {REASONS.map(({ icon: Icon, title, body, accent }, i) => (
           <Reveal key={title} delay={i * 100}>
             <div className="group h-full rounded-2xl border border-line bg-panel p-7 transition-all duration-300 hover:-translate-y-1 hover:border-accent/40">
-              <div className="mb-5 inline-flex rounded-xl border border-line2 bg-ink2/40 p-3 transition-transform group-hover:scale-110">
-                <Icon size={22} className={accent} />
-              </div>
+              <div className="mb-5 inline-flex rounded-xl border border-line2 bg-ink2/40 p-3 transition-transform group-hover:scale-110"><Icon size={22} className={accent} /></div>
               <h3 className="text-xl font-bold text-white">{title}</h3>
               <p className="mt-3 leading-relaxed text-muted">{body}</p>
             </div>
@@ -379,12 +370,8 @@ function Timeline() {
             {TIMELINE.map((s, i) => (
               <Reveal key={i} delay={i * 60}>
                 <div className="relative">
-                  <span className="absolute -left-[29px] top-1 flex h-6 w-6 items-center justify-center rounded-full border border-accent/40 bg-ink">
-                    <span className="h-2 w-2 rounded-full bg-accent" />
-                  </span>
-                  <div className="flex items-center gap-2 font-mono text-xs text-accent">
-                    <Clock size={12} /> {s.time}
-                  </div>
+                  <span className="absolute -left-[29px] top-1 flex h-6 w-6 items-center justify-center rounded-full border border-accent/40 bg-ink"><span className="h-2 w-2 rounded-full bg-accent" /></span>
+                  <div className="flex items-center gap-2 font-mono text-xs text-accent"><Clock size={12} /> {s.time}</div>
                   <h3 className="mt-1 text-lg font-bold text-white">{s.title}</h3>
                   <p className="mt-1.5 max-w-2xl leading-relaxed text-muted">{s.body}</p>
                 </div>
@@ -398,39 +385,32 @@ function Timeline() {
 }
 
 function FeatureDemo({ kind }) {
-  if (kind === "why")
-    return <span className="inline-flex rounded-md border border-line2 bg-ink2/50 px-2 py-1 font-mono text-[11px] text-accent">WHY : Breakout NY AM</span>;
-  if (kind === "risk")
-    return (
-      <div className="w-full">
-        <div className="h-2 overflow-hidden rounded-full bg-ink2"><div className="h-full w-1/3 rounded-full bg-goldx" /></div>
-        <p className="mt-1 font-mono text-[10px] text-muted2">1.0R / 3.0R</p>
-      </div>
-    );
-  if (kind === "score")
-    return (
-      <div className="flex items-center gap-2">
-        <span className="font-mono text-2xl font-bold text-goldx">72</span>
-        <span className="text-[10px] uppercase tracking-wider text-muted2">/ 100</span>
-      </div>
-    );
-  if (kind === "cal")
-    return (
-      <div className="flex gap-1">
-        {["bg-loss/60", "bg-accent/60", "bg-accent/70", "bg-loss/50", "bg-accent/80"].map((c, i) => (
-          <span key={i} className={`h-5 w-5 rounded ${c}`} />
-        ))}
-      </div>
-    );
-  if (kind === "rbadge")
-    return <span className="inline-flex rounded-md bg-accent/10 px-2.5 py-1 font-mono text-sm font-bold text-accent">+2.5R</span>;
-  if (kind === "spark")
-    return (
-      <svg viewBox="0 0 120 32" className="w-28" aria-hidden>
-        <polyline points="0,26 20,22 40,24 60,14 80,18 100,8 120,4" fill="none" stroke="#00d301" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" />
-      </svg>
-    );
+  if (kind === "why") return <span className="inline-flex rounded-md border border-line2 bg-ink2/50 px-2 py-1 font-mono text-[11px] text-accent">WHY : Breakout NY AM</span>;
+  if (kind === "risk") return (<div className="w-full"><div className="h-2 overflow-hidden rounded-full bg-ink2"><div className="h-full w-1/3 rounded-full bg-goldx" /></div><p className="mt-1 font-mono text-[10px] text-muted2">1.0R / 3.0R</p></div>);
+  if (kind === "score") return (<div className="flex items-center gap-2"><span className="font-mono text-2xl font-bold text-goldx">72</span><span className="text-[10px] uppercase tracking-wider text-muted2">/ 100</span></div>);
+  if (kind === "cal") return (<div className="flex gap-1">{["bg-loss/60", "bg-accent/60", "bg-accent/70", "bg-loss/50", "bg-accent/80"].map((c, i) => <span key={i} className={`h-5 w-5 rounded ${c}`} />)}</div>);
+  if (kind === "rbadge") return <span className="inline-flex rounded-md bg-accent/10 px-2.5 py-1 font-mono text-sm font-bold text-accent">+2.5R</span>;
+  if (kind === "spark") return (<svg viewBox="0 0 120 32" className="w-28" aria-hidden><polyline points="0,26 20,22 40,24 60,14 80,18 100,8 120,4" fill="none" stroke="#00d301" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round" /></svg>);
   return null;
+}
+
+function FeatureCard({ f }) {
+  const onMove = (e) => {
+    const r = e.currentTarget.getBoundingClientRect();
+    e.currentTarget.style.setProperty("--x", `${e.clientX - r.left}px`);
+    e.currentTarget.style.setProperty("--y", `${e.clientY - r.top}px`);
+  };
+  const Icon = f.icon;
+  return (
+    <div onMouseMove={onMove} style={{ ["--glow"]: f.glow }} className="mtb-spot group flex h-full flex-col rounded-2xl border border-line bg-panel p-6 transition-transform duration-300 hover:-translate-y-1">
+      <span className="mtb-spot-glow" aria-hidden />
+      <span className="mtb-spot-border" aria-hidden />
+      <div className="mb-4 inline-flex w-fit rounded-xl border border-line2 bg-ink2/40 p-2.5 transition-transform group-hover:scale-110"><Icon size={20} className={f.accent} /></div>
+      <h3 className="text-lg font-semibold text-white">{f.title}</h3>
+      <p className="mt-2 flex-1 text-sm leading-relaxed text-muted">{f.body}</p>
+      <div className="mt-5 flex min-h-[36px] items-center border-t border-line pt-4"><FeatureDemo kind={f.demo} /></div>
+    </div>
+  );
 }
 
 function Features() {
@@ -442,20 +422,38 @@ function Features() {
         <p className="mt-4 text-muted">Pas de gadget. Chaque brique existe pour te faire progresser trade après trade.</p>
       </Reveal>
       <div className="mt-16 grid gap-4 sm:grid-cols-2 lg:grid-cols-3">
-        {FEATURES.map(({ icon: Icon, title, body, accent, demo }, i) => (
-          <Reveal key={title} delay={(i % 3) * 90}>
-            <div className="group flex h-full flex-col rounded-2xl border border-line bg-panel p-6 transition-all duration-300 hover:-translate-y-1 hover:border-accent/40">
-              <div className="mb-4 inline-flex w-fit rounded-xl border border-line2 bg-ink2/40 p-2.5 transition-transform group-hover:scale-110">
-                <Icon size={20} className={accent} />
-              </div>
-              <h3 className="text-lg font-semibold text-white">{title}</h3>
-              <p className="mt-2 flex-1 text-sm leading-relaxed text-muted">{body}</p>
-              <div className="mt-5 flex min-h-[36px] items-center border-t border-line pt-4"><FeatureDemo kind={demo} /></div>
-            </div>
-          </Reveal>
-        ))}
+        {FEATURES.map((f, i) => <Reveal key={f.title} delay={(i % 3) * 90}><FeatureCard f={f} /></Reveal>)}
       </div>
     </section>
+  );
+}
+
+function RDistribution() {
+  const [ref, on] = useInView(0.3);
+  const bars = [
+    { h: 22, r: "-3R", loss: true }, { h: 40, r: "-2R", loss: true }, { h: 68, r: "-1R", loss: true },
+    { h: 100, r: "0R", loss: false }, { h: 82, r: "+1R", loss: false }, { h: 55, r: "+2R", loss: false }, { h: 34, r: "+3R", loss: false },
+  ];
+  return (
+    <div ref={ref} className="rounded-2xl border border-line bg-panel p-4 shadow-xl">
+      <div className="flex items-center justify-between">
+        <span className="flex items-center gap-2 text-xs font-medium text-white"><Activity size={13} className="text-accent" /> Distribution des R</span>
+        <span className="rounded-full border border-line2 px-2 py-0.5 text-[10px] uppercase tracking-widest text-muted2">aperçu</span>
+      </div>
+      <div className="mt-6 flex h-48 items-end gap-2">
+        {bars.map((b, i) => (
+          <div key={b.r} className="flex h-full flex-1 flex-col items-center justify-end">
+            <div
+              className={`w-full rounded-t ${b.loss ? "bg-loss/70" : "bg-accent/70"}`}
+              style={{ height: on ? `${b.h}%` : "0%", transition: `height .9s ${EASE} ${i * 0.08}s` }}
+            />
+          </div>
+        ))}
+      </div>
+      <div className="mt-2 flex gap-2">
+        {bars.map((b) => <span key={b.r} className="flex-1 text-center font-mono text-[10px] text-muted2">{b.r}</span>)}
+      </div>
+    </div>
   );
 }
 
@@ -469,29 +467,11 @@ function Performance() {
           <p className="mt-5 leading-relaxed text-muted">Chaque trade fermé devient de la donnée structurée : PnL, expectancy, R-multiples et courbe d'equity ancrée sur ton solde réel. Le calendrier montre ensuite quelles journées et quelles semaines portent tes résultats.</p>
           <ul className="mt-8 space-y-4">
             {["Import et saisie propres — pas de tableur qui casse.", "R affiché avec le signe et une décimale : +2.5R, -1.0R.", "Sessions et time-of-day : où ton edge se trouve vraiment.", "Bannière de risque toujours visible sur ta daily loss."].map((line) => (
-              <li key={line} className="flex items-start gap-3">
-                <span className="mt-0.5 inline-flex rounded-md bg-accent/10 p-1"><Check size={14} className="text-accent" /></span>
-                <span className="text-sm text-muted">{line}</span>
-              </li>
+              <li key={line} className="flex items-start gap-3"><span className="mt-0.5 inline-flex rounded-md bg-accent/10 p-1"><Check size={14} className="text-accent" /></span><span className="text-sm text-muted">{line}</span></li>
             ))}
           </ul>
         </Reveal>
-        <Reveal delay={120}>
-          <div className="rounded-2xl border border-line bg-panel p-4 shadow-xl">
-            <div className="flex items-center justify-between">
-              <span className="flex items-center gap-2 text-xs font-medium text-white"><Activity size={13} className="text-accent" /> Distribution des R</span>
-              <span className="rounded-full border border-line2 px-2 py-0.5 text-[10px] uppercase tracking-widest text-muted2">aperçu</span>
-            </div>
-            <div className="mt-6 flex h-48 items-end justify-between gap-2">
-              {[{ h: 22, r: "-3R", loss: true }, { h: 40, r: "-2R", loss: true }, { h: 68, r: "-1R", loss: true }, { h: 100, r: "0R", loss: false }, { h: 82, r: "+1R", loss: false }, { h: 55, r: "+2R", loss: false }, { h: 34, r: "+3R", loss: false }].map((b, i) => (
-                <div key={b.r} className="flex flex-1 flex-col items-center gap-2">
-                  <div className={`mtb-bar w-full rounded-t ${b.loss ? "bg-loss/70" : "bg-accent/70"}`} style={{ height: `${b.h}%`, animationDelay: `${0.12 * i}s` }} />
-                  <span className="font-mono text-[10px] text-muted2">{b.r}</span>
-                </div>
-              ))}
-            </div>
-          </div>
-        </Reveal>
+        <Reveal delay={120}><RDistribution /></Reveal>
       </div>
     </section>
   );
@@ -513,10 +493,7 @@ function Pricing() {
               <span className="font-bold tracking-[0.2em] text-white">My<span className="text-accent">Trade</span>Book</span>
               <span className="rounded-full border border-accent/30 bg-accent/5 px-3 py-1 text-xs font-semibold uppercase tracking-wider text-accent">Annuel</span>
             </div>
-            <div className="mt-8 flex items-end gap-2">
-              <span className="font-mono text-5xl font-extrabold text-white">{price(PRICING.annual)}</span>
-              <span className="mb-1.5 text-sm text-muted">/ an</span>
-            </div>
+            <div className="mt-8 flex items-end gap-2"><span className="font-mono text-5xl font-extrabold text-white">{price(PRICING.annual)}</span><span className="mb-1.5 text-sm text-muted">/ an</span></div>
             <p className="mt-1 font-mono text-sm text-muted2">soit ≈ {price(monthlyEq)} / mois</p>
             <a href="/login" className="group mt-8 inline-flex w-full items-center justify-center gap-2 rounded-xl bg-accent px-6 py-3.5 text-base font-semibold text-ink transition-transform hover:scale-[1.02]">
               Démarrer l'essai {PRICING.trialDays} jours
@@ -525,10 +502,7 @@ function Pricing() {
             <p className="mt-3 text-center text-xs text-muted2">{PRICING.trialDays} jours gratuits · Annulable à tout moment</p>
             <ul className="mt-8 space-y-3 border-t border-line pt-6">
               {["Journal illimité avec WHY par trade", "Edge Score, R-multiples et expectancy", "Calendrier, sessions et courbe d'equity", "Bannière de risque & suivi daily loss", "Menu personnalisable"].map((item) => (
-                <li key={item} className="flex items-start gap-3 text-sm">
-                  <Check size={16} className="mt-0.5 shrink-0 text-accent" />
-                  <span className="text-muted">{item}</span>
-                </li>
+                <li key={item} className="flex items-start gap-3 text-sm"><Check size={16} className="mt-0.5 shrink-0 text-accent" /><span className="text-muted">{item}</span></li>
               ))}
             </ul>
           </div>
@@ -545,7 +519,7 @@ function FaqItem({ q, a }) {
     <div className="border-b border-line">
       <button onClick={() => setOpen((v) => !v)} className="flex w-full items-center justify-between gap-4 py-5 text-left">
         <span className="font-medium text-white">{q}</span>
-        <ChevronDown size={18} className={`shrink-0 text-muted transition-transform ${open ? "rotate-180" : ""}`} />
+        <ChevronDown size={18} className={`shrink-0 text-muted transition-transform duration-300 ${open ? "rotate-180" : ""}`} />
       </button>
       <div className={`grid transition-all duration-300 ${open ? "grid-rows-[1fr] pb-5" : "grid-rows-[0fr]"}`}>
         <div className="overflow-hidden"><p className="text-sm leading-relaxed text-muted">{a}</p></div>
