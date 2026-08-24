@@ -76,10 +76,10 @@ function Plan({ title, price, per, badge, plan, busy, onPick, highlight }) {
         <span className="font-mono text-[34px] font-extrabold leading-none">{price}</span>
         <span className="mb-1 text-[13px] text-muted2">{per}</span>
       </div>
-      <div className="mt-1 text-[12px] text-muted2">Annulable à tout moment.</div>
+      <div className="mt-1 text-[12px] text-accent font-medium">14 jours d'essai gratuit • Sans engagement</div>
       <button disabled={!!busy} onClick={() => onPick(plan)}
         className="mt-4 w-full rounded-xl bg-accent py-3 text-[14px] font-bold text-black transition hover:brightness-110 disabled:opacity-60">
-        {busy === plan ? "Redirection…" : "S'abonner & commencer"}
+        {busy === plan ? "Redirection…" : "Essayer gratuitement (14 jours)"}
       </button>
     </div>
   );
