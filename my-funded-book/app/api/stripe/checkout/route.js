@@ -69,7 +69,10 @@ export async function POST(req) {
     success_url: `${site}/dashboard?checkout=success`,
     cancel_url: `${site}/pricing?checkout=cancel`,
     metadata: { supabase_user_id: user.id },
-    subscription_data: { metadata: { supabase_user_id: user.id } },
+    subscription_data: { 
+      trial_period_days: 14,
+      metadata: { supabase_user_id: user.id } 
+    },
   });
 
   return NextResponse.json({ url: session.url });
