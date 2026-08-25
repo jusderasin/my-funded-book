@@ -35,6 +35,18 @@ export async function POST(req) {
     .maybeSingle();
 
   let customerId = sub?.stripe_customer_id;
+
+  // Si on a un customerId, vérifions qu'il existe bien et n'est pas supprimé
+  if (customerId) {
+    try {
+      const res = await stripe.customers.retrieve(customerId);
+      if (res.deleted) customerId = null;
+    } catch (err) {
+      customerId = null;
+    }
+  }
+
+  // Création d'un nouveau client si inexistant ou supprimé
   if (!customerId) {
     const customer = await stripe.customers.create({
       email: user.email,
