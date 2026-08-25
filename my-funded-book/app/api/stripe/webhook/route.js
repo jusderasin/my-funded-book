@@ -35,7 +35,13 @@ export async function POST(req) {
     const periodEndIso = periodEndUnix ? new Date(periodEndUnix * 1000).toISOString() : null;
     const priceId = subscription?.items?.data?.[0]?.price?.id || null;
     const nowIso = new Date().toISOString();
-    const subStatus = subscription?.status || "inactive";
+    
+    // Récupération du statut Stripe et conversion automatique de "trialing" en "active"
+    let subStatus = subscription?.status || "inactive";
+    if (subStatus === "trialing") {
+      subStatus = "active";
+    }
+
     const subId = subscription?.id || null;
 
     const userRow = await sql`SELECT user_id FROM subscriptions WHERE user_id = ${userId} LIMIT 1`;
