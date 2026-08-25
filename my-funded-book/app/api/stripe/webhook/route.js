@@ -1,14 +1,16 @@
 import { NextResponse } from "next/server";
-import { getStripe } from "@/lib/stripe";
-import { createAdminSupabase } from "@/lib/supabase/server";
+import Stripe from "stripe";
+import { sql } from "@/lib/db";
+
+const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 export const runtime = "nodejs";
 export const dynamic = "force-dynamic";
 
 export async function POST(req) {
-  const stripe = getStripe();
   const body = await req.text();
   const sig = req.headers.get("stripe-signature");
+
   let event;
   try {
     event = stripe.webhooks.constructEvent(body, sig, process.env.STRIPE_WEBHOOK_SECRET);
@@ -16,40 +18,53 @@ export async function POST(req) {
     return NextResponse.json({ error: `Webhook signature invalide: ${err.message}` }, { status: 400 });
   }
 
-  const admin = createAdminSupabase();
-
   async function syncByCustomer(customerId, subscription) {
-    const { data: row } = await admin
-      .from("subscriptions")
-      .select("user_id")
-      .eq("stripe_customer_id", customerId)
-      .maybeSingle();
-    let userId = row?.user_id || subscription?.metadata?.supabase_user_id;
+    // 1. Chercher l'user_id dans Neon via stripe_customer_id
+    const rows = await sql`SELECT user_id FROM subscriptions WHERE stripe_customer_id = ${customerId} LIMIT 1`;
+    
+    // 2. Si pas trouvé par le customerId, fallback sur la metadata
+    const userId = rows[0]?.user_id || subscription?.metadata?.userId || subscription?.metadata?.supabase_user_id;
     if (!userId) return;
 
-    // Stripe a déplacé current_period_end au niveau de l'item d'abonnement
-    // dans ses versions d'API récentes. On lit d'abord au niveau de l'item,
-    // puis on retombe sur l'ancien emplacement (compat toutes versions).
     const periodEndUnix =
       subscription?.items?.data?.[0]?.current_period_end ??
       subscription?.current_period_end ??
       null;
 
-    await admin.from("subscriptions").upsert(
-      {
-        user_id: userId,
-        stripe_customer_id: customerId,
-        stripe_subscription_id: subscription?.id || null,
-        price_id: subscription?.items?.data?.[0]?.price?.id || null,
-        status: subscription?.status || "inactive",
-        current_period_end: periodEndUnix
-          ? new Date(periodEndUnix * 1000).toISOString()
-          : null,
-        cancel_at_period_end: subscription?.cancel_at_period_end ?? false,
-        updated_at: new Date().toISOString(),
-      },
-      { onConflict: "user_id" }
-    );
+    const periodEndIso = periodEndUnix ? new Date(periodEndUnix * 1000).toISOString() : null;
+    const priceId = subscription?.items?.data?.[0]?.price?.id || null;
+    const cancelAtPeriodEnd = subscription?.cancel_at_period_end ?? false;
+
+    // 3. Mise à jour / Insertion dans Neon
+    await sql`
+      INSERT INTO subscriptions (
+        user_id,
+        stripe_customer_id,
+        stripe_subscription_id,
+        price_id,
+        status,
+        current_period_end,
+        cancel_at_period_end,
+        updated_at
+      ) VALUES (
+        ${userId},
+        ${customerId},
+        ${subscription?.id || null},
+        ${priceId},
+        ${subscription?.status || "inactive"},
+        ${periodEndIso},
+        ${cancelAtPeriodEnd},
+        NOW()
+      )
+      ON CONFLICT (user_id) DO UPDATE SET
+        stripe_customer_id = EXCLUDED.stripe_customer_id,
+        stripe_subscription_id = EXCLUDED.stripe_subscription_id,
+        price_id = EXCLUDED.price_id,
+        status = EXCLUDED.status,
+        current_period_end = EXCLUDED.current_period_end,
+        cancel_at_period_end = EXCLUDED.cancel_at_period_end,
+        updated_at = NOW();
+    `;
   }
 
   try {
@@ -70,23 +85,18 @@ export async function POST(req) {
       }
       case "customer.subscription.deleted": {
         const subscription = event.data.object;
-        const { data: row } = await admin
-          .from("subscriptions")
-          .select("user_id")
-          .eq("stripe_customer_id", subscription.customer)
-          .maybeSingle();
-        if (row?.user_id) {
-          await admin
-            .from("subscriptions")
-            .update({ status: "canceled", updated_at: new Date().toISOString() })
-            .eq("user_id", row.user_id);
-        }
+        await sql`
+          UPDATE subscriptions 
+          SET status = 'canceled', updated_at = NOW() 
+          WHERE stripe_customer_id = ${subscription.customer};
+        `;
         break;
       }
       default:
         break;
     }
   } catch (err) {
+    console.error("Webhook processing error:", err);
     return NextResponse.json({ error: err.message }, { status: 500 });
   }
 
