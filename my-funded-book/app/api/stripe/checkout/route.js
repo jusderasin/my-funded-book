@@ -5,8 +5,8 @@ import { createServerSupabase, createAdminSupabase } from "@/lib/supabase/server
 export const runtime = "nodejs";
 
 const PRICES = {
-  monthly: process.env.NEXT_PUBLIC_STRIPE_PRICE_MONTHLY,
-  yearly: process.env.NEXT_PUBLIC_STRIPE_PRICE_YEARLY,
+  monthly: process.env.STRIPE_PRICE_MONTHLY || process.env.NEXT_PUBLIC_STRIPE_PRICE_MONTHLY,
+  yearly: process.env.STRIPE_PRICE_YEARLY || process.env.NEXT_PUBLIC_STRIPE_PRICE_YEARLY,
 };
 
 export async function POST(req) {
@@ -19,7 +19,11 @@ export async function POST(req) {
   const stripe = getStripe();
   const { plan } = await req.json();
   const price = PRICES[plan];
-  if (!price) return NextResponse.json({ error: "invalid plan" }, { status: 400 });
+
+  if (!price) {
+    console.error("ID de prix Stripe introuvable pour le plan :", plan);
+    return NextResponse.json({ error: `Prix non configuré pour le plan ${plan}` }, { status: 400 });
+  }
 
   const site = process.env.NEXT_PUBLIC_SITE_URL;
 
@@ -43,8 +47,6 @@ export async function POST(req) {
   }
 
   // --- Garde-fou anti-doublon ---
-  // Si ce client a déjà un abonnement en cours, on ne crée PAS un second checkout :
-  // on le renvoie vers le portail pour gérer l'abonnement existant.
   const existing = await stripe.subscriptions.list({
     customer: customerId,
     status: "all",
