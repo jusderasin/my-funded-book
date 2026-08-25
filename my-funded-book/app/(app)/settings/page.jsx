@@ -11,12 +11,21 @@ export default function SettingsPage() {
   const { profile, saveProfile, trades, lang, setLang, t, notify, subscription, reload } = useBook();
   const supabase = useMemo(() => createClient(), []);
   const [tab, setTab] = useState("profile");
-  const [f, setF] = useState({ name: profile.name, pin: profile.pin });
+  const [f, setF] = useState({ name: profile.name, pin: profile.pin, starting_balance: profile.starting_balance ?? 0 });
   const [saving, setSaving] = useState(false);
   const [pinSaving, setPinSaving] = useState(false);
   const [optSaving, setOptSaving] = useState(false);
   const set = (k, v) => setF((s) => ({ ...s, [k]: v }));
   const optedIn = !!profile?.leaderboard_opt_in;
+
+  // Resync du formulaire quand le vrai profil arrive de Supabase
+  useEffect(() => {
+    setF({
+      name: profile.name ?? "trader",
+      pin: profile.pin ?? "1234",
+      starting_balance: profile.starting_balance ?? 0,
+    });
+  }, [profile.id]);
 
   // Abonnement (inchangé)
   const [portalLoading, setPortalLoading] = useState(false);
@@ -56,7 +65,7 @@ export default function SettingsPage() {
 
   async function save() {
     setSaving(true);
-    await saveProfile({ name: f.name || "trader" });
+    await saveProfile({ name: f.name || "trader", starting_balance: Number(f.starting_balance) || 0 });
     setSaving(false);
     notify(lang === "en" ? "Profile saved." : "Profil enregistré.");
   }
@@ -196,6 +205,14 @@ export default function SettingsPage() {
             <div className={sectionLabel}>{lang === "en" ? "Profile" : "Profil"}</div>
             <div className="grid gap-3 sm:grid-cols-2">
               <Field label={t("settings_name")}><input className={inputCls} value={f.name} onChange={(e) => set("name", e.target.value)} /></Field>
+              <Field label={lang === "en" ? "Starting balance ($)" : "Balance de départ ($)"}>
+                <input className={inputCls} type="number" inputMode="decimal" value={f.starting_balance} onChange={(e) => set("starting_balance", e.target.value)} />
+              </Field>
+            </div>
+            <div className="mt-1.5 text-[11px] text-muted2">
+              {lang === "en"
+                ? "Your account's starting balance. Your dashboard balance = this + your net P&L."
+                : "Balance de départ de ton compte. La balance du dashboard = cette valeur + ton P&L net."}
             </div>
             <Field label={t("settings_lang")}>
               <div className="flex gap-1.5">
