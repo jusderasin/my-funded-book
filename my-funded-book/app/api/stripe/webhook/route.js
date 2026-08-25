@@ -19,9 +19,8 @@ export async function POST(req) {
   }
 
   async function syncByCustomer(customerId, subscription) {
-    // 1. Recherche de l'utilisateur existant dans Neon
     const existing = await sql`SELECT user_id FROM subscriptions WHERE stripe_customer_id = ${customerId} LIMIT 1`;
-    const userId = existing[0]?.user_id || subscription?.metadata?.userId || subscription?.metadata?.supabase_user_id;
+    const userId = existing?.[0]?.user_id || subscription?.metadata?.userId || subscription?.metadata?.supabase_user_id;
     
     if (!userId) {
       console.error("Aucun user_id trouvé pour Stripe Customer:", customerId);
@@ -35,15 +34,13 @@ export async function POST(req) {
 
     const periodEndIso = periodEndUnix ? new Date(periodEndUnix * 1000).toISOString() : null;
     const priceId = subscription?.items?.data?.[0]?.price?.id || null;
-    const cancelAtPeriodEnd = subscription?.cancel_at_period_end ?? false;
     const nowIso = new Date().toISOString();
     const subStatus = subscription?.status || "inactive";
     const subId = subscription?.id || null;
 
-    // 2. Mise à jour si l'entrée existe, sinon insertion
     const userRow = await sql`SELECT user_id FROM subscriptions WHERE user_id = ${userId} LIMIT 1`;
 
-    if (userRow.length > 0) {
+    if (userRow && userRow.length > 0) {
       await sql`
         UPDATE subscriptions
         SET 
@@ -52,7 +49,6 @@ export async function POST(req) {
           price_id = ${priceId},
           status = ${subStatus},
           current_period_end = ${periodEndIso},
-          cancel_at_period_end = ${cancelAtPeriodEnd},
           updated_at = ${nowIso}
         WHERE user_id = ${userId};
       `;
@@ -65,7 +61,6 @@ export async function POST(req) {
           price_id,
           status,
           current_period_end,
-          cancel_at_period_end,
           updated_at
         ) VALUES (
           ${userId},
@@ -74,7 +69,6 @@ export async function POST(req) {
           ${priceId},
           ${subStatus},
           ${periodEndIso},
-          ${cancelAtPeriodEnd},
           ${nowIso}
         );
       `;
