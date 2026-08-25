@@ -74,6 +74,7 @@ export async function POST(req) {
       payment_method_types: ["card"],
       line_items: [{ price, quantity: 1 }],
       mode: "subscription",
+      allow_promotion_codes: true, // <--- Ajouté ici pour réactiver le champ code promo
       success_url: `${site}/dashboard?checkout=success`,
       cancel_url: `${site}/pricing?checkout=cancel`,
       subscription_data: {
