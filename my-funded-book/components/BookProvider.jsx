@@ -12,7 +12,7 @@ export function BookProvider({ user, children }) {
   const supabase = useMemo(() => createClient(), []);
   const [loading, setLoading] = useState(true);
   const [lang, setLangState] = useState("fr");
-  const [profile, setProfile] = useState({ name: "trader", pin: "1234", starting_balance: 600000 });
+  const [profile, setProfile] = useState({ name: "trader", pin: "1234", starting_balance: 0 });
   const [trades, setTrades] = useState([]);
   const [accounts, setAccounts] = useState([]);
   const [certificates, setCertificates] = useState([]);
