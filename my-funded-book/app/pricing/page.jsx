@@ -23,14 +23,27 @@ export default function PricingPage() {
 
   async function checkout(plan) {
     setBusy(plan);
-    const res = await fetch("/api/stripe/checkout", {
-      method: "POST",
-      headers: { "Content-Type": "application/json" },
-      body: JSON.stringify({ plan }),
-    });
-    const data = await res.json();
-    if (data.url) window.location.href = data.url;
-    else setBusy("");
+    try {
+      const res = await fetch("/api/stripe/checkout", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({ plan }),
+      });
+      
+      const data = await res.json();
+
+      if (data.url) {
+        // Redirection forcée vers Stripe ou le Customer Portal
+        window.location.assign(data.url);
+      } else {
+        alert(data.error || "Une erreur est survenue lors de la redirection.");
+        setBusy("");
+      }
+    } catch (err) {
+      console.error(err);
+      alert("Erreur réseau ou serveur.");
+      setBusy("");
+    }
   }
 
   async function signOut() {
@@ -60,7 +73,9 @@ export default function PricingPage() {
         </div>
       </div>
 
-      <button onClick={signOut} className="text-[12px] text-muted2 underline hover:text-white">Se déconnecter</button>
+      <button onClick={signOut} className="text-[12px] text-muted2 underline hover:text-white">
+        Se déconnecter
+      </button>
     </div>
   );
 }
@@ -77,8 +92,11 @@ function Plan({ title, price, per, badge, plan, busy, onPick, highlight }) {
         <span className="mb-1 text-[13px] text-muted2">{per}</span>
       </div>
       <div className="mt-1 text-[12px] text-accent font-medium">14 jours d'essai gratuit • Sans engagement</div>
-      <button disabled={!!busy} onClick={() => onPick(plan)}
-        className="mt-4 w-full rounded-xl bg-accent py-3 text-[14px] font-bold text-black transition hover:brightness-110 disabled:opacity-60">
+      <button
+        disabled={!!busy}
+        onClick={() => onPick(plan)}
+        className="mt-4 w-full rounded-xl bg-accent py-3 text-[14px] font-bold text-black transition hover:brightness-110 disabled:opacity-60"
+      >
         {busy === plan ? "Redirection…" : "Essayer gratuitement (14 jours)"}
       </button>
     </div>
