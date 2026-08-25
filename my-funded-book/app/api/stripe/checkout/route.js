@@ -25,7 +25,12 @@ export async function POST(req) {
     return NextResponse.json({ error: `Prix non configuré pour le plan ${plan}` }, { status: 400 });
   }
 
-  const site = process.env.NEXT_PUBLIC_SITE_URL;
+  // --- Correction de l'URL du site ---
+  const origin =
+    req.headers.get("origin") ||
+    process.env.NEXT_PUBLIC_SITE_URL ||
+    "https://mytradebook-jusderasins-projects.vercel.app";
+  const site = origin.replace(/\/$/, "");
 
   const admin = createAdminSupabase();
   const { data: sub } = await admin
