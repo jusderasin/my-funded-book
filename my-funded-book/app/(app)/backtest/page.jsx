@@ -4,6 +4,8 @@ import { useEffect, useMemo, useState } from "react";
 import { useBook } from "@/components/BookProvider";
 import { createClient } from "@/lib/supabase/client";
 import { Kpi, Modal, Field, inputCls, Chip, PrimaryBtn, GhostBtn } from "@/components/ui";
+import { FilePicker } from "@/components/FilePicker";
+import { uploadFile } from "@/lib/upload";
 import { Plus, FlaskConical, Trash2, Pencil } from "lucide-react";
 
 const STR = {
@@ -23,7 +25,8 @@ const STR = {
     tradeTitle: "Trade backtest", editTradeTitle: "Éditer le trade",
     fDate: "Date", fTime: "Heure", fDir: "Sens", fResult: "Résultat",
     fRR: "RR (risque/récompense)", fSetup: "Setup", fNone: "— aucun —",
-    fNotes: "Notes", fNotesPh: "Observations, contexte…", fShot: "Screenshot (URL)",
+    fNotes: "Notes", fNotesPh: "Observations, contexte…", fShot: "Screenshot",
+    fShotHint: "PNG, JPG ou WebP · 15 Mo max", fSending: "Envoi…",
     save: "Enregistrer", cancel: "Annuler",
     win: "Win", loss: "Loss", be: "BE", long: "LONG", short: "SHORT",
     created: "Session créée ✓", saved: "Enregistré ✓", deleted: "Supprimé",
@@ -45,7 +48,8 @@ const STR = {
     tradeTitle: "Backtest trade", editTradeTitle: "Edit trade",
     fDate: "Date", fTime: "Time", fDir: "Direction", fResult: "Result",
     fRR: "RR (risk/reward)", fSetup: "Setup", fNone: "— none —",
-    fNotes: "Notes", fNotesPh: "Observations, context…", fShot: "Screenshot (URL)",
+    fNotes: "Notes", fNotesPh: "Observations, context…", fShot: "Screenshot",
+    fShotHint: "PNG, JPG or WebP · 15 MB max", fSending: "Uploading…",
     save: "Save", cancel: "Cancel",
     win: "Win", loss: "Loss", be: "BE", long: "LONG", short: "SHORT",
     created: "Session created ✓", saved: "Saved ✓", deleted: "Deleted",
@@ -315,19 +319,36 @@ export default function BacktestPage() {
 }
 
 function BtTradeModal({ L, playbooks, editing, onClose, onSave }) {
-  const [f, setF] = useState(editing || { date: new Date().toISOString().slice(0, 10), entry_time: "", dir: "long", result: "win", rr: 2, setup: "", notes: "", screenshot_url: "" });
+  const [f, setF] = useState(editing || { date: new Date().toISOString().slice(0, 10), entry_time: "", dir: "long", result: "win", rr: 2, setup: "", notes: "" });
+  const [file, setFile] = useState(null);
+  const [shotUrl, setShotUrl] = useState(editing ? editing.screenshot_url || null : null);
+  const [uploading, setUploading] = useState(false);
+  const [err, setErr] = useState(null);
   const set = (k, v) => setF((s) => ({ ...s, [k]: v }));
 
-  function submit() {
+  async function submit() {
+    let screenshot_url = shotUrl;
+    if (file) {
+      try {
+        setErr(null);
+        setUploading(true);
+        screenshot_url = await uploadFile(file, "trades");
+      } catch (e) {
+        setUploading(false);
+        setErr(e.message || "Échec de l'upload");
+        return;
+      }
+      setUploading(false);
+    }
     onSave({
       date: f.date, entry_time: f.entry_time || null, dir: f.dir, result: f.result,
-      rr: Number(f.rr) || 0, setup: f.setup || null, notes: f.notes || null, screenshot_url: f.screenshot_url || null,
+      rr: Number(f.rr) || 0, setup: f.setup || null, notes: f.notes || null, screenshot_url: screenshot_url || null,
     });
   }
 
   return (
     <Modal title={editing ? L.editTradeTitle : L.tradeTitle} onClose={onClose}
-      footer={<><GhostBtn className="flex-1" onClick={onClose}>{L.cancel}</GhostBtn><PrimaryBtn className="flex-1" onClick={submit}>{L.save}</PrimaryBtn></>}>
+      footer={<><GhostBtn className="flex-1" onClick={onClose}>{L.cancel}</GhostBtn><PrimaryBtn className="flex-1" onClick={submit} disabled={uploading}>{uploading ? L.fSending : L.save}</PrimaryBtn></>}>
       <div className="grid grid-cols-2 gap-3">
         <Field label={L.fDate}><input type="date" className={inputCls} value={f.date} onChange={(e) => set("date", e.target.value)} /></Field>
         <Field label={L.fTime}><input type="time" className={inputCls} value={f.entry_time || ""} onChange={(e) => set("entry_time", e.target.value)} /></Field>
@@ -355,7 +376,17 @@ function BtTradeModal({ L, playbooks, editing, onClose, onSave }) {
         </select>
       </Field>
       <Field label={L.fNotes}><textarea className={inputCls + " min-h-[60px] resize-y"} value={f.notes || ""} onChange={(e) => set("notes", e.target.value)} placeholder={L.fNotesPh} /></Field>
-      <Field label={L.fShot}><input className={inputCls} value={f.screenshot_url || ""} onChange={(e) => set("screenshot_url", e.target.value)} placeholder="https://i.imgur.com/..." /></Field>
+      <Field label={L.fShot}>
+        <FilePicker
+          accept="image/*"
+          value={file}
+          existingUrl={shotUrl}
+          onChange={(nf) => { setFile(nf); setErr(null); }}
+          onRemove={() => { setFile(null); setShotUrl(null); }}
+          hint={L.fShotHint}
+        />
+        {err && <p className="mt-1.5 text-[11.5px] text-loss">{err}</p>}
+      </Field>
     </Modal>
   );
 }
