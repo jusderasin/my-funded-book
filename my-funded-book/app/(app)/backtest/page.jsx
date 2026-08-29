@@ -176,7 +176,13 @@ export default function BacktestPage() {
     notify(L.deleted);
   }
 
-  const fmtD = (d) => (d ? new Date(d).toLocaleDateString(lang === "en" ? "en-US" : "fr-FR", { day: "2-digit", month: "short" }) : "");
+  // Parse une date YYYY-MM-DD sans passer par new Date(string) (qui décale en UTC).
+  const fmtD = (d) => {
+    if (!d) return "";
+    const [y, m, dd] = String(d).slice(0, 10).split("-").map(Number);
+    if (!y || !m || !dd) return "";
+    return new Date(y, m - 1, dd).toLocaleDateString(lang === "en" ? "en-US" : "fr-FR", { day: "2-digit", month: "short" });
+  };
   const fmtPf = (v) => (v === Infinity ? "∞" : v.toFixed(2));
   const periodLabel = (s) => (s.period_start || s.period_end) ? `${fmtD(s.period_start) || "?"} → ${fmtD(s.period_end) || "?"}` : "";
 
