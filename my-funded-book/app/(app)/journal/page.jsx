@@ -41,10 +41,19 @@ export default function JournalPage() {
                   <div className="mt-2 flex flex-wrap gap-1.5">{tr.tags.map((x) => <Pill key={x} tone="red">{x}</Pill>)}</div>
                 )}
                 {tr.why && <div className="mt-2.5 text-[13px] leading-relaxed text-white/80"><b className="text-[11px] font-bold tracking-wide text-muted2">{t("jrn_why")}</b> {tr.why}</div>}
-                {tr.screenshot_url && (
-                  <a href={tr.screenshot_url} target="_blank" rel="noreferrer" className="mt-2.5 block w-fit">
-                    <img src={tr.screenshot_url} alt="capture" loading="lazy" className="max-h-64 rounded-lg border border-line object-contain" />
-                  </a>
+                {(tr.screenshot_url || tr.screenshot_url_2) && (
+                  <div className="mt-2.5 flex flex-wrap gap-2">
+                    {tr.screenshot_url && (
+                      <a href={tr.screenshot_url} target="_blank" rel="noreferrer" className="block w-fit">
+                        <img src={tr.screenshot_url} alt="capture 1" loading="lazy" className="max-h-64 rounded-lg border border-line object-contain" />
+                      </a>
+                    )}
+                    {tr.screenshot_url_2 && (
+                      <a href={tr.screenshot_url_2} target="_blank" rel="noreferrer" className="block w-fit">
+                        <img src={tr.screenshot_url_2} alt="capture 2" loading="lazy" className="max-h-64 rounded-lg border border-line object-contain" />
+                      </a>
+                    )}
+                  </div>
                 )}
                 <div className="mt-2.5 flex gap-2">
                   <GhostBtn className="px-3 py-1.5 text-[12px]" onClick={() => setEditing(tr)}>{t("jrn_edit")}</GhostBtn>
