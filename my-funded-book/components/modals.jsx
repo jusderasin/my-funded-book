@@ -10,6 +10,9 @@ import { todayISO, fmtMoney } from "@/lib/format";
 
 const firmOptions = Object.keys(FIRMS);
 
+// Valeurs de R suggérées à la sélection d'une sortie — modifiables ensuite à la main.
+const OUTCOME_DEFAULT_R = { TP: 2, SL: -1, BE: 0 };
+
 export function LogTradeModal({ editing, onClose }) {
   const { addTrade, updateTrade, playbooks, accounts, notify, t, lang } = useBook();
   const defaultAccountId =
@@ -24,17 +27,29 @@ export function LogTradeModal({ editing, onClose }) {
     }
   );
   const [file, setFile] = useState(null);
+  const [file2, setFile2] = useState(null);
   const [shotUrl, setShotUrl] = useState(editing ? editing.screenshot_url || null : null);
+  const [shotUrl2, setShotUrl2] = useState(editing ? editing.screenshot_url_2 || null : null);
   const [uploading, setUploading] = useState(false);
   const set = (k, v) => setF((s) => ({ ...s, [k]: v }));
   const toggleTag = (tag) => set("tags", f.tags.includes(tag) ? f.tags.filter((x) => x !== tag) : [...f.tags, tag]);
 
+  // Clique sur TP/SL/BE : sélectionne l'outcome ET propose un R par défaut
+  // (TP=+2, SL=-1, BE=0). Le trader peut ensuite corriger le champ R librement.
+  function pickOutcome(o) {
+    const next = f.outcome === o ? "" : o;
+    set("outcome", next);
+    if (next && OUTCOME_DEFAULT_R[next] != null) set("r", OUTCOME_DEFAULT_R[next]);
+  }
+
   async function submit() {
     let screenshot_url = shotUrl;
-    if (file) {
+    let screenshot_url_2 = shotUrl2;
+    if (file || file2) {
       try {
         setUploading(true);
-        screenshot_url = await uploadFile(file, "trades");
+        if (file) screenshot_url = await uploadFile(file, "trades");
+        if (file2) screenshot_url_2 = await uploadFile(file2, "trades");
       } catch (e) {
         setUploading(false);
         return notify(e.message, true);
@@ -44,7 +59,9 @@ export function LogTradeModal({ editing, onClose }) {
     const row = {
       symbol: (f.symbol || "MNQ").toUpperCase(), date: f.date, dir: f.dir, session: f.session,
       grade: f.grade, r: Number(f.r) || 0, pnl: Number(f.pnl) || 0, setup: f.setup || null,
-      tags: f.tags, why: f.why || null, plan: !!f.plan, screenshot_url: screenshot_url || null,
+      tags: f.tags, why: f.why || null, plan: !!f.plan,
+      screenshot_url: screenshot_url || null,
+      screenshot_url_2: screenshot_url_2 || null,
       account_id: f.account_id || null,
       outcome: f.outcome || null,
     };
@@ -98,8 +115,13 @@ export function LogTradeModal({ editing, onClose }) {
       <Field label={lang === "en" ? "Exit (TP/SL/BE)" : "Sortie (TP/SL/BE)"}>
         <div className="flex gap-1.5">
           {["TP", "SL", "BE"].map((o) => (
-            <Chip key={o} active={f.outcome === o} onClick={() => set("outcome", f.outcome === o ? "" : o)}>{o}</Chip>
+            <Chip key={o} active={f.outcome === o} onClick={() => pickOutcome(o)}>{o}</Chip>
           ))}
+        </div>
+        <div className="mt-1.5 text-[11px] text-muted2">
+          {lang === "en"
+            ? "Suggests a default R (TP = +2, SL = -1, BE = 0) — you can still edit the R field above."
+            : "Propose un R par défaut (TP = +2, SL = -1, BE = 0) — le champ R ci-dessus reste modifiable."}
         </div>
       </Field>
       <Field label={t("m_setup")}>
@@ -112,14 +134,24 @@ export function LogTradeModal({ editing, onClose }) {
         <div className="flex flex-wrap gap-1.5">{TAG_LIB.map((tag) => <Chip key={tag} active={f.tags.includes(tag)} danger onClick={() => toggleTag(tag)}>{tag}</Chip>)}</div>
       </Field>
       <Field label={t("m_chart")}>
-        <FilePicker
-          accept="image/*"
-          value={file}
-          existingUrl={shotUrl}
-          onChange={setFile}
-          onRemove={() => { setFile(null); setShotUrl(null); }}
-          hint={t("m_chart_hint")}
-        />
+        <div className="grid grid-cols-2 gap-2.5">
+          <FilePicker
+            accept="image/*"
+            value={file}
+            existingUrl={shotUrl}
+            onChange={setFile}
+            onRemove={() => { setFile(null); setShotUrl(null); }}
+            hint={t("m_chart_hint")}
+          />
+          <FilePicker
+            accept="image/*"
+            value={file2}
+            existingUrl={shotUrl2}
+            onChange={setFile2}
+            onRemove={() => { setFile2(null); setShotUrl2(null); }}
+            hint={lang === "en" ? "2nd screenshot (optional)" : "2e capture (optionnel)"}
+          />
+        </div>
       </Field>
       <Field label={t("m_why")}>
         <textarea className={inputCls + " min-h-[70px] resize-y leading-relaxed"} value={f.why} onChange={(e) => set("why", e.target.value)} placeholder={t("m_why_ph")} />
