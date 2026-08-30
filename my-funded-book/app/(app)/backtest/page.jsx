@@ -60,6 +60,10 @@ const STR = {
 const rOf = (t) => (t.result === "win" ? Number(t.rr || 0) : t.result === "loss" ? -1 : 0);
 const emptyForm = { name: "", instrument: "MNQ", timeframe: "", one_r: 200, period_start: "", period_end: "", note: "" };
 
+// RR suggéré à la sélection du résultat (cohérent avec rOf : Loss = toujours -1R,
+// BE = toujours 0R côté stats). Reste modifiable à la main pour un Win.
+const RESULT_DEFAULT_RR = { win: 2, loss: -1, be: 0 };
+
 export default function BacktestPage() {
   const { lang, notify, playbooks } = useBook();
   const supabase = useMemo(() => createClient(), []);
@@ -332,6 +336,13 @@ function BtTradeModal({ L, playbooks, editing, onClose, onSave }) {
   const [err, setErr] = useState(null);
   const set = (k, v) => setF((s) => ({ ...s, [k]: v }));
 
+  // Clique sur Win/Loss/BE : sélectionne le résultat ET propose un RR par défaut.
+  // Le champ RR reste éditable ensuite (utile surtout pour ajuster un Win).
+  function pickResult(o) {
+    set("result", o);
+    if (RESULT_DEFAULT_RR[o] != null) set("rr", RESULT_DEFAULT_RR[o]);
+  }
+
   async function submit() {
     let screenshot_url = shotUrl;
     if (file) {
@@ -368,12 +379,17 @@ function BtTradeModal({ L, playbooks, editing, onClose, onSave }) {
       <div className="grid grid-cols-2 gap-3">
         <Field label={L.fResult}>
           <div className="flex gap-1.5">
-            <Chip active={f.result === "win"} onClick={() => set("result", "win")}>{L.win}</Chip>
-            <Chip active={f.result === "loss"} danger onClick={() => set("result", "loss")}>{L.loss}</Chip>
-            <Chip active={f.result === "be"} onClick={() => set("result", "be")}>{L.be}</Chip>
+            <Chip active={f.result === "win"} onClick={() => pickResult("win")}>{L.win}</Chip>
+            <Chip active={f.result === "loss"} danger onClick={() => pickResult("loss")}>{L.loss}</Chip>
+            <Chip active={f.result === "be"} onClick={() => pickResult("be")}>{L.be}</Chip>
           </div>
         </Field>
         <Field label={L.fRR}><input type="number" step="0.1" className={inputCls} value={f.rr} onChange={(e) => set("rr", e.target.value)} placeholder="2" /></Field>
+      </div>
+      <div className="-mt-2 mb-3.5 text-[11px] text-muted2">
+        {L === STR.en
+          ? "Auto-fills RR (Win = +2, Loss = -1, BE = 0) — you can still edit it manually."
+          : "Remplit automatiquement le RR (Win = +2, Loss = -1, BE = 0) — modifiable ensuite."}
       </div>
       <Field label={L.fSetup}>
         <select className={inputCls} value={f.setup || ""} onChange={(e) => set("setup", e.target.value)}>
