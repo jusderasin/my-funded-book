@@ -1,70 +1,199 @@
 "use client";
-import { useState } from "react";
-import { useBook } from "@/components/BookProvider";
-import { Pill, EmptyState, PrimaryBtn, GhostBtn } from "@/components/ui";
-import { LogTradeModal } from "@/components/modals";
-import { gradeClass } from "@/lib/constants";
-import { fmtMoney } from "@/lib/format";
-const gradeColors = {
-  ap: "bg-accentDim text-accent", a: "bg-cyanx/15 text-cyanx",
-  b: "bg-goldx/15 text-goldx", c: "bg-pinkx/15 text-pinkx", f: "bg-lossDim text-loss",
-};
-export default function JournalPage() {
-  const { trades, deleteTrade, t } = useBook();
-  const [editing, setEditing] = useState(null);
+
+import { createContext, useContext, useEffect, useMemo, useState, useCallback } from "react";
+import { createClient } from "@/lib/supabase/client";
+import { computeStats } from "@/lib/stats";
+import { translate } from "@/lib/i18n";
+
+const BookCtx = createContext(null);
+export const useBook = () => useContext(BookCtx);
+
+export function BookProvider({ user, children }) {
+  const supabase = useMemo(() => createClient(), []);
+  const [loading, setLoading] = useState(true);
+  const [lang, setLangState] = useState("fr");
+  const [profile, setProfile] = useState({ name: "trader", pin: "1234", starting_balance: 0 });
+  const [trades, setTrades] = useState([]);
+  const [accounts, setAccounts] = useState([]);
+  const [certificates, setCertificates] = useState([]);
+  const [expenses, setExpenses] = useState([]);
+  const [playbooks, setPlaybooks] = useState([]);
+  const [reviews, setReviews] = useState([]);
+  const [subscription, setSubscription] = useState(null);
+  const [toast, setToast] = useState(null);
+
+  const notify = useCallback((msg, err = false) => {
+    setToast({ msg, err, id: Date.now() });
+    setTimeout(() => setToast(null), 2200);
+  }, []);
+  useEffect(() => {
+    const saved = typeof window !== "undefined" ? localStorage.getItem("lang") : null;
+    if (saved) setLangState(saved);
+  }, []);
+
+  const setLang = useCallback((l) => {
+    setLangState(l);
+    if (typeof window !== "undefined") localStorage.setItem("lang", l);
+  }, []);
+
+  const t = useCallback((key) => translate(lang, key), [lang]);
+
+  const loadAll = useCallback(async () => {
+    setLoading(true);
+    const [p, t, a, c, e, pb, rv, s] = await Promise.all([
+      supabase.from("profiles").select("*").eq("id", user.id).single(),
+      supabase.from("trades").select("*").order("date", { ascending: false }),
+      supabase.from("accounts").select("*").order("date", { ascending: false }),
+      supabase.from("certificates").select("*").order("date", { ascending: false }),
+      supabase.from("expenses").select("*").order("date", { ascending: false }),
+      supabase.from("playbooks").select("*").order("created_at", { ascending: true }),
+      supabase.from("reviews").select("*").order("week_of", { ascending: false }),
+      supabase.from("subscriptions").select("*").eq("user_id", user.id).maybeSingle(),
+    ]);
+    if (p.data) setProfile(p.data);
+    setTrades(t.data || []);
+    setAccounts(a.data || []);
+    setCertificates(c.data || []);
+    setExpenses(e.data || []);
+    setPlaybooks(pb.data || []);
+    setReviews(rv.data || []);
+    setSubscription(s.data || null);
+    setLoading(false);
+  }, [supabase, user.id]);
+
+  useEffect(() => {
+    loadAll();
+  }, [loadAll]);
+
+  // --- CRUD génériques ---
+  const insert = useCallback(
+    async (table, row, setter, list) => {
+      const { data, error } = await supabase.from(table).insert(row).select().single();
+      if (error) return notify(error.message, true);
+      setter([data, ...list]);
+      notify("Ajouté ✓");
+      return data;
+    },
+    [supabase, notify]
+  );
+
+  const update = useCallback(
+    async (table, id, patch, setter, list) => {
+      const { data, error } = await supabase.from(table).update(patch).eq("id", id).select().single();
+      if (error) return notify(error.message, true);
+      setter(list.map((x) => (x.id === id ? data : x)));
+      notify("Mis à jour ✓");
+      return data;
+    },
+    [supabase, notify]
+  );
+
+  const remove = useCallback(
+    async (table, id, setter, list) => {
+      const { error } = await supabase.from(table).delete().eq("id", id);
+      if (error) return notify(error.message, true);
+      setter(list.filter((x) => x.id !== id));
+      notify("Supprimé");
+    },
+    [supabase, notify]
+  );
+
+  // --- API par domaine ---
+  const api = {
+    // trades
+    addTrade: (row) => insert("trades", row, setTrades, trades),
+    updateTrade: (id, patch) => update("trades", id, patch, setTrades, trades),
+    deleteTrade: (id) => remove("trades", id, setTrades, trades),
+    // accounts
+    addAccount: (row) => insert("accounts", row, setAccounts, accounts),
+    deleteAccount: (id) => remove("accounts", id, setAccounts, accounts),
+    // certificates
+    addCert: (row) => insert("certificates", row, setCertificates, certificates),
+    deleteCert: (id) => remove("certificates", id, setCertificates, certificates),
+    // expenses
+    addExpense: (row) => insert("expenses", row, setExpenses, expenses),
+    deleteExpense: (id) => remove("expenses", id, setExpenses, expenses),
+    // playbooks
+    addSetup: (row) => insert("playbooks", row, setPlaybooks, playbooks),
+    updateSetup: (id, patch) => update("playbooks", id, patch, setPlaybooks, playbooks),
+    deleteSetup: (id) => remove("playbooks", id, setPlaybooks, playbooks),
+    // profile
+    saveProfile: async (patch) => {
+      const { data, error } = await supabase
+        .from("profiles")
+        .update(patch)
+        .eq("id", user.id)
+        .select()
+        .single();
+      if (error) return notify(error.message, true);
+      setProfile(data);
+      notify("Réglages sauvegardés ✓");
+    },
+    // review (upsert par semaine)
+    saveReview: async (weekOf, fields) => {
+      const { data, error } = await supabase
+        .from("reviews")
+        .upsert({ week_of: weekOf, ...fields }, { onConflict: "user_id,week_of" })
+        .select()
+        .single();
+      if (error) return notify(error.message, true);
+      setReviews((prev) => {
+        const rest = prev.filter((r) => r.week_of !== weekOf);
+        return [data, ...rest];
+      });
+      notify("Review sauvegardée ✓");
+    },
+    notify,
+    reload: loadAll,
+  };
+
+  const stats = useMemo(
+    () => computeStats(trades, Number(profile.starting_balance) || 0),
+    [trades, profile.starting_balance]
+  );
+
+  // Trades toujours triés par DATE du trade (récent en haut), puis par date d'ajout.
+  const sortedTrades = useMemo(
+    () =>
+      [...trades].sort((a, b) => {
+        const d = String(b.date || "").localeCompare(String(a.date || ""));
+        if (d !== 0) return d;
+        return String(b.created_at || "").localeCompare(String(a.created_at || ""));
+      }),
+    [trades]
+  );
+
+  const value = {
+    loading,
+    lang,
+    setLang,
+    t,
+    user,
+    profile,
+    trades: sortedTrades,
+    accounts,
+    certificates,
+    expenses,
+    playbooks,
+    reviews,
+    subscription,
+    stats,
+    toast,
+    ...api,
+  };
+
   return (
-    <div>
-      <div className="mb-3 flex items-center justify-between">
-        <div className="text-[11px] font-semibold uppercase tracking-wide text-muted2">{t("jrn_title")}</div>
-        <PrimaryBtn className="px-3 py-1.5 text-[12px]" onClick={() => setEditing("new")}>{t("jrn_add")}</PrimaryBtn>
-      </div>
-      {trades.length === 0 ? (
-        <EmptyState icon="≡" title={t("jrn_empty_t")} sub={t("jrn_empty_s")} />
-      ) : (
-        <div className="flex flex-col gap-2.5">
-          {trades.map((tr) => {
-            const win = tr.pnl >= 0;
-            return (
-              <div key={tr.id} className={`rounded-xl border border-line bg-panel px-4 py-4 border-l-[3px] ${win ? "border-l-accent" : "border-l-loss"}`}>
-                <div className="flex flex-wrap items-center gap-2.5">
-                  <span className={`font-mono text-[18px] font-extrabold ${win ? "text-accent" : "text-loss"}`}>{(win ? "+" : "") + fmtMoney(tr.pnl)}</span>
-                  <span className={`inline-flex h-[22px] w-[22px] items-center justify-center rounded-md font-mono text-[10px] font-extrabold ${gradeColors[gradeClass(tr.grade)]}`}>{tr.grade}</span>
-                  <span className="flex flex-wrap items-center gap-2 font-mono text-[11px] text-muted2">
-                    <Pill tone="gray">{(tr.r >= 0 ? "+" : "") + Number(tr.r).toFixed(0)}R</Pill>
-                    {tr.date} · <b className="text-muted">{tr.symbol}</b>
-                    <Pill tone={tr.dir === "long" ? "green" : "red"}>{tr.dir === "long" ? "LONG" : "SHORT"}</Pill>
-                    {tr.outcome && <Pill tone={tr.outcome === "TP" ? "green" : tr.outcome === "SL" ? "red" : "gray"}>{tr.outcome}</Pill>}
-                    {tr.session} {tr.setup ? "· " + tr.setup : ""}
-                  </span>
-                </div>
-                {tr.tags && tr.tags.length > 0 && (
-                  <div className="mt-2 flex flex-wrap gap-1.5">{tr.tags.map((x) => <Pill key={x} tone="red">{x}</Pill>)}</div>
-                )}
-                {tr.why && <div className="mt-2.5 text-[13px] leading-relaxed text-white/80"><b className="text-[11px] font-bold tracking-wide text-muted2">{t("jrn_why")}</b> {tr.why}</div>}
-                {(tr.screenshot_url || tr.screenshot_url_2) && (
-                  <div className="mt-2.5 flex flex-wrap gap-2">
-                    {tr.screenshot_url && (
-                      <a href={tr.screenshot_url} target="_blank" rel="noreferrer" className="block w-fit">
-                        <img src={tr.screenshot_url} alt="capture 1" loading="lazy" className="max-h-64 rounded-lg border border-line object-contain" />
-                      </a>
-                    )}
-                    {tr.screenshot_url_2 && (
-                      <a href={tr.screenshot_url_2} target="_blank" rel="noreferrer" className="block w-fit">
-                        <img src={tr.screenshot_url_2} alt="capture 2" loading="lazy" className="max-h-64 rounded-lg border border-line object-contain" />
-                      </a>
-                    )}
-                  </div>
-                )}
-                <div className="mt-2.5 flex gap-2">
-                  <GhostBtn className="px-3 py-1.5 text-[12px]" onClick={() => setEditing(tr)}>{t("jrn_edit")}</GhostBtn>
-                  <GhostBtn className="px-3 py-1.5 text-[12px]" onClick={() => deleteTrade(tr.id)}>{t("jrn_delete")}</GhostBtn>
-                </div>
-              </div>
-            );
-          })}
+    <BookCtx.Provider value={value}>
+      {children}
+      {toast && (
+        <div
+          className={`fixed bottom-6 left-1/2 -translate-x-1/2 z-[90] rounded-xl border px-4 py-2.5 text-sm font-semibold shadow-2xl ${
+            toast.err ? "border-loss text-loss bg-panel" : "border-line2 text-white bg-panel2"
+          }`}
+        >
+          {toast.msg}
         </div>
       )}
-      {editing && <LogTradeModal editing={editing === "new" ? null : editing} onClose={() => setEditing(null)} />}
-    </div>
+    </BookCtx.Provider>
   );
 }
