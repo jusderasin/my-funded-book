@@ -106,6 +106,7 @@ export function BookProvider({ user, children }) {
     deleteTrade: (id) => remove("trades", id, setTrades, trades),
     // accounts
     addAccount: (row) => insert("accounts", row, setAccounts, accounts),
+    updateAccount: (id, patch) => update("accounts", id, patch, setAccounts, accounts),
     deleteAccount: (id) => remove("accounts", id, setAccounts, accounts),
     // certificates
     addCert: (row) => insert("certificates", row, setCertificates, certificates),
