@@ -57,8 +57,26 @@ export async function POST(req) {
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
   if (!trades || trades.length === 0) return NextResponse.json({ error: "no_trades" }, { status: 400 });
 
-  const { data: profile } = await supabase.from("profiles").select("name").eq("id", user.id).maybeSingle();
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("name, experience, trading_style, platform, instruments, challenges, focus_topics, profile_note")
+    .eq("id", user.id)
+    .maybeSingle();
   const name = profile?.name || "Trader";
+
+  // --- Bloc profil déclaré par le trader (nourrit la personnalisation) ---
+  const arr = (x) => (Array.isArray(x) ? x.filter(Boolean) : []);
+  const pl = [];
+  if (profile?.experience) pl.push(`- Expérience : ${profile.experience}`);
+  if (profile?.trading_style) pl.push(`- Style principal : ${profile.trading_style}`);
+  if (profile?.platform) pl.push(`- Plateforme : ${profile.platform}`);
+  if (arr(profile?.instruments).length) pl.push(`- Instruments tradés : ${arr(profile.instruments).join(", ")}`);
+  if (arr(profile?.challenges).length) pl.push(`- Difficultés déclarées : ${arr(profile.challenges).join(", ")}`);
+  if (arr(profile?.focus_topics).length) pl.push(`- Sujets à prioriser : ${arr(profile.focus_topics).join(", ")}`);
+  if (profile?.profile_note) pl.push(`- Note perso du trader : ${String(profile.profile_note).slice(0, 2000)}`);
+  const profileBlock = pl.length
+    ? `\n\n# PROFIL DÉCLARÉ PAR LE TRADER\n${pl.join("\n")}\n(Ce sont SES propres mots sur qui il est et ce sur quoi il veut progresser. CROISE systématiquement ces déclarations avec les données chiffrées ci-dessus : confirme, nuance ou contredis avec les chiffres. S'il déclare une difficulté, va la chercher dans les tags/sessions/discipline et dis-lui si elle se vérifie.)`
+    : "";
   const stats = calcStats(trades);
 
   // --- Agrégats pour les graphiques ---
@@ -119,7 +137,7 @@ ${bySession.map((d) => `- ${d.session} : ${d.total} trades, ${d.wr}% WR, ${d.r >
 ${bySetup.map((d) => `- ${d.setup} : ${d.total} trades, ${d.wr}% WR, ${d.r >= 0 ? "+" : ""}${d.r}R`).join("\n")}
 
 # TAGS (comportement)
-${Object.entries(tagCounts).sort((a, b) => b[1] - a[1]).map(([tag, c]) => `- ${tag} : ${c} fois`).join("\n") || "- Aucun tag"}
+${Object.entries(tagCounts).sort((a, b) => b[1] - a[1]).map(([tag, c]) => `- ${tag} : ${c} fois`).join("\n") || "- Aucun tag"}${profileBlock}
 
 ---
 
@@ -136,7 +154,7 @@ Rédige un rapport d'analyse COMPLET, PRO et PERSONNALISÉ en français pour ${n
 9. PLAN D'ACTION (3-5 actions concrètes, priorisées)
 10. OBJECTIF CHIFFRÉ pour la prochaine période
 
-Règles : direct, honnête, chiffré. Tu parles à ${name}. N'invente aucune donnée. Utilise du gras (**...**) pour les chiffres clés. Pas de tableaux markdown, uniquement des listes à puces.`;
+Règles : direct, honnête, chiffré. Tu parles à ${name}. N'invente aucune donnée. Si un PROFIL DÉCLARÉ est fourni, PRIORISE les 'Sujets à prioriser' déclarés dans tes recommandations et adresse EXPLICITEMENT chaque 'Difficulté déclarée' en la reliant aux chiffres (confirmée ? aggravée ? pas visible dans les données ?). Utilise du gras (**...**) pour les chiffres clés. Pas de tableaux markdown, uniquement des listes à puces.`;
 
   const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
     method: "POST",
