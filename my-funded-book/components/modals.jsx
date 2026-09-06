@@ -164,7 +164,7 @@ export function LogTradeModal({ editing, onClose }) {
           <Chip active={!f.plan} danger onClick={() => set("plan", false)}>{t("m_no")}</Chip>
         </div>
       </Field>
-      <Field label={t("m_emotion")}>
+      <div className="mb-3.5">
         <div className="flex flex-wrap gap-1.5">
           {EMOTIONS.map((em) => (
             <Chip
@@ -178,7 +178,7 @@ export function LogTradeModal({ editing, onClose }) {
           ))}
         </div>
         <div className="mt-1.5 text-[11px] text-muted2">{t("m_emotion_hint")}</div>
-      </Field>
+      </div>
     </Modal>
   );
 }
