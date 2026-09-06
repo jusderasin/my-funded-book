@@ -3,14 +3,14 @@ import { useState } from "react";
 import { useBook } from "@/components/BookProvider";
 import { Pill, EmptyState, PrimaryBtn, GhostBtn } from "@/components/ui";
 import { LogTradeModal } from "@/components/modals";
-import { gradeClass } from "@/lib/constants";
+import { gradeClass, EMOTION_BY_KEY } from "@/lib/constants";
 import { fmtMoney } from "@/lib/format";
 const gradeColors = {
   ap: "bg-accentDim text-accent", a: "bg-cyanx/15 text-cyanx",
   b: "bg-goldx/15 text-goldx", c: "bg-pinkx/15 text-pinkx", f: "bg-lossDim text-loss",
 };
 export default function JournalPage() {
-  const { trades, deleteTrade, t } = useBook();
+  const { trades, deleteTrade, t, lang } = useBook();
   const [editing, setEditing] = useState(null);
   return (
     <div>
@@ -37,8 +37,15 @@ export default function JournalPage() {
                     {tr.session} {tr.setup ? "· " + tr.setup : ""}
                   </span>
                 </div>
-                {tr.tags && tr.tags.length > 0 && (
-                  <div className="mt-2 flex flex-wrap gap-1.5">{tr.tags.map((x) => <Pill key={x} tone="red">{x}</Pill>)}</div>
+                {((tr.tags && tr.tags.length > 0) || tr.emotion) && (
+                  <div className="mt-2 flex flex-wrap gap-1.5">
+                    {tr.emotion && EMOTION_BY_KEY[tr.emotion] && (
+                      <Pill tone={EMOTION_BY_KEY[tr.emotion].tone}>
+                        {EMOTION_BY_KEY[tr.emotion].e} {lang === "en" ? EMOTION_BY_KEY[tr.emotion].en : EMOTION_BY_KEY[tr.emotion].fr}
+                      </Pill>
+                    )}
+                    {tr.tags && tr.tags.map((x) => <Pill key={x} tone="red">{x}</Pill>)}
+                  </div>
                 )}
                 {tr.why && <div className="mt-2.5 text-[13px] leading-relaxed text-white/80"><b className="text-[11px] font-bold tracking-wide text-muted2">{t("jrn_why")}</b> {tr.why}</div>}
                 {(tr.screenshot_url || tr.screenshot_url_2) && (
