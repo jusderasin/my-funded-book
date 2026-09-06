@@ -4,14 +4,20 @@ import { useState, useEffect, useRef } from "react";
 import { Clock, Check } from "lucide-react";
 import { useBook } from "./BookProvider";
 
+// Fuseaux triés Ouest → Est pour une lecture naturelle.
 export const TIMEZONES = [
-  { tz: "Europe/Paris", city: "Paris" },
-  { tz: "Europe/London", city: "Londres" },
-  { tz: "America/New_York", city: "New York" },
-  { tz: "America/Chicago", city: "Chicago" },
-  { tz: "Asia/Dubai", city: "Dubaï" },
-  { tz: "Asia/Bangkok", city: "Bangkok" },
-  { tz: "Asia/Tokyo", city: "Tokyo" },
+  { tz: "America/Los_Angeles", city: "Los Angeles" },
+  { tz: "America/Chicago",     city: "Chicago" },
+  { tz: "America/New_York",    city: "New York" },
+  { tz: "America/Cayenne",     city: "Cayenne" },
+  { tz: "Europe/London",       city: "Londres" },
+  { tz: "Europe/Paris",        city: "Paris" },
+  { tz: "Europe/Berlin",       city: "Francfort" },
+  { tz: "Asia/Dubai",          city: "Dubaï" },
+  { tz: "Asia/Bangkok",        city: "Bangkok" },
+  { tz: "Asia/Hong_Kong",      city: "Hong Kong" },
+  { tz: "Asia/Tokyo",          city: "Tokyo" },
+  { tz: "Australia/Sydney",    city: "Sydney" },
 ];
 
 export function cityFor(tz) {
