@@ -75,6 +75,11 @@ export const DICT = {
   m_plan_ok:      { fr: "Plan respecté ?",  en: "Plan followed?" },
   m_yes:          { fr: "Oui",              en: "Yes" },
   m_no:           { fr: "Non",              en: "No" },
+  m_emotion:      { fr: "Émotion à l'entrée", en: "Emotion at entry" },
+  m_emotion_hint: { fr: "Quel état mental as-tu ressenti au moment d'entrer ? Optionnel, mais très parlant sur la durée.", en: "What mental state did you feel when entering? Optional, but very telling over time." },
+  m_emotion_none: { fr: "— non renseigné —", en: "— not set —" },
+  brk_by_emotion: { fr: "Par émotion",      en: "By emotion" },
+  brk_emotion_hint:{ fr: "Croise ton P&L avec ton état mental à l'entrée. Les biais destructeurs (FOMO, revenge, tilt) ressortent vite.", en: "Cross your P&L with your mental state at entry. Destructive biases (FOMO, revenge, tilt) surface fast." },
 
   m_new_account:  { fr: "Nouveau compte",   en: "New account" },
   m_firm:         { fr: "Firme",            en: "Firm" },
