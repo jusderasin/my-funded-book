@@ -3,7 +3,8 @@
 import { useState, useMemo } from "react";
 import { useBook } from "@/components/BookProvider";
 import { fmtMoney } from "@/lib/format";
-import { BarChart3, TrendingUp, Layers, Clock, Tag, Target, Calendar, ArrowLeftRight, Award } from "lucide-react";
+import { BarChart3, TrendingUp, Layers, Clock, Tag, Target, Calendar, ArrowLeftRight, Award, Heart } from "lucide-react";
+import { EMOTION_BY_KEY } from "@/lib/constants";
 
 const GREEN = "#00E676";
 const RED = "#FF5252";
@@ -293,6 +294,11 @@ export default function BreakdownPage() {
       byGrade: groupStats(list, (tr) => tr.grade),
       byTag: groupStats(list, (tr) => (Array.isArray(tr.tags) && tr.tags.length ? tr.tags : ["—"])),
       byDir: groupStats(list, (tr) => (tr.dir === "long" ? "LONG" : "SHORT")),
+      byEmotion: groupStats(list, (tr) => {
+        const em = tr.emotion ? EMOTION_BY_KEY[tr.emotion] : null;
+        if (!em) return L === "en" ? "— not set —" : "— non renseigné —";
+        return em.e + " " + (L === "en" ? em.en : em.fr);
+      }),
     };
   }, [trades, period, L]);
 
@@ -387,6 +393,21 @@ export default function BreakdownPage() {
               <Segmented tp={data.outcome.tp} be={data.outcome.be} sl={data.outcome.sl} lang={lang} />
             </Section>
           </div>
+
+          {/* émotions */}
+          <Section
+            icon={Heart}
+            title={L === "en" ? "By emotion (at entry)" : "Par émotion (à l'entrée)"}
+            right={
+              <span className="max-w-[420px] text-right text-[10.5px] italic text-muted2">
+                {L === "en"
+                  ? "Cross P&L with mental state — destructive biases (FOMO, revenge, tilt) surface fast."
+                  : "P&L croisé à l'état mental — les biais destructeurs (FOMO, revenge, tilt) ressortent vite."}
+              </span>
+            }
+          >
+            <Breakdown rows={data.byEmotion} />
+          </Section>
 
           {/* distribution R */}
           <Section icon={BarChart3} title={L === "en" ? "R distribution" : "Distribution des R"}>
