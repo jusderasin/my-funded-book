@@ -50,6 +50,7 @@ export default function RiskBanner() {
     const size = Number(account.size) || 0;
     const dailyLimit = account.daily_loss_limit != null ? Number(account.daily_loss_limit) : null;
     const maxDD = account.max_drawdown != null ? Number(account.max_drawdown) : null;
+    const profitTarget = account.profit_target != null ? Number(account.profit_target) : null;
     const trailing = account.trailing_drawdown !== false;
 
     const at = trades
@@ -86,17 +87,29 @@ export default function RiskBanner() {
       dailyLeft = dailyLimit - dailyUsed;
     }
 
-    return { size, dailyLimit, maxDD, trailing, balance, ddThreshold, ddMargin, dailyUsed, dailyLeft };
+    let profitLeft = null;
+    if (profitTarget != null) {
+      profitLeft = profitTarget - cum;
+    }
+
+    return {
+      size, dailyLimit, maxDD, trailing, balance, ddThreshold, ddMargin, dailyUsed, dailyLeft,
+      profitTarget, profitNet: cum, profitLeft,
+    };
   }, [account, trades]);
 
   if (!account || !data) return null;
-  if (data.dailyLimit == null && data.maxDD == null) return null;
+  if (data.dailyLimit == null && data.maxDD == null && data.profitTarget == null) return null;
 
   const dailyRatio = data.dailyLimit ? data.dailyUsed / data.dailyLimit : 0;
   const dailyColor = dailyRatio >= 0.85 ? RED : dailyRatio >= 0.6 ? AMBER : GREEN;
 
   const ddRatio = data.maxDD ? data.ddMargin / data.maxDD : 1;
   const ddColor = ddRatio <= 0.2 ? RED : ddRatio <= 0.5 ? AMBER : GREEN;
+
+  const profitRatio = data.profitTarget ? data.profitNet / data.profitTarget : 0;
+  const profitPct = Math.max(0, profitRatio * 100);
+  const profitReached = data.profitTarget != null && data.profitNet >= data.profitTarget;
 
   return (
     <div className="mb-4 rounded-2xl border border-line bg-panel p-4">
@@ -112,7 +125,17 @@ export default function RiskBanner() {
         <span className="font-mono text-[12px] text-muted2">{L === "en" ? "Balance" : "Solde"} ~ {fmtMoney(Math.round(data.balance))}</span>
       </div>
 
-      <div className="grid gap-3 sm:grid-cols-2">
+      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-3">
+        {data.profitTarget != null && (
+          <Cell
+            label={L === "en" ? "Profit target" : "Objectif profit"}
+            sub={`${fmtMoney(data.profitNet)} / ${fmtMoney(data.profitTarget)}`}
+            pct={profitPct}
+            color={GREEN}
+            bigLabel={profitReached ? (L === "en" ? "reached" : "atteint") : (L === "en" ? "left" : "reste")}
+            bigValue={profitReached ? "✓" : signed(data.profitLeft)}
+          />
+        )}
         {data.dailyLimit != null && (
           <Cell
             label={L === "en" ? "Day loss" : "Perte du jour"}
