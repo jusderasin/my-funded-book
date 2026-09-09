@@ -5,7 +5,7 @@ import { Modal, Field, inputCls, Chip, PrimaryBtn, GhostBtn } from "./ui";
 import { FilePicker } from "./FilePicker";
 import { useBook } from "./BookProvider";
 import { uploadFile } from "@/lib/upload";
-import { FIRMS, SESSIONS, GRADES, TAG_LIB, EMOTIONS } from "@/lib/constants";
+import { FIRMS, SESSIONS, GRADES, TAG_LIB } from "@/lib/constants";
 import { todayISO, fmtMoney } from "@/lib/format";
 
 const firmOptions = Object.keys(FIRMS);
@@ -24,7 +24,6 @@ export function LogTradeModal({ editing, onClose }) {
     editing || {
       symbol: "MNQ", date: todayISO(), dir: "long", session: "NY AM", grade: "A+",
       r: "", pnl: "", setup: "", tags: [], why: "", plan: true, account_id: defaultAccountId, outcome: "",
-      emotion: "",
     }
   );
   const [file, setFile] = useState(null);
@@ -65,7 +64,6 @@ export function LogTradeModal({ editing, onClose }) {
       screenshot_url_2: screenshot_url_2 || null,
       account_id: f.account_id || null,
       outcome: f.outcome || null,
-      emotion: f.emotion || null,
     };
     if (editing) await updateTrade(editing.id, row);
     else await addTrade(row);
@@ -164,21 +162,6 @@ export function LogTradeModal({ editing, onClose }) {
           <Chip active={!f.plan} danger onClick={() => set("plan", false)}>{t("m_no")}</Chip>
         </div>
       </Field>
-      <div className="mb-3.5">
-        <div className="flex flex-wrap gap-1.5">
-          {EMOTIONS.map((em) => (
-            <Chip
-              key={em.k}
-              active={f.emotion === em.k}
-              danger={em.tone === "red"}
-              onClick={() => set("emotion", f.emotion === em.k ? "" : em.k)}
-            >
-              {em.e} {lang === "en" ? em.en : em.fr}
-            </Chip>
-          ))}
-        </div>
-        <div className="mt-1.5 text-[11px] text-muted2">{t("m_emotion_hint")}</div>
-      </div>
     </Modal>
   );
 }
@@ -318,9 +301,9 @@ export function SettingsModal({ onClose, onReplayTutorial }) {
   const fmtDate = (d) => (d ? d.toLocaleDateString(locale, { day: "numeric", month: "long", year: "numeric" }) : "—");
 
   function exportCSV() {
-    const rows = [["date", "symbol", "dir", "session", "grade", "r", "pnl", "setup", "tags", "plan", "emotion", "why"]];
+    const rows = [["date", "symbol", "dir", "session", "grade", "r", "pnl", "setup", "tags", "plan", "why"]];
     trades.forEach((tr) =>
-      rows.push([tr.date, tr.symbol, tr.dir, tr.session, tr.grade, tr.r, tr.pnl, tr.setup, (tr.tags || []).join("|"), tr.plan ? 1 : 0, tr.emotion || "", (tr.why || "").replace(/"/g, '""')])
+      rows.push([tr.date, tr.symbol, tr.dir, tr.session, tr.grade, tr.r, tr.pnl, tr.setup, (tr.tags || []).join("|"), tr.plan ? 1 : 0, (tr.why || "").replace(/"/g, '""')])
     );
     const csv = rows.map((r) => r.map((c) => (/[",\n]/.test(String(c)) ? '"' + c + '"' : c)).join(",")).join("\n");
     const a = document.createElement("a");
