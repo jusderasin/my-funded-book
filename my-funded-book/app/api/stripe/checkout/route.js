@@ -1,10 +1,9 @@
 import { NextResponse } from "next/server";
 import { createServerClient } from "@supabase/ssr";
 import { cookies } from "next/headers";
-import { sql } from "@/lib/db";
-import Stripe from "stripe";
+import { getSubscription, saveStripeCustomer } from "@/lib/subscriptions";
+import { getStripe } from "@/lib/stripe";
 
-const stripe = new Stripe(process.env.STRIPE_SECRET_KEY);
 
 const PRICES = {
   monthly: process.env.NEXT_PUBLIC_STRIPE_PRICE_MONTHLY,
@@ -13,6 +12,7 @@ const PRICES = {
 
 export async function POST(req) {
   try {
+    const stripe = getStripe();
     const cookieStore = cookies();
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL,
@@ -43,13 +43,16 @@ export async function POST(req) {
     const site = origin.replace(/\/$/, "");
 
     // Lecture dans Neon
-    const rows = await sql`SELECT stripe_customer_id FROM subscriptions WHERE user_id = ${user.id} LIMIT 1`;
-    let customerId = rows[0]?.stripe_customer_id;
+    const subscription = await getSubscription(user.id);
+    let customerId = subscription?.stripe_customer_id;
 
     if (customerId) {
       try {
-        await stripe.customers.retrieve(customerId);
+        const customer = await stripe.customers.retrieve(customerId);
+        if (customer.deleted) customerId = null;
       } catch (e) {
+        // Do not create duplicate customers on network/authentication failures.
+        if (e.code !== "resource_missing") throw e;
         customerId = null;
       }
     }
@@ -62,11 +65,7 @@ export async function POST(req) {
       customerId = customer.id;
 
       // Insertion / Mise à jour dans Neon
-      await sql`
-        INSERT INTO subscriptions (user_id, stripe_customer_id, status)
-        VALUES (${user.id}, ${customerId}, 'inactive')
-        ON CONFLICT (user_id) DO UPDATE SET stripe_customer_id = EXCLUDED.stripe_customer_id;
-      `;
+      await saveStripeCustomer(user.id, customerId);
     }
 
     const session = await stripe.checkout.sessions.create({

@@ -8,7 +8,7 @@ import { translate } from "@/lib/i18n";
 const BookCtx = createContext(null);
 export const useBook = () => useContext(BookCtx);
 
-export function BookProvider({ user, children }) {
+export function BookProvider({ user, children, initialSubscription = null }) {
   const supabase = useMemo(() => createClient(), []);
   const [loading, setLoading] = useState(true);
   const [lang, setLangState] = useState("fr");
@@ -19,7 +19,9 @@ export function BookProvider({ user, children }) {
   const [expenses, setExpenses] = useState([]);
   const [playbooks, setPlaybooks] = useState([]);
   const [reviews, setReviews] = useState([]);
-  const [subscription, setSubscription] = useState(null);
+  const [subscription, setSubscription] = useState(initialSubscription);
+  const [subscriptionError, setSubscriptionError] = useState(false);
+  const [subscriptionLoading, setSubscriptionLoading] = useState(false);
   const [toast, setToast] = useState(null);
 
   const notify = useCallback((msg, err = false) => {
@@ -38,9 +40,26 @@ export function BookProvider({ user, children }) {
 
   const t = useCallback((key) => translate(lang, key), [lang]);
 
+  const reloadSubscription = useCallback(async () => {
+    setSubscriptionLoading(true);
+    try {
+      const response = await fetch("/api/stripe/subscription", { cache: "no-store" });
+      if (!response.ok) throw new Error("Subscription unavailable");
+      const data = await response.json();
+      setSubscription(data.subscription);
+      setSubscriptionError(false);
+    } catch {
+      // Keep the last known state; an outage is not an absent subscription.
+      setSubscriptionError(true);
+    } finally {
+      setSubscriptionLoading(false);
+    }
+  }, [user.id]);
+
   const loadAll = useCallback(async () => {
+    void reloadSubscription();
     setLoading(true);
-    const [p, t, a, c, e, pb, rv, s] = await Promise.all([
+    const [p, t, a, c, e, pb, rv] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", user.id).single(),
       supabase.from("trades").select("*").order("date", { ascending: false }),
       supabase.from("accounts").select("*").order("date", { ascending: false }),
@@ -48,7 +67,6 @@ export function BookProvider({ user, children }) {
       supabase.from("expenses").select("*").order("date", { ascending: false }),
       supabase.from("playbooks").select("*").order("created_at", { ascending: true }),
       supabase.from("reviews").select("*").order("week_of", { ascending: false }),
-      supabase.from("subscriptions").select("*").eq("user_id", user.id).maybeSingle(),
     ]);
     if (p.data) setProfile(p.data);
     setTrades(t.data || []);
@@ -57,9 +75,8 @@ export function BookProvider({ user, children }) {
     setExpenses(e.data || []);
     setPlaybooks(pb.data || []);
     setReviews(rv.data || []);
-    setSubscription(s.data || null);
     setLoading(false);
-  }, [supabase, user.id]);
+  }, [supabase, user.id, reloadSubscription]);
 
   useEffect(() => {
     loadAll();
@@ -178,6 +195,9 @@ export function BookProvider({ user, children }) {
     playbooks,
     reviews,
     subscription,
+    subscriptionError,
+    subscriptionLoading,
+    reloadSubscription,
     stats,
     toast,
     ...api,

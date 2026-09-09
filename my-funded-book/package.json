@@ -6,7 +6,9 @@
     "dev": "next dev",
     "build": "next build",
     "start": "next start",
-    "lint": "next lint"
+    "lint": "next lint",
+    "test": "node --test tests/billing.test.mjs",
+    "validate:billing": "node scripts/validate-billing.mjs"
   },
   "dependencies": {
     "@aws-sdk/client-s3": "^3.670.0",
@@ -17,10 +19,12 @@
     "next": "14.2.15",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "server-only": "0.0.1",
     "stripe": "^17.2.0"
   },
   "devDependencies": {
     "autoprefixer": "^10.4.20",
+    "esbuild": "0.25.12",
     "postcss": "^8.4.47",
     "tailwindcss": "^3.4.14"
   }

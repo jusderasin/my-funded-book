@@ -1,4 +1,4 @@
-const CACHE = "mfb-v1";
+const CACHE = "mfb-v2";
 const ASSETS = ["/", "/dashboard", "/manifest.json"];
 
 self.addEventListener("install", (e) => {
@@ -15,7 +15,8 @@ self.addEventListener("activate", (e) => {
 
 self.addEventListener("fetch", (e) => {
   const { request } = e;
-  if (request.method !== "GET" || new URL(request.url).origin !== location.origin) return;
+  const url = new URL(request.url);
+  if (request.method !== "GET" || url.origin !== location.origin || url.pathname.startsWith("/api/")) return;
   e.respondWith(
     fetch(request)
       .then((res) => {

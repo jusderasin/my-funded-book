@@ -33,7 +33,7 @@ L'app tourne sur http://localhost:3000
    - clé `service_role` (secrète) → `SUPABASE_SERVICE_ROLE_KEY`
 4. **Authentication → Providers → Email** : active Email. Pour tester sans confirmation, désactive "Confirm email" (à réactiver en prod).
 
-> À l'inscription, un trigger crée automatiquement le `profile` + la ligne `subscriptions` (statut `inactive`).
+> À l'inscription, le trigger crée le profil et peut créer une ligne `subscriptions` Supabase héritée. La facturation utilise exclusivement Neon ; cette ligne Supabase n'est pas utilisée.
 
 ## 4. Configuration Stripe
 
@@ -46,7 +46,7 @@ L'app tourne sur http://localhost:3000
      `checkout.session.completed`, `customer.subscription.created`, `customer.subscription.updated`, `customer.subscription.deleted`.
 
 ### Le flux d'abonnement (important)
-Le paywall **n'est pas** un `if` côté client. Le statut vit dans la table `subscriptions`, écrit **uniquement** par le webhook (via la clé `service_role`, qui bypass la RLS). Le layout serveur `app/(app)/layout.jsx` lit ce statut et redirige vers `/pricing` si l'abonnement n'est pas `active`/`trialing`. Impossible à contourner côté front.
+Le layout serveur vérifie le statut dans Neon (`DATABASE_URL`). Le checkout, le webhook, la gestion Stripe et la suppression de compte utilisent le même module serveur `lib/subscriptions.js`. Supabase conserve l'authentification et les données de trading. Les paramètres affichent le statut via une API authentifiée ; Stripe fournit les détails de résiliation programmée. Voir [le fonctionnement et les tests de facturation](docs/billing.md).
 
 ## 4bis. Configuration Cloudflare R2 (stockage images/PDF — gratuit)
 
@@ -148,7 +148,7 @@ my-funded-book/
 
 ## Sécurité — checklist
 - ✅ RLS activée sur les 8 tables, policies `auth.uid() = user_id`.
-- ✅ Table `subscriptions` en lecture seule côté client ; écriture réservée au webhook (`service_role`).
+- ✅ Abonnements Neon accessibles uniquement côté serveur ; résumé filtré via une API authentifiée.
 - ✅ Guard d'abonnement côté serveur (redirection avant rendu).
 - ✅ `service_role` jamais exposée au navigateur (utilisée uniquement dans les routes API).
 - ✅ Webhook Stripe : signature vérifiée (`constructEvent`).
