@@ -2,14 +2,73 @@
 @tailwind components;
 @tailwind utilities;
 
-:root { color-scheme: dark; }
+/* ------------------------------------------------------------------ */
+/*  THÈMES — palettes de tokens de fond/bordure/texte.                 */
+/*  L'accent (gain) et loss restent gérés séparément par --accent /    */
+/*  --loss (posés en JS par AccentPicker via BookProvider).            */
+/*                                                                    */
+/*  Le thème est activé via l'attribut data-theme sur <html>, posé     */
+/*  par applyProfileVars() dans BookProvider. Pas de data-theme =      */
+/*  thème "dark" (défaut).                                             */
+/* ------------------------------------------------------------------ */
 
-html, body { background: #0D0F12; }
+:root {
+  color-scheme: dark;
+  --ink:    #0D0F12;
+  --ink2:   #0a0c10;
+  --panel:  #161920;
+  --panel2: #1c2029;
+  --line:   #242833;
+  --line2:  #2e3340;
+  --muted:  #8a93a6;
+  --muted2: #6b7385;
+}
+
+/* OLED — vrais noirs pour AMOLED */
+:root[data-theme="oled"] {
+  color-scheme: dark;
+  --ink:    #000000;
+  --ink2:   #000000;
+  --panel:  #0a0a0a;
+  --panel2: #141414;
+  --line:   #1f1f1f;
+  --line2:  #2a2a2a;
+  --muted:  #8a93a6;
+  --muted2: #6b7385;
+}
+
+/* Darker — encore plus contrasté que Dark */
+:root[data-theme="darker"] {
+  color-scheme: dark;
+  --ink:    #05070a;
+  --ink2:   #030507;
+  --panel:  #0e1116;
+  --panel2: #151922;
+  --line:   #1e2230;
+  --line2:  #282d3d;
+  --muted:  #8a93a6;
+  --muted2: #6b7385;
+}
+
+/* Cyberpunk — bleu nuit teinté violet */
+:root[data-theme="cyberpunk"] {
+  color-scheme: dark;
+  --ink:    #0a0a1f;
+  --ink2:   #050515;
+  --panel:  #12122e;
+  --panel2: #1a1a3d;
+  --line:   #2a2a55;
+  --line2:  #3a3a70;
+  --muted:  #a5b0d4;
+  --muted2: #7d87a8;
+}
+
+html, body { background: var(--ink); }
 
 * { -webkit-tap-highlight-color: transparent; }
 
 ::-webkit-scrollbar { width: 8px; height: 8px; }
-::-webkit-scrollbar-thumb { background: #2e3340; border-radius: 4px; }
+::-webkit-scrollbar-thumb { background: var(--line2); border-radius: 4px; }
 
 input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.7); }
 
