@@ -124,6 +124,7 @@ export const DICT = {
   exp_empty_s:    { fr: "Frais d'éval, resets, data feeds… ici tu sais exactement ce que le prop trading te coûte.", en: "Eval fees, resets, data feeds… here you know exactly what prop trading costs you." },
   jrn_title:      { fr: "Journal de trades",  en: "Trade journal" },
   jrn_add:        { fr: "+ Log trade",        en: "+ Log trade" },
+  jrn_import:     { fr: "Importer CSV",       en: "Import CSV" },
   jrn_empty_t:    { fr: "Aucun trade",        en: "No trade" },
   jrn_empty_s:    { fr: "Log tes NQ/MNQ : grade, session, R, PnL et surtout le WHY. C'est là que l'edge se muscle.", en: "Log your NQ/MNQ: grade, session, R, PnL and above all the WHY. That's where the edge grows." },
   jrn_why:        { fr: "WHY —",              en: "WHY —" },
