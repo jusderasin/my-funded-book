@@ -1,6 +1,6 @@
 "use client";
 
-import { use, useState } from "react";
+import { useState, use } from "react";
 import { useRouter } from "next/navigation";
 import { useBook } from "@/components/BookProvider";
 import { AccountModal } from "@/components/modals";
@@ -11,14 +11,15 @@ import { accountHealth, signedMoney } from "@/lib/accountHealth";
 import { ArrowLeft, Pencil, Trash2, Printer } from "lucide-react";
 
 export default function AccountDetailPage({ params }) {
-  const resolvedParams = use(params);
-  const accountId = resolvedParams.id;
   const router = useRouter();
   const { accounts, trades, certificates, deleteAccount, lang, t } = useBook();
   const [editModal, setEditModal] = useState(false);
 
+  // Extraction sécurisée de l'ID selon la version de React/Next.js
+  const accountId = params?.id || (typeof use === "function" ? use(params)?.id : null);
+
   const L = lang === "en" ? "en" : "fr";
-  const account = accounts.find((a) => String(a.id) === String(accountId));
+  const account = accounts?.find((a) => String(a.id) === String(accountId));
 
   if (!account) {
     return (
@@ -34,8 +35,8 @@ export default function AccountDetailPage({ params }) {
     );
   }
 
-  const h = accountHealth(account, trades, certificates, L);
-  const accountTrades = trades.filter((tr) => String(tr.account_id) === String(account.id));
+  const h = accountHealth(account, trades || [], certificates || [], L);
+  const accountTrades = (trades || []).filter((tr) => String(tr.account_id) === String(account.id));
   const isEval = !(account.type === "funded" || account.status === "funded" || account.status === "passed");
   const stStyle = STATUS_LABEL[account.status] || ["gray", account.status];
 
@@ -45,7 +46,7 @@ export default function AccountDetailPage({ params }) {
 
   return (
     <div className="space-y-6 print:p-6 print:text-black print:bg-white">
-      {/* Header / Navigation (masqué à l'impression) */}
+      {/* Header / Navigation */}
       <div className="flex items-center justify-between print:hidden">
         <GhostBtn onClick={() => router.push("/accounts")} className="text-xs">
           <ArrowLeft size={14} className="mr-1.5" />
@@ -137,7 +138,7 @@ export default function AccountDetailPage({ params }) {
         </div>
       </div>
 
-      {/* Section Liste des Trades pour le Rapport */}
+      {/* Section Liste des Trades */}
       <div className="rounded-2xl border border-line bg-panel p-5 print:border-gray-300 print:bg-white">
         <h3 className="text-sm font-semibold text-white print:text-black mb-3">
           {L === "en" ? "Trade History" : "Historique des Trades"}
