@@ -7,18 +7,23 @@ module.exports = {
   theme: {
     extend: {
       colors: {
-        ink: "#0D0F12",
-        ink2: "#0a0c10",
-        panel: "#161920",
-        panel2: "#1c2029",
-        line: "#242833",
-        line2: "#2e3340",
-        muted: "#8a93a6",
-        muted2: "#6b7385",
+        // Tokens de thème — bind sur les CSS vars définies dans globals.css.
+        // Les fallbacks reproduisent le thème "dark" pour que rien ne casse
+        // en cas de bug CSS ou de rendu SSR avant hydratation.
+        ink:    "var(--ink, #0D0F12)",
+        ink2:   "var(--ink2, #0a0c10)",
+        panel:  "var(--panel, #161920)",
+        panel2: "var(--panel2, #1c2029)",
+        line:   "var(--line, #242833)",
+        line2:  "var(--line2, #2e3340)",
+        muted:  "var(--muted, #8a93a6)",
+        muted2: "var(--muted2, #6b7385)",
+        // Accent gain / loss — posés par AccentPicker.
         accent: "var(--accent, #00E676)",
         accentDim: "color-mix(in srgb, var(--accent, #00E676) 12%, transparent)",
         loss: "var(--loss, #FF5252)",
         lossDim: "color-mix(in srgb, var(--loss, #FF5252) 12%, transparent)",
+        // Couleurs de charts (invariantes selon le thème).
         pinkx: "#ff66e4",
         cyanx: "#00d4a0",
         purplex: "#8b5cf6",
