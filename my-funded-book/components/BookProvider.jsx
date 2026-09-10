@@ -8,12 +8,20 @@ import { translate } from "@/lib/i18n";
 const BookCtx = createContext(null);
 export const useBook = () => useContext(BookCtx);
 
-// Applique les couleurs perso du profil sur :root (CSS vars).
-// Si la colonne est vide, on garde le fallback défini dans tailwind.config.js.
-function applyAccentVars(p) {
+// Applique les couleurs perso du profil sur :root (CSS vars) + le thème global.
+// Si la colonne est vide, on garde le fallback défini dans tailwind.config.js / globals.css.
+function applyProfileVars(p) {
   if (typeof document === "undefined" || !p) return;
+  // Accent gain / loss
   if (p.accent_gain) document.documentElement.style.setProperty("--accent", p.accent_gain);
   if (p.accent_loss) document.documentElement.style.setProperty("--loss", p.accent_loss);
+  // Thème global (bind aux data-theme dans globals.css)
+  const theme = p.theme || "dark";
+  if (theme === "dark") {
+    document.documentElement.removeAttribute("data-theme");
+  } else {
+    document.documentElement.setAttribute("data-theme", theme);
+  }
 }
 
 export function BookProvider({ user, children }) {
@@ -60,7 +68,7 @@ export function BookProvider({ user, children }) {
     ]);
     if (p.data) {
       setProfile(p.data);
-      applyAccentVars(p.data);
+      applyProfileVars(p.data);
     }
     setTrades(t.data || []);
     setAccounts(a.data || []);
@@ -157,7 +165,7 @@ export function BookProvider({ user, children }) {
         .single();
       if (error) return notify(error.message, true);
       setProfile(data);
-      applyAccentVars(data);
+      applyProfileVars(data);
       notify("Réglages sauvegardés ✓");
     },
     // review (upsert par semaine)
