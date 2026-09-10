@@ -11,8 +11,8 @@ const PERIODS = [
   { v: "all", fr: "Tout", en: "All" },
 ];
 
-const GREEN = "#00d301";
-const RED = "#ff3b5c";
+const GREEN = "var(--accent)";
+const RED = "var(--loss)";
 const GRAY = "#8a93a6";
 
 function Inline({ text }) {
