@@ -8,6 +8,14 @@ import { translate } from "@/lib/i18n";
 const BookCtx = createContext(null);
 export const useBook = () => useContext(BookCtx);
 
+// Applique les couleurs perso du profil sur :root (CSS vars).
+// Si la colonne est vide, on garde le fallback défini dans tailwind.config.js.
+function applyAccentVars(p) {
+  if (typeof document === "undefined" || !p) return;
+  if (p.accent_gain) document.documentElement.style.setProperty("--accent", p.accent_gain);
+  if (p.accent_loss) document.documentElement.style.setProperty("--loss", p.accent_loss);
+}
+
 export function BookProvider({ user, children }) {
   const supabase = useMemo(() => createClient(), []);
   const [loading, setLoading] = useState(true);
@@ -50,7 +58,10 @@ export function BookProvider({ user, children }) {
       supabase.from("reviews").select("*").order("week_of", { ascending: false }),
       supabase.from("subscriptions").select("*").eq("user_id", user.id).maybeSingle(),
     ]);
-    if (p.data) setProfile(p.data);
+    if (p.data) {
+      setProfile(p.data);
+      applyAccentVars(p.data);
+    }
     setTrades(t.data || []);
     setAccounts(a.data || []);
     setCertificates(c.data || []);
@@ -146,6 +157,7 @@ export function BookProvider({ user, children }) {
         .single();
       if (error) return notify(error.message, true);
       setProfile(data);
+      applyAccentVars(data);
       notify("Réglages sauvegardés ✓");
     },
     // review (upsert par semaine)
@@ -215,4 +227,4 @@ export function BookProvider({ user, children }) {
       )}
     </BookCtx.Provider>
   );
-}
+}D
