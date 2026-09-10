@@ -2,7 +2,7 @@
 
 import { useState } from "react";
 import { useBook } from "@/components/BookProvider";
-import { Sparkles, Copy, FileDown } from "lucide-react";
+import { Brain, Sparkles, Copy, FileDown } from "lucide-react";
 
 const PERIODS = [
   { v: "week", fr: "Semaine", en: "Week" },
@@ -230,7 +230,7 @@ export default function ReportPage() {
     <div className="mx-auto max-w-[820px]">
       <div className="mb-4">
         <h2 className="flex items-center gap-2 text-[18px] font-extrabold">
-          <Sparkles size={18} className="text-accent" /> {L === "en" ? "AI Report" : "Rapport IA"}
+          <Brain size={18} className="text-accent" /> Coach
         </h2>
         <div className="mt-0.5 text-[12px] text-muted2">{L === "en" ? "Deep AI analysis of your trading over a period." : "Analyse IA approfondie de ton trading sur une période."}</div>
       </div>
