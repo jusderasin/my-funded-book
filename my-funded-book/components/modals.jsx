@@ -166,19 +166,39 @@ export function LogTradeModal({ editing, onClose }) {
   );
 }
 
-export function AccountModal({ onClose }) {
-  const { addAccount, t, lang } = useBook();
-  const [f, setF] = useState({
-    firm: "MFF", size: 50000, cost: 0, type: "eval", status: "active", date: todayISO(), note: "",
-    daily_loss_limit: "", max_drawdown: "", profit_target: "", trailing_drawdown: true,
-  });
+export function AccountModal({ editing, onClose }) {
+  const { addAccount, updateAccount, t, lang } = useBook();
+  const isEdit = !!editing;
+  // En édition on préfill depuis l'objet existant. Les colonnes numériques nullables
+  // (daily_loss_limit / max_drawdown / profit_target) sont remises en string vide si null
+  // pour que les <input type="number"> restent contrôlés sans crier.
+  const [f, setF] = useState(
+    editing
+      ? {
+          firm: editing.firm || "MFF",
+          size: editing.size ?? 50000,
+          cost: editing.cost ?? 0,
+          type: editing.type || "eval",
+          status: editing.status || "active",
+          date: editing.date || todayISO(),
+          note: editing.note || "",
+          daily_loss_limit: editing.daily_loss_limit == null ? "" : editing.daily_loss_limit,
+          max_drawdown: editing.max_drawdown == null ? "" : editing.max_drawdown,
+          profit_target: editing.profit_target == null ? "" : editing.profit_target,
+          trailing_drawdown: editing.trailing_drawdown !== false,
+        }
+      : {
+          firm: "MFF", size: 50000, cost: 0, type: "eval", status: "active", date: todayISO(), note: "",
+          daily_loss_limit: "", max_drawdown: "", profit_target: "", trailing_drawdown: true,
+        }
+  );
   const set = (k, v) => setF((s) => ({ ...s, [k]: v }));
   const numOrNull = (v) => (v === "" || v == null ? null : Number(v));
   const L = lang === "en" ? "en" : "fr";
   return (
-    <Modal title={t("m_new_account")} onClose={onClose}
+    <Modal title={isEdit ? (L === "en" ? "Edit account" : "Éditer le compte") : t("m_new_account")} onClose={onClose}
       footer={<><GhostBtn className="flex-1" onClick={onClose}>{t("m_cancel")}</GhostBtn><PrimaryBtn className="flex-1" onClick={async () => {
-        await addAccount({
+        const payload = {
           ...f,
           size: Number(f.size) || 0,
           cost: Number(f.cost) || 0,
@@ -186,7 +206,9 @@ export function AccountModal({ onClose }) {
           max_drawdown: numOrNull(f.max_drawdown),
           profit_target: numOrNull(f.profit_target),
           trailing_drawdown: !!f.trailing_drawdown,
-        });
+        };
+        if (isEdit) await updateAccount(editing.id, payload);
+        else await addAccount(payload);
         onClose();
       }}>{t("m_save")}</PrimaryBtn></>}>
       <Field label={t("m_firm")}><select className={inputCls} value={f.firm} onChange={(e) => set("firm", e.target.value)}>{firmOptions.map((x) => <option key={x}>{x}</option>)}</select></Field>
