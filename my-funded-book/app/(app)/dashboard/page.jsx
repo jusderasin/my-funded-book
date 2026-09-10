@@ -36,7 +36,7 @@ export default function DashboardPage() {
       <RiskBanner />
       <div className="mb-3.5 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
         <Kpi label={t("kpi_net")} big tone={s.net >= 0 ? "pos" : "neg"} value={fmtMoney(s.net, true)} />
-        <Kpi label={t("kpi_trade_wr")} tone={s.wr >= 50 ? "pos" : "warn"} value={s.wr.toFixed(2) + "%"} gauge={<Gauge pct={s.wr} color={s.wr >= 50 ? "#00E676" : "#f5b301"} />} />
+        <Kpi label={t("kpi_trade_wr")} tone={s.wr >= 50 ? "pos" : "warn"} value={s.wr.toFixed(2) + "%"} gauge={<Gauge pct={s.wr} color={s.wr >= 50 ? "var(--accent)" : "#f5b301"} />} />
         <Kpi label={t("kpi_pf")} tone={s.pf >= 1.5 ? "pos" : s.pf >= 1 ? "warn" : "neg"} value={s.pf.toFixed(2)} gauge={<Gauge pct={Math.min(100, (s.pf / 3) * 100)} />} />
         <Kpi label={t("kpi_day_wr")} tone={s.dayWr >= 50 ? "pos" : "warn"} value={s.dayWr.toFixed(2) + "%"} gauge={<Gauge pct={s.dayWr} />} />
         <Kpi label={t("kpi_avg_wl")} tone={s.wl >= 1 ? "pos" : "warn"} value={s.wl.toFixed(2)} sub={`${fmtK(s.avgW)} / -${fmtK(s.avgL).replace("-", "")}`} />
@@ -52,7 +52,7 @@ export default function DashboardPage() {
           <H>{t("edge_score")}</H>
           <Radar axes={s.axes} />
           <div className="mt-1.5 text-center">
-            <div className="relative my-2.5 h-[7px] rounded" style={{ background: "linear-gradient(90deg,#FF5252,#f5b301,#00E676)" }}>
+            <div className="relative my-2.5 h-[7px] rounded" style={{ background: "linear-gradient(90deg,var(--loss),#f5b301,var(--accent))" }}>
               <div className="absolute -top-[3px] h-[13px] w-[3px] rounded bg-white shadow-[0_0_6px_#fff]" style={{ left: `${Math.max(0, Math.min(100, s.edge))}%` }} />
             </div>
             <div className="flex justify-between font-mono text-[9px] text-muted2"><span>0</span><span>20</span><span>40</span><span>60</span><span>80</span><span>100</span></div>
@@ -64,8 +64,8 @@ export default function DashboardPage() {
           <H>{t("daily_cum")}</H>
           <Area
             values={s.cumSeries}
-            color="#00E676"
-            fill="#00E676"
+            color="var(--accent)"
+            fill="var(--accent)"
             labels={s.days.map(frDate)}
             fmt={(v) => (v >= 0 ? "+" : "") + fmtMoney(v)}
           />
@@ -161,7 +161,6 @@ function H({ children, className = "" }) {
   return <h3 className={`mb-3.5 text-[12px] font-semibold uppercase tracking-wide text-muted2 ${className}`}>{children}</h3>;
 }
 
-// Format R : 1 décimale + signe explicite (+2.5R / -1.0R)
 function fmtR(r) {
   const n = Number(r) || 0;
   return (n >= 0 ? "+" : "") + n.toFixed(1) + "R";
