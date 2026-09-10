@@ -98,12 +98,30 @@ export function BookProvider({ user, children }) {
     [supabase, notify]
   );
 
+  // Insert en masse (import CSV) : contrairement à `insert`, prend un tableau de lignes
+  // et ajoute le résultat via une mise à jour fonctionnelle du state (pas de closure stale
+  // même quand l'appelant enchaîne plusieurs chunks d'affilée dans la même tick).
+  const importTrades = useCallback(
+    async (rows) => {
+      if (!rows || rows.length === 0) return true;
+      const { data, error } = await supabase.from("trades").insert(rows).select();
+      if (error) {
+        notify(error.message, true);
+        return false;
+      }
+      setTrades((prev) => [...(data || []), ...prev]);
+      return true;
+    },
+    [supabase, notify]
+  );
+
   // --- API par domaine ---
   const api = {
     // trades
     addTrade: (row) => insert("trades", row, setTrades, trades),
     updateTrade: (id, patch) => update("trades", id, patch, setTrades, trades),
     deleteTrade: (id) => remove("trades", id, setTrades, trades),
+    importTrades,
     // accounts
     addAccount: (row) => insert("accounts", row, setAccounts, accounts),
     updateAccount: (id, patch) => update("accounts", id, patch, setAccounts, accounts),
