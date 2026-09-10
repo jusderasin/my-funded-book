@@ -9,13 +9,19 @@ import { fmtMoney, frDate } from "@/lib/format";
 import { accountHealth, signedMoney } from "@/lib/accountHealth";
 import { Rocket, Trash2, Info } from "lucide-react";
 
-const GREEN = "#00d301";
+const GREEN = "var(--accent)";
 const AMBER = "#f59e0b";
-const RED = "#ff3b5c";
+const RED = "var(--loss)";
 
 const alertColor = (lvl) => (lvl === "danger" ? RED : lvl === "warn" ? AMBER : lvl === "ok" ? GREEN : "#6b7385");
 const alertBg = (lvl) =>
-  lvl === "danger" ? "rgba(255,59,92,.10)" : lvl === "warn" ? "rgba(245,158,11,.10)" : lvl === "ok" ? "rgba(0,211,1,.10)" : "rgba(255,255,255,.04)";
+  lvl === "danger"
+    ? "color-mix(in srgb, var(--loss) 10%, transparent)"
+    : lvl === "warn"
+    ? "rgba(245,158,11,.10)"
+    : lvl === "ok"
+    ? "color-mix(in srgb, var(--accent) 10%, transparent)"
+    : "rgba(255,255,255,.04)";
 
 function Meter({ label, sub, pct, color }) {
   return (
@@ -138,7 +144,7 @@ export default function AccountsPage() {
                     label={isEval ? (L === "en" ? "Profit target" : "Objectif profit") : (L === "en" ? "Payout target" : "Objectif payout")}
                     sub={signedMoney(h.cum) + " / " + fmtMoney(h.target)}
                     pct={h.targetPct || 0}
-                    color={h.targetReached ? GREEN : "#00E676"}
+                    color={h.targetReached ? GREEN : "var(--accent)"}
                   />
                 )}
 
