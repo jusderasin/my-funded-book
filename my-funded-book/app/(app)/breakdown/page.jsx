@@ -6,8 +6,8 @@ import { fmtMoney } from "@/lib/format";
 import { BarChart3, TrendingUp, Layers, Clock, Tag, Target, Calendar, ArrowLeftRight, Award, Heart } from "lucide-react";
 import { EMOTION_BY_KEY } from "@/lib/constants";
 
-const GREEN = "#00E676";
-const RED = "#FF5252";
+const GREEN = "var(--accent)";
+const RED = "var(--loss)";
 const GRAY = "#8a93a6";
 const PINK = "#ff66e4";
 
