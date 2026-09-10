@@ -4,6 +4,7 @@ import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useBook } from "@/components/BookProvider";
 import { AccentPicker } from "@/components/AccentPicker";
+import { ThemePicker } from "@/components/ThemePicker";
 import { createClient } from "@/lib/supabase/client";
 import { Field, inputCls, Chip, PrimaryBtn, GhostBtn } from "@/components/ui";
 import { User, CreditCard, Lock, Eye, SlidersHorizontal } from "lucide-react";
@@ -225,6 +226,8 @@ export default function SettingsPage() {
               <PrimaryBtn onClick={save} disabled={saving}>{saving ? t("m_sending") : t("settings_save")}</PrimaryBtn>
             </div>
           </div>
+
+          <ThemePicker profile={profile} saveProfile={saveProfile} lang={lang} />
 
           <AccentPicker profile={profile} saveProfile={saveProfile} lang={lang} notify={notify} />
 
