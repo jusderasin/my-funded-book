@@ -13,23 +13,32 @@ export default function SettingsPage() {
   const { profile, saveProfile, trades, lang, setLang, t, notify, subscription, reload } = useBook();
   const supabase = useMemo(() => createClient(), []);
   const [tab, setTab] = useState("profile");
-  const [f, setF] = useState({ name: profile.name, pin: profile.pin, starting_balance: profile.starting_balance ?? 0 });
+
+  // Initialisation sécurisée avec fallback si profile est undefined au chargement
+  const [f, setF] = useState({
+    name: profile?.name ?? "trader",
+    pin: profile?.pin ?? "1234",
+    starting_balance: profile?.starting_balance ?? 0,
+  });
+
   const [saving, setSaving] = useState(false);
   const [pinSaving, setPinSaving] = useState(false);
   const [optSaving, setOptSaving] = useState(false);
   const set = (k, v) => setF((s) => ({ ...s, [k]: v }));
   const optedIn = !!profile?.leaderboard_opt_in;
 
-  // Resync du formulaire quand le vrai profil arrive de Supabase
+  // Resync du formulaire quand le profil charge
   useEffect(() => {
-    setF({
-      name: profile.name ?? "trader",
-      pin: profile.pin ?? "1234",
-      starting_balance: profile.starting_balance ?? 0,
-    });
-  }, [profile.id]);
+    if (profile) {
+      setF({
+        name: profile.name ?? "trader",
+        pin: profile.pin ?? "1234",
+        starting_balance: profile.starting_balance ?? 0,
+      });
+    }
+  }, [profile?.id]);
 
-  // Abonnement (inchangé)
+  // Abonnement
   const [portalLoading, setPortalLoading] = useState(false);
   const [cancelConfirm, setCancelConfirm] = useState(false);
   const [cancelLoading, setCancelLoading] = useState(false);
@@ -65,6 +74,10 @@ export default function SettingsPage() {
     return () => { alive = false; };
   }, [supabase]);
 
+  if (!profile) {
+    return <div className="p-4 text-center text-muted2">Chargement...</div>;
+  }
+
   async function save() {
     setSaving(true);
     await saveProfile({ name: f.name || "trader", starting_balance: Number(f.starting_balance) || 0 });
@@ -95,7 +108,7 @@ export default function SettingsPage() {
 
   function exportCSV() {
     const rows = [["date", "symbol", "dir", "session", "grade", "r", "pnl", "setup", "tags", "plan", "why"]];
-    trades.forEach((tr) =>
+    (trades || []).forEach((tr) =>
       rows.push([tr.date, tr.symbol, tr.dir, tr.session, tr.grade, tr.r, tr.pnl, tr.setup, (tr.tags || []).join("|"), tr.plan ? 1 : 0, (tr.why || "").replace(/"/g, '""')])
     );
     const csv = rows.map((r) => r.map((c) => (/[",\n]/.test(String(c)) ? '"' + c + '"' : c)).join(",")).join("\n");
@@ -243,11 +256,13 @@ export default function SettingsPage() {
                 <span className="absolute top-[3px] h-[18px] w-[18px] rounded-full bg-white transition-all" style={{ left: optedIn ? "23px" : "3px" }} />
               </button>
             </div>
-            <div className="mt-3">
-              <Link href={`/u/${profile.id}`} className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3.5 py-2 text-[12px] font-bold text-black hover:brightness-110">
-                <Eye size={14} /> {lang === "en" ? "View public profile" : "Voir mon profil public"}
-              </Link>
-            </div>
+            {profile?.id && (
+              <div className="mt-3">
+                <Link href={`/u/${profile.id}`} className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3.5 py-2 text-[12px] font-bold text-black hover:brightness-110">
+                  <Eye size={14} /> {lang === "en" ? "View public profile" : "Voir mon profil public"}
+                </Link>
+              </div>
+            )}
           </div>
 
           <div className={cardCls}>
