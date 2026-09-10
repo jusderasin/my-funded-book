@@ -3,6 +3,7 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useBook } from "@/components/BookProvider";
+import { AccentPicker } from "@/components/AccentPicker";
 import { createClient } from "@/lib/supabase/client";
 import { Field, inputCls, Chip, PrimaryBtn, GhostBtn } from "@/components/ui";
 import { User, CreditCard, Lock, Eye, SlidersHorizontal } from "lucide-react";
@@ -224,6 +225,8 @@ export default function SettingsPage() {
               <PrimaryBtn onClick={save} disabled={saving}>{saving ? t("m_sending") : t("settings_save")}</PrimaryBtn>
             </div>
           </div>
+
+          <AccentPicker profile={profile} saveProfile={saveProfile} lang={lang} notify={notify} />
 
           <div className={cardCls}>
             <div className="flex items-center justify-between gap-3">
