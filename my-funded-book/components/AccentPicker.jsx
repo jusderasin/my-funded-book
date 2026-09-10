@@ -9,7 +9,6 @@ const DEFAULT_LOSS = "#FF5252";
 
 const PRESETS = [
   { name: "Classic",   gain: "#00E676", loss: "#FF5252" },
-  { name: "Matcha",    gain: "#00d4a0", loss: "#ff66e4" },
   { name: "Neon",      gain: "#00d4ff", loss: "#ff8c00" },
   { name: "Royal",     gain: "#f5b301", loss: "#8b5cf6" },
   { name: "Mono",      gain: "#e5e7eb", loss: "#6b7280" },
