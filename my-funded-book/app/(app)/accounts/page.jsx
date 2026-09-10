@@ -8,7 +8,7 @@ import { AccountModal } from "@/components/modals";
 import { firmColor, STATUS_LABEL } from "@/lib/constants";
 import { fmtMoney, frDate } from "@/lib/format";
 import { accountHealth, signedMoney } from "@/lib/accountHealth";
-import { Rocket, Trash2, Info, ChevronRight } from "lucide-react";
+import { Rocket, Trash2, Info, ChevronRight, Pencil } from "lucide-react";
 
 const GREEN = "var(--accent)";
 const AMBER = "#f59e0b";
@@ -53,6 +53,7 @@ export default function AccountsPage() {
   const L = lang === "en" ? "en" : "fr";
   const [filter, setFilter] = useState("all");
   const [modal, setModal] = useState(false);
+  const [editAcc, setEditAcc] = useState(null); // objet compte en cours d'édition (null = pas d'édition)
 
   let list = accounts;
   if (filter === "eval") list = list.filter((a) => a.type === "eval" && a.status !== "funded" && a.status !== "passed");
@@ -131,13 +132,23 @@ export default function AccountsPage() {
                     </div>
                     {a.note ? <div className="mt-1 font-mono text-[11px] text-muted2">{a.note}</div> : null}
                   </div>
-                  <button
-                    onClick={(e) => { e.stopPropagation(); deleteAccount(a.id); }}
-                    className="shrink-0 rounded-md p-1 text-muted2 hover:bg-lossDim hover:text-loss"
-                    aria-label="delete"
-                  >
-                    <Trash2 size={15} />
-                  </button>
+                  <div className="flex shrink-0 items-center gap-0.5">
+                    <button
+                      onClick={(e) => { e.stopPropagation(); setEditAcc(a); }}
+                      className="rounded-md p-1 text-muted2 hover:bg-panel2 hover:text-white"
+                      aria-label={L === "en" ? "edit" : "éditer"}
+                      title={L === "en" ? "Edit account" : "Éditer le compte"}
+                    >
+                      <Pencil size={14} />
+                    </button>
+                    <button
+                      onClick={(e) => { e.stopPropagation(); deleteAccount(a.id); }}
+                      className="rounded-md p-1 text-muted2 hover:bg-lossDim hover:text-loss"
+                      aria-label="delete"
+                    >
+                      <Trash2 size={15} />
+                    </button>
+                  </div>
                 </div>
 
                 {/* Alertes live */}
@@ -244,6 +255,7 @@ export default function AccountsPage() {
       </div>
 
       {modal && <AccountModal onClose={() => setModal(false)} />}
+      {editAcc && <AccountModal editing={editAcc} onClose={() => setEditAcc(null)} />}
     </div>
   );
 }
