@@ -1,13 +1,14 @@
 "use client";
 
 import { useMemo, useState } from "react";
+import { useRouter } from "next/navigation";
 import { useBook } from "@/components/BookProvider";
 import { Pill, FirmDot, EmptyState, SegTabs, PrimaryBtn } from "@/components/ui";
 import { AccountModal } from "@/components/modals";
 import { firmColor, STATUS_LABEL } from "@/lib/constants";
 import { fmtMoney, frDate } from "@/lib/format";
 import { accountHealth, signedMoney } from "@/lib/accountHealth";
-import { Rocket, Trash2, Info } from "lucide-react";
+import { Rocket, Trash2, Info, ChevronRight } from "lucide-react";
 
 const GREEN = "var(--accent)";
 const AMBER = "#f59e0b";
@@ -48,6 +49,7 @@ function Stat({ label, value, color }) {
 
 export default function AccountsPage() {
   const { accounts, trades, certificates, updateAccount, deleteAccount, t, lang } = useBook();
+  const router = useRouter();
   const L = lang === "en" ? "en" : "fr";
   const [filter, setFilter] = useState("all");
   const [modal, setModal] = useState(false);
@@ -69,6 +71,15 @@ export default function AccountsPage() {
     );
     if (!ok) return;
     await updateAccount(a.id, { type: "funded", status: "funded" });
+  };
+
+  const openDetail = (id) => router.push(`/accounts/${id}`);
+  // Handler clavier pour role="button" — respecte les patterns d'accessibilité (Enter/Space)
+  const onCardKey = (e, id) => {
+    if (e.key === "Enter" || e.key === " ") {
+      e.preventDefault();
+      openDetail(id);
+    }
   };
 
   return (
@@ -94,13 +105,24 @@ export default function AccountsPage() {
             const cushionTxt = h.breached ? (L === "en" ? "BLOWN" : "CRAM\u00c9") : hasDD ? signedMoney(h.ddMargin) : "\u2014";
 
             return (
-              <div key={a.id} className="rounded-2xl border bg-panel p-4" style={{ borderColor: h.breached ? RED : "#242833" }}>
+              // Carte cliquable : router.push → /accounts/[id]. role="button" pour l'a11y,
+              // stopPropagation sur les boutons enfants pour éviter la double action.
+              <div
+                key={a.id}
+                role="button"
+                tabIndex={0}
+                onClick={() => openDetail(a.id)}
+                onKeyDown={(e) => onCardKey(e, a.id)}
+                className="group cursor-pointer rounded-2xl border bg-panel p-4 transition-colors hover:border-line2 hover:bg-panel/80 focus:border-accent focus:outline-none"
+                style={{ borderColor: h.breached ? RED : "#242833" }}
+              >
                 {/* Header */}
                 <div className="mb-3 flex items-start justify-between gap-2">
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5 text-[14px] font-semibold">
                       <FirmDot color={firmColor(a.firm)} />
                       <span className="truncate">{a.firm}</span>
+                      <ChevronRight size={14} className="text-muted2 opacity-0 transition-opacity group-hover:opacity-100" />
                     </div>
                     <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
                       <Pill tone="gray">{fmtMoney(a.size)}</Pill>
@@ -109,7 +131,13 @@ export default function AccountsPage() {
                     </div>
                     {a.note ? <div className="mt-1 font-mono text-[11px] text-muted2">{a.note}</div> : null}
                   </div>
-                  <button onClick={() => deleteAccount(a.id)} className="shrink-0 rounded-md p-1 text-muted2 hover:bg-lossDim hover:text-loss" aria-label="delete"><Trash2 size={15} /></button>
+                  <button
+                    onClick={(e) => { e.stopPropagation(); deleteAccount(a.id); }}
+                    className="shrink-0 rounded-md p-1 text-muted2 hover:bg-lossDim hover:text-loss"
+                    aria-label="delete"
+                  >
+                    <Trash2 size={15} />
+                  </button>
                 </div>
 
                 {/* Alertes live */}
@@ -195,7 +223,7 @@ export default function AccountsPage() {
                 {/* Passer en funded (eval) */}
                 {isEval && (
                   <button
-                    onClick={() => promote(a)}
+                    onClick={(e) => { e.stopPropagation(); promote(a); }}
                     className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-[12px] font-bold text-ink transition"
                     style={{ background: h.targetReached && !h.breached ? GREEN : "#f5b301" }}
                   >
