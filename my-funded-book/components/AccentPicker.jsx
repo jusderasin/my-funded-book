@@ -1,159 +1,231 @@
 "use client";
 
-import { useState, useEffect } from "react";
-import { Palette, RotateCcw, Check } from "lucide-react";
-import { PrimaryBtn, GhostBtn } from "@/components/ui";
+import { useState, useEffect, useRef, useMemo, createContext, useContext } from "react";
+import { usePathname, useRouter } from "next/navigation";
+import Link from "next/link";
+import {
+  LayoutGrid, Table2, ListChecks, PenLine, BookOpen, Grid3x3, Award, Receipt,
+  Settings, Lock, LogOut, Plus, Menu, FlaskConical, Medal, CalendarDays, Trophy, Brain,
+} from "lucide-react";
+import { createClient } from "@/lib/supabase/client";
+import { useBook } from "./BookProvider";
+import { LogTradeModal } from "./modals";
+import { Tutorial } from "./Tutorial";
+import { WorldClock } from "./WorldClock";
+import { NavCustomizer } from "./NavCustomizer";
 
-const DEFAULT_GAIN = "#00E676";
-const DEFAULT_LOSS = "#FF5252";
-
-const PRESETS = [
-  { name: "Classic",   gain: "#00E676", loss: "#FF5252" },
-  { name: "Neon",      gain: "#00d4ff", loss: "#ff8c00" },
-  { name: "Royal",     gain: "#f5b301", loss: "#8b5cf6" },
-  { name: "Mono",      gain: "#e5e7eb", loss: "#6b7280" },
+const NAV = [
+  { href: "/dashboard", key: "nav_dashboard", icon: LayoutGrid },
+  { href: "/accounts", key: "nav_accounts", icon: Table2 },
+  { href: "/journal", key: "nav_journal", icon: ListChecks },
+  { href: "/backtest", label: "Backtest", icon: FlaskConical },
+  { href: "/badges", label: "Badges", icon: Medal },
+  { href: "/leaderboard", label: "Classement", icon: Trophy },
+  { href: "/calendar", label: "Calendrier", icon: CalendarDays },
+  { href: "/review", key: "nav_review", icon: PenLine },
+  { href: "/playbook", key: "nav_playbook", icon: BookOpen },
+  { href: "/breakdown", key: "nav_breakdown", icon: Grid3x3 },
+  { href: "/report", label: "Coach", icon: Brain },
+  { href: "/certificates", key: "nav_certificates", icon: Award },
+  { href: "/expenses", key: "nav_expenses", icon: Receipt },
 ];
 
-function applyLive(gain, loss) {
-  if (typeof document === "undefined") return;
-  document.documentElement.style.setProperty("--accent", gain);
-  document.documentElement.style.setProperty("--loss", loss);
+// Fusionne la préférence stockée (profile.nav_layout) avec la constante NAV :
+// - ignore les href inconnus (ancienne prefs / onglet supprimé)
+// - ajoute en fin les onglets neufs jamais vus (une mise à jour de l'app ne les cache pas)
+function resolveNav(stored) {
+  const byHref = Object.fromEntries(NAV.map((n) => [n.href, n]));
+  const seen = new Set();
+  const out = [];
+  if (Array.isArray(stored)) {
+    for (const s of stored) {
+      const base = byHref[s && s.id];
+      if (!base || seen.has(base.href)) continue;
+      seen.add(base.href);
+      out.push({ ...base, hidden: !!(s && s.hidden) });
+    }
+  }
+  for (const n of NAV) if (!seen.has(n.href)) out.push({ ...n, hidden: false });
+  return out;
 }
 
-export function AccentPicker({ profile, saveProfile, lang, notify }) {
-  const L = lang === "en" ? "en" : "fr";
-  const [gain, setGain] = useState(profile?.accent_gain || DEFAULT_GAIN);
-  const [loss, setLoss] = useState(profile?.accent_loss || DEFAULT_LOSS);
-  const [saving, setSaving] = useState(false);
+const ModalCtx = createContext(null);
+export const useModals = () => useContext(ModalCtx);
 
-  // Sync si le profil change depuis un autre endroit
+export function AppShell({ children }) {
+  const pathname = usePathname();
+  const router = useRouter();
+  const { profile, saveProfile, t, lang, loading } = useBook();
+  const [open, setOpen] = useState(false);
+  const [collapsed, setCollapsed] = useState(false);
+  const [showLog, setShowLog] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(false);
+  const [showNavCust, setShowNavCust] = useState(false);
+  const [locked, setLocked] = useState(false);
+  const [pin, setPin] = useState("");
+  const tutChecked = useRef(false);
+
+  const orderedNav = useMemo(() => resolveNav(profile?.nav_layout), [profile?.nav_layout]);
+
   useEffect(() => {
-    setGain(profile?.accent_gain || DEFAULT_GAIN);
-    setLoss(profile?.accent_loss || DEFAULT_LOSS);
-  }, [profile?.accent_gain, profile?.accent_loss]);
+    try { setCollapsed(localStorage.getItem("sidebarCollapsed") === "1"); } catch {}
+  }, []);
 
-  // Preview live sur toute l'app
   useEffect(() => {
-    applyLive(gain, loss);
-  }, [gain, loss]);
+    if (!loading && profile && !tutChecked.current) {
+      tutChecked.current = true;
+      if (!profile.tutorial_seen) setShowTutorial(true);
+    }
+  }, [loading, profile]);
 
-  const dirty = gain !== (profile?.accent_gain || DEFAULT_GAIN) || loss !== (profile?.accent_loss || DEFAULT_LOSS);
+  useEffect(() => {
+    const replay = () => setShowTutorial(true);
+    window.addEventListener("mtb-replay-tutorial", replay);
+    return () => window.removeEventListener("mtb-replay-tutorial", replay);
+  }, []);
 
-  function applyPreset(p) {
-    setGain(p.gain);
-    setLoss(p.loss);
+  useEffect(() => {
+    const openCust = () => setShowNavCust(true);
+    window.addEventListener("mtb-open-nav-customizer", openCust);
+    return () => window.removeEventListener("mtb-open-nav-customizer", openCust);
+  }, []);
+
+  function finishTutorial() {
+    if (!profile?.tutorial_seen && profile?.id) {
+      saveProfile({ tutorial_seen: true });
+    }
   }
 
-  function reset() {
-    setGain(DEFAULT_GAIN);
-    setLoss(DEFAULT_LOSS);
+  function toggleSidebar() {
+    if (typeof window !== "undefined" && window.matchMedia("(min-width: 1024px)").matches) {
+      setCollapsed((c) => {
+        const nv = !c;
+        try { localStorage.setItem("sidebarCollapsed", nv ? "1" : "0"); } catch {}
+        return nv;
+      });
+    } else {
+      setOpen((o) => !o);
+    }
   }
 
-  async function save() {
-    setSaving(true);
-    await saveProfile({ accent_gain: gain, accent_loss: loss });
-    setSaving(false);
+  const [splash, setSplash] = useState(true);
+  const [splashOut, setSplashOut] = useState(false);
+  useEffect(() => {
+    const t1 = setTimeout(() => setSplashOut(true), 1300);
+    const t2 = setTimeout(() => setSplash(false), 1750);
+    return () => { clearTimeout(t1); clearTimeout(t2); };
+  }, []);
+
+  async function signOut() {
+    const supabase = createClient();
+    await supabase.auth.signOut();
+    router.push("/login");
   }
+
+  const today = new Date().toLocaleDateString(lang === "en" ? "en-US" : "fr-FR", { weekday: "long", day: "numeric", month: "long" });
+  const current = NAV.find((n) => pathname.startsWith(n.href));
+  const settingsActive = pathname.startsWith("/settings");
 
   return (
-    <div className="rounded-2xl border border-line bg-panel p-[18px]">
-      <div className="mb-3 flex items-center gap-2 text-[11px] font-bold uppercase tracking-widest text-muted2">
-        <Palette size={13} /> {L === "en" ? "Colors" : "Couleurs"}
-      </div>
-
-      {/* Presets */}
-      <div className="mb-4 flex flex-wrap gap-2">
-        {PRESETS.map((p) => {
-          const active = p.gain.toLowerCase() === gain.toLowerCase() && p.loss.toLowerCase() === loss.toLowerCase();
-          return (
-            <button
-              key={p.name}
-              onClick={() => applyPreset(p)}
-              className={`inline-flex items-center gap-2 rounded-lg border px-3 py-1.5 text-[12px] font-semibold transition-colors ${active ? "border-white text-white" : "border-line2 text-muted2 hover:text-white"}`}
-            >
-              <span className="flex gap-0.5">
-                <span className="h-3 w-3 rounded-sm" style={{ background: p.gain }} />
-                <span className="h-3 w-3 rounded-sm" style={{ background: p.loss }} />
-              </span>
-              {p.name}
-              {active && <Check size={12} />}
+    <ModalCtx.Provider value={{ openLog: () => setShowLog(true) }}>
+      <div className="min-h-screen bg-ink text-white">
+        <div className="sticky top-0 z-40 border-b border-line bg-ink/90 backdrop-blur" style={{ paddingTop: "env(safe-area-inset-top)" }}>
+          <div className="flex h-[52px] items-center gap-2 px-3 sm:gap-3 sm:px-4">
+            <button className="shrink-0 rounded-lg p-1.5 text-white/80 hover:bg-panel2" onClick={toggleSidebar} aria-label="Menu">
+              <Menu size={20} />
             </button>
-          );
-        })}
-      </div>
-
-      {/* Pickers custom */}
-      <div className="mb-4 grid grid-cols-2 gap-3">
-        <label className="rounded-xl border border-line bg-panel2 p-3">
-          <div className="mb-2 text-[10px] font-bold uppercase tracking-widest text-muted2">
-            {L === "en" ? "Gain" : "Gain"}
-          </div>
-          <div className="flex items-center gap-2">
-            <input
-              type="color"
-              value={gain}
-              onChange={(e) => setGain(e.target.value)}
-              className="h-9 w-9 shrink-0 cursor-pointer rounded-md border border-line2 bg-transparent"
-            />
-            <input
-              type="text"
-              value={gain}
-              onChange={(e) => setGain(e.target.value)}
-              className="w-full rounded-md border border-line2 bg-ink px-2 py-1.5 font-mono text-[12px] text-white"
-              maxLength={7}
-            />
-          </div>
-        </label>
-
-        <label className="rounded-xl border border-line bg-panel2 p-3">
-          <div className="mb-2 text-[10px] font-bold uppercase tracking-widest text-muted2">
-            {L === "en" ? "Loss" : "Perte"}
-          </div>
-          <div className="flex items-center gap-2">
-            <input
-              type="color"
-              value={loss}
-              onChange={(e) => setLoss(e.target.value)}
-              className="h-9 w-9 shrink-0 cursor-pointer rounded-md border border-line2 bg-transparent"
-            />
-            <input
-              type="text"
-              value={loss}
-              onChange={(e) => setLoss(e.target.value)}
-              className="w-full rounded-md border border-line2 bg-ink px-2 py-1.5 font-mono text-[12px] text-white"
-              maxLength={7}
-            />
-          </div>
-        </label>
-      </div>
-
-      {/* Preview */}
-      <div className="mb-4 rounded-xl border border-line bg-ink p-3">
-        <div className="mb-2 text-[10px] font-bold uppercase tracking-widest text-muted2">
-          {L === "en" ? "Preview" : "Aperçu"}
-        </div>
-        <div className="flex gap-2">
-          <div className="flex-1 rounded-lg border border-line bg-panel p-2.5">
-            <div className="text-[10px] text-muted2">Win</div>
-            <div className="font-mono text-[16px] font-extrabold" style={{ color: gain }}>+$1,234</div>
-          </div>
-          <div className="flex-1 rounded-lg border border-line bg-panel p-2.5">
-            <div className="text-[10px] text-muted2">Loss</div>
-            <div className="font-mono text-[16px] font-extrabold" style={{ color: loss }}>-$567</div>
+            <div className="shrink-0 font-mono text-[12px] font-extrabold tracking-[2px] sm:tracking-[3px]">
+              My<span className="text-accent">Trade</span>Book
+            </div>
+            <div className="hidden text-[12px] text-muted2 sm:block">/ <b className="font-semibold text-muted">{settingsActive ? t("settings_title") : (current?.label || t(current?.key || "nav_dashboard"))}</b></div>
+            <div className="flex-1" />
+            <div className="hidden sm:flex"><WorldClock /></div>
+            <button onClick={() => setShowLog(true)} className="inline-flex shrink-0 items-center gap-1.5 whitespace-nowrap rounded-lg bg-accent px-2.5 py-2 text-[12px] font-bold text-black hover:brightness-110 sm:px-3">
+              <Plus size={15} /> {t("log_trade")}
+            </button>
           </div>
         </div>
-      </div>
 
-      {/* Actions */}
-      <div className="flex items-center gap-2">
-        <GhostBtn className="inline-flex items-center gap-1.5 px-3 py-2 text-[12px]" onClick={reset}>
-          <RotateCcw size={13} /> {L === "en" ? "Reset" : "Réinitialiser"}
-        </GhostBtn>
-        <div className="flex-1" />
-        <PrimaryBtn className="px-4 py-2 text-[12px]" onClick={save} disabled={!dirty || saving}>
-          {saving ? "…" : (L === "en" ? "Save" : "Enregistrer")}
-        </PrimaryBtn>
+        <div className="flex">
+          {open && <div className="fixed inset-0 z-[45] bg-black/60 lg:hidden" onClick={() => setOpen(false)} />}
+
+          <aside className={`fixed top-0 z-[50] flex h-screen w-[224px] flex-shrink-0 flex-col gap-0.5 border-r border-line bg-ink2 p-3 transition-transform lg:sticky lg:top-[52px] lg:h-[calc(100vh-52px)] lg:translate-x-0 ${open ? "translate-x-0" : "-translate-x-full"} ${collapsed ? "lg:hidden" : ""}`} style={{ paddingTop: "max(0.75rem, env(safe-area-inset-top))" }}>
+            <div className="shrink-0 px-2.5 pb-1.5 pt-2.5 text-[10px] font-bold uppercase tracking-widest text-muted2">{t("nav_label")}</div>
+            <nav className="flex min-h-0 flex-1 flex-col gap-0.5 overflow-y-auto no-scrollbar">
+              {orderedNav.filter((n) => !n.hidden).map((n) => {
+                const active = pathname.startsWith(n.href);
+                const Icon = n.icon;
+                return (
+                  <Link key={n.href} href={n.href} onClick={() => setOpen(false)}
+                    className={`flex items-center gap-3 rounded-lg px-3 py-2.5 text-[13.5px] font-medium ${active ? "bg-accentDim text-accent" : "text-muted hover:bg-panel2 hover:text-white"}`}>
+                    <Icon size={16} /> {n.label || t(n.key)}
+                  </Link>
+                );
+              })}
+            </nav>
+            <div className="shrink-0 flex flex-col gap-0.5 border-t border-line pt-3">
+              <Link href="/settings" onClick={() => setOpen(false)}
+                className={`flex items-center gap-2.5 rounded-lg px-3 py-2 text-[12.5px] ${settingsActive ? "bg-accentDim text-accent" : "text-muted2 hover:bg-panel2 hover:text-white"}`}>
+                <Settings size={15} /> {t("settings")}
+              </Link>
+              <button onClick={() => { setLocked(true); setOpen(false); }} className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[12.5px] text-muted2 hover:bg-panel2 hover:text-white"><Lock size={15} /> {t("lock")}</button>
+              <button onClick={signOut} className="flex items-center gap-2.5 rounded-lg px-3 py-2 text-[12.5px] text-muted2 hover:bg-panel2 hover:text-white"><LogOut size={15} /> {t("signout")}</button>
+            </div>
+          </aside>
+
+          <main className="mx-auto w-full max-w-[1180px] flex-1 p-4 sm:p-6" style={{ paddingBottom: "calc(1rem + env(safe-area-inset-bottom))" }}>
+            {children}
+          </main>
+        </div>
+
+        {showLog && <LogTradeModal onClose={() => setShowLog(false)} />}
+        <Tutorial open={showTutorial} lang={lang} onClose={() => setShowTutorial(false)} onFinish={finishTutorial} />
+
+        {showNavCust && (
+          <NavCustomizer
+            nav={NAV}
+            layout={orderedNav}
+            t={t}
+            lang={lang}
+            onClose={() => setShowNavCust(false)}
+            onSave={async (nav_layout) => {
+              await saveProfile({ nav_layout });
+              setShowNavCust(false);
+            }}
+          />
+        )}
+
+        {splash && (
+          <div className={`fixed inset-0 z-[110] flex flex-col items-center justify-center gap-4 bg-ink transition-opacity duration-500 ${splashOut ? "opacity-0" : "opacity-100"}`}>
+            <div className="font-mono text-[13px] font-extrabold tracking-[6px] text-muted2">
+              MY<span className="text-accent">TRADE</span>BOOK
+            </div>
+            <div className="text-center">
+              <div className="text-[24px] font-extrabold tracking-tight">{t("welcome")}{profile?.name ? `, ${profile.name}` : ""}</div>
+              <div className="mt-1 text-[12.5px] text-muted2">{today}</div>
+            </div>
+            <div className="mt-2 h-[3px] w-40 overflow-hidden rounded-full bg-panel2">
+              <div className="h-full w-1/2 animate-pulse rounded-full bg-accent" />
+            </div>
+          </div>
+        )}
+
+        {locked && (
+          <div className="fixed inset-0 z-[100] flex flex-col items-center justify-center gap-5 bg-ink">
+            <div className="font-mono text-[13px] font-extrabold tracking-[6px] text-muted2">MYTRADEBOOK</div>
+            <div className="w-[min(340px,88vw)] rounded-2xl border border-line2 bg-panel p-6">
+              <h2 className="text-[17px] font-extrabold">{t("unlock_title")}, {profile.name}</h2>
+              <p className="mb-4 mt-1 text-[12px] text-muted2">{t("unlock_hint")}</p>
+              <input autoFocus type="password" inputMode="numeric" value={pin} maxLength={6}
+                onChange={(e) => setPin(e.target.value)}
+                onKeyDown={(e) => { if (e.key === "Enter") { if (pin === (profile.pin || "1234")) { setLocked(false); setPin(""); } else setPin(""); } }}
+                className="mb-3 w-full rounded-xl border border-line2 bg-panel2 px-4 py-3 text-center font-mono text-lg tracking-[8px] text-white outline-none focus:border-accent" placeholder="••••" />
+              <button onClick={() => { if (pin === (profile.pin || "1234")) { setLocked(false); setPin(""); } else setPin(""); }}
+                className="w-full rounded-xl bg-accent py-3 font-bold text-black">{t("unlock_btn")}</button>
+            </div>
+          </div>
+        )}
       </div>
-    </div>
+    </ModalCtx.Provider>
   );
 }
