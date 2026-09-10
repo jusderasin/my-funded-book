@@ -3,6 +3,7 @@ import { useState } from "react";
 import { useBook } from "@/components/BookProvider";
 import { Pill, EmptyState, PrimaryBtn, GhostBtn } from "@/components/ui";
 import { LogTradeModal } from "@/components/modals";
+import { ImportCsvModal } from "@/components/ImportCsvModal";
 import { gradeClass, EMOTION_BY_KEY } from "@/lib/constants";
 import { fmtMoney } from "@/lib/format";
 const gradeColors = {
@@ -12,11 +13,15 @@ const gradeColors = {
 export default function JournalPage() {
   const { trades, deleteTrade, t, lang } = useBook();
   const [editing, setEditing] = useState(null);
+  const [importing, setImporting] = useState(false);
   return (
     <div>
-      <div className="mb-3 flex items-center justify-between">
+      <div className="mb-3 flex items-center justify-between gap-2">
         <div className="text-[11px] font-semibold uppercase tracking-wide text-muted2">{t("jrn_title")}</div>
-        <PrimaryBtn className="px-3 py-1.5 text-[12px]" onClick={() => setEditing("new")}>{t("jrn_add")}</PrimaryBtn>
+        <div className="flex gap-2">
+          <GhostBtn className="px-3 py-1.5 text-[12px]" onClick={() => setImporting(true)}>{t("jrn_import")}</GhostBtn>
+          <PrimaryBtn className="px-3 py-1.5 text-[12px]" onClick={() => setEditing("new")}>{t("jrn_add")}</PrimaryBtn>
+        </div>
       </div>
       {trades.length === 0 ? (
         <EmptyState icon="≡" title={t("jrn_empty_t")} sub={t("jrn_empty_s")} />
@@ -72,6 +77,7 @@ export default function JournalPage() {
         </div>
       )}
       {editing && <LogTradeModal editing={editing === "new" ? null : editing} onClose={() => setEditing(null)} />}
+      {importing && <ImportCsvModal onClose={() => setImporting(false)} />}
     </div>
   );
 }
