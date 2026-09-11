@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useState, useEffect } from "react";
 import { useBook } from "@/components/BookProvider";
 import { Kpi } from "@/components/ui";
 import { Modal, GhostBtn } from "@/components/ui";
@@ -8,6 +8,10 @@ import { Radar, Area, Bars, Gauge, Calendar } from "@/components/charts";
 import { fmtMoney, fmtK, frDate } from "@/lib/format";
 import RiskBanner from "@/components/RiskBanner";
 import { LogTradeModal } from "@/components/modals";
+import KpiCustomizer from "@/components/KpiCustomizer";
+import { KPI_CATALOG, DEFAULT_KPI_IDS, MIN_KPIS, MAX_KPIS } from "@/lib/kpiCatalog";
+
+const KPI_STORAGE_KEY = "mfb.dashboard.kpis";
 
 export default function DashboardPage() {
   const { stats: s, profile, trades, t, lang } = useBook();
@@ -19,6 +23,30 @@ export default function DashboardPage() {
   });
   const [dayKey, setDayKey] = useState(null);
   const [editing, setEditing] = useState(null);
+  const [kpiIds, setKpiIds] = useState(DEFAULT_KPI_IDS);
+  const [customizing, setCustomizing] = useState(false);
+
+  useEffect(() => {
+    try {
+      const raw = localStorage.getItem(KPI_STORAGE_KEY);
+      if (!raw) return;
+      const arr = JSON.parse(raw);
+      if (!Array.isArray(arr)) return;
+      const valid = arr.filter((id) => KPI_CATALOG.some((k) => k.id === id));
+      if (valid.length >= MIN_KPIS && valid.length <= MAX_KPIS) {
+        setKpiIds(valid);
+      }
+    } catch {}
+  }, []);
+
+  const saveKpis = (ids) => {
+    setKpiIds(ids);
+    try {
+      localStorage.setItem(KPI_STORAGE_KEY, JSON.stringify(ids));
+    } catch {}
+    setCustomizing(false);
+  };
+
   const shift = (dir) => {
     let m = cal.m + dir, y = cal.y;
     if (m < 1) { m = 12; y--; }
@@ -31,15 +59,45 @@ export default function DashboardPage() {
   const recent = trades.slice(0, 8);
   const dayTrades = dayKey ? trades.filter((tr) => tr.date === dayKey) : [];
 
+  const kpiCount = kpiIds.length;
+  const gridCls =
+    kpiCount === 4
+      ? "grid grid-cols-2 gap-3 md:grid-cols-4"
+      : kpiCount === 6
+      ? "grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6"
+      : "grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5";
+
   return (
     <div>
       <RiskBanner />
-      <div className="mb-3.5 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5">
-        <Kpi label={t("kpi_net")} big tone={s.net >= 0 ? "pos" : "neg"} value={fmtMoney(s.net, true)} />
-        <Kpi label={t("kpi_trade_wr")} tone={s.wr >= 50 ? "pos" : "warn"} value={s.wr.toFixed(2) + "%"} gauge={<Gauge pct={s.wr} color={s.wr >= 50 ? "var(--accent)" : "#f5b301"} />} />
-        <Kpi label={t("kpi_pf")} tone={s.pf >= 1.5 ? "pos" : s.pf >= 1 ? "warn" : "neg"} value={s.pf.toFixed(2)} gauge={<Gauge pct={Math.min(100, (s.pf / 3) * 100)} />} />
-        <Kpi label={t("kpi_day_wr")} tone={s.dayWr >= 50 ? "pos" : "warn"} value={s.dayWr.toFixed(2) + "%"} gauge={<Gauge pct={s.dayWr} />} />
-        <Kpi label={t("kpi_avg_wl")} tone={s.wl >= 1 ? "pos" : "warn"} value={s.wl.toFixed(2)} sub={`${fmtK(s.avgW)} / -${fmtK(s.avgL).replace("-", "")}`} />
+      <div className="mb-2 flex justify-end">
+        <button
+          type="button"
+          onClick={() => setCustomizing(true)}
+          className="flex items-center gap-1.5 rounded-lg border border-line bg-panel px-2.5 py-1 text-[11px] text-muted2 hover:border-line2 hover:text-white"
+          title={L === "en" ? "Customize KPIs" : "Personnaliser les KPIs"}
+        >
+          <span aria-hidden>⚙</span>
+          <span>{L === "en" ? "Customize" : "Personnaliser"}</span>
+        </button>
+      </div>
+      <div className={`mb-3.5 ${gridCls}`}>
+        {kpiIds.map((id) => {
+          const kpi = KPI_CATALOG.find((k) => k.id === id);
+          if (!kpi) return null;
+          const p = kpi.render(s, L);
+          return (
+            <Kpi
+              key={id}
+              label={kpi.labels[L]}
+              value={p.value}
+              tone={p.tone}
+              big={p.big}
+              sub={p.sub}
+              gauge={p.gaugePct != null ? <Gauge pct={p.gaugePct} color={p.gaugeColor} /> : null}
+            />
+          );
+        })}
       </div>
       <div className="mb-3.5 flex flex-wrap items-center gap-4 rounded-xl border border-line bg-panel px-4 py-3 text-[12.5px]">
         <span className="flex items-center gap-1.5 text-muted">🔥 <b className="font-mono font-extrabold text-white">{s.streak}</b> {t("streak_plan")}</span>
@@ -153,6 +211,14 @@ export default function DashboardPage() {
         </Modal>
       )}
       {editing && <LogTradeModal editing={editing} onClose={() => setEditing(null)} />}
+      {customizing && (
+        <KpiCustomizer
+          selected={kpiIds}
+          onSave={saveKpis}
+          onClose={() => setCustomizing(false)}
+          lang={L}
+        />
+      )}
     </div>
   );
 }
