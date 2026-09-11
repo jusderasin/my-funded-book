@@ -1,184 +1,431 @@
 "use client";
 
-import { useState, use } from "react";
-import { useRouter } from "next/navigation";
+import { useMemo, useState } from "react";
+import Link from "next/link";
+import { useParams, useRouter } from "next/navigation";
 import { useBook } from "@/components/BookProvider";
+import { Pill, FirmDot, EmptyState, PrimaryBtn, GhostBtn } from "@/components/ui";
 import { AccountModal } from "@/components/modals";
-import { FirmDot, Pill, GhostBtn } from "@/components/ui";
 import { firmColor, STATUS_LABEL } from "@/lib/constants";
 import { fmtMoney, frDate } from "@/lib/format";
 import { accountHealth, signedMoney } from "@/lib/accountHealth";
-import { ArrowLeft, Pencil, Trash2, Printer } from "lucide-react";
+import { ArrowLeft, FileDown, Pencil, Trash2, Info, TrendingUp, TrendingDown } from "lucide-react";
 
-export default function AccountDetailPage({ params }) {
+const GREEN = "var(--accent)";
+const AMBER = "#f59e0b";
+const RED = "var(--loss)";
+
+const alertColor = (lvl) => (lvl === "danger" ? RED : lvl === "warn" ? AMBER : lvl === "ok" ? GREEN : "#6b7385");
+const alertBg = (lvl) =>
+  lvl === "danger"
+    ? "color-mix(in srgb, var(--loss) 10%, transparent)"
+    : lvl === "warn"
+    ? "rgba(245,158,11,.10)"
+    : lvl === "ok"
+    ? "color-mix(in srgb, var(--accent) 10%, transparent)"
+    : "rgba(255,255,255,.04)";
+
+function Meter({ label, sub, pct, color }) {
+  return (
+    <div className="mb-2.5">
+      <div className="mb-1 flex items-baseline justify-between">
+        <span className="text-[11px] text-muted2">{label}</span>
+        <span className="font-mono text-[11px] font-semibold" style={{ color }}>{sub}</span>
+      </div>
+      <div className="h-1.5 overflow-hidden rounded-md" style={{ background: "#1e2230" }}>
+        <div className="h-full rounded-md transition-all" style={{ width: Math.max(0, Math.min(100, pct)) + "%", background: color }} />
+      </div>
+    </div>
+  );
+}
+
+function Stat({ label, value, color }) {
+  return (
+    <div className="rounded-lg bg-panel2 px-2 py-1.5 text-center">
+      <div className="text-[9.5px] uppercase tracking-wide text-muted2">{label}</div>
+      <div className="font-mono text-[13px] font-bold" style={color ? { color } : undefined}>{value}</div>
+    </div>
+  );
+}
+
+export default function AccountDetailPage() {
+  const params = useParams();
   const router = useRouter();
-  const { accounts, trades, certificates, deleteAccount, lang, t } = useBook();
-  const [editModal, setEditModal] = useState(false);
+  const id = params?.id;
 
-  // Extraction sécurisée de l'ID selon la version de React/Next.js
-  const accountId = params?.id || (typeof use === "function" ? use(params)?.id : null);
-
+  const { accounts, trades, certificates, deleteAccount, notify, t, lang, loading } = useBook();
   const L = lang === "en" ? "en" : "fr";
-  const account = accounts?.find((a) => String(a.id) === String(accountId));
 
-  if (!account) {
+  const [editing, setEditing] = useState(false);
+  const [pdfBusy, setPdfBusy] = useState(false); // câblé à l'étape 3
+
+  const account = useMemo(() => accounts.find((a) => a.id === id) || null, [accounts, id]);
+  const h = useMemo(
+    () => (account ? accountHealth(account, trades, certificates, L) : null),
+    [account, trades, certificates, L]
+  );
+
+  // Trades du compte (le provider a déjà trié par date desc, on filtre juste)
+  const acctTrades = useMemo(
+    () => (account ? trades.filter((tr) => tr.account_id === account.id) : []),
+    [trades, account]
+  );
+
+  // Payouts liés à la firm (même règle que accountHealth : match par firm)
+  const payouts = useMemo(
+    () =>
+      account
+        ? certificates
+            .filter((c) => c.type === "payout" && c.firm === account.firm)
+            .slice()
+            .sort((a, b) => (a.date < b.date ? 1 : -1))
+        : [],
+    [certificates, account]
+  );
+
+  // --- Loading & 404 ---
+  if (loading) {
     return (
-      <div className="flex flex-col items-center justify-center py-16 text-center">
-        <p className="text-lg font-semibold text-white">
-          {L === "en" ? "Account not found" : "Compte introuvable"}
-        </p>
-        <GhostBtn className="mt-4" onClick={() => router.push("/accounts")}>
-          <ArrowLeft size={16} className="mr-2" />
-          {L === "en" ? "Back to accounts" : "Retour aux comptes"}
-        </GhostBtn>
+      <div className="py-16 text-center text-[12px] text-muted2">
+        {L === "en" ? "Loading…" : "Chargement…"}
       </div>
     );
   }
 
-  const h = accountHealth(account, trades || [], certificates || [], L);
-  const accountTrades = (trades || []).filter((tr) => String(tr.account_id) === String(account.id));
-  const isEval = !(account.type === "funded" || account.status === "funded" || account.status === "passed");
-  const stStyle = STATUS_LABEL[account.status] || ["gray", account.status];
+  if (!account) {
+    return (
+      <div>
+        <Link
+          href="/accounts"
+          className="mb-4 inline-flex items-center gap-1.5 text-[12px] text-muted2 hover:text-white"
+        >
+          <ArrowLeft size={14} /> {L === "en" ? "Back to accounts" : "Retour aux comptes"}
+        </Link>
+        <EmptyState
+          icon="◇"
+          title={L === "en" ? "Account not found" : "Compte introuvable"}
+          sub={L === "en" ? "This account may have been deleted." : "Ce compte a peut-être été supprimé."}
+        />
+      </div>
+    );
+  }
 
-  const handlePrint = () => {
-    window.print();
+  const stStyle = STATUS_LABEL[account.status] || ["gray", account.status];
+  const stKey = { active: "st_active", passed: "st_passed", funded: "st_funded", failed: "st_failed", paid: "st_paid" }[account.status];
+  const isEval = !(account.type === "funded" || account.status === "funded" || account.status === "passed");
+
+  const hasDD = h.maxDD != null;
+  const ddColor = !hasDD ? "#6b7385" : h.breached ? RED : h.ddMarginPct <= 20 ? RED : h.ddMarginPct <= 50 ? AMBER : GREEN;
+  const cushionTxt = h.breached ? (L === "en" ? "BLOWN" : "CRAMÉ") : hasDD ? signedMoney(h.ddMargin) : "—";
+
+  const onDelete = async () => {
+    const ok = window.confirm(
+      L === "en"
+        ? `Delete "${account.firm} · ${fmtMoney(account.size)}"? Trades stay in your journal but lose the link.`
+        : `Supprimer "${account.firm} · ${fmtMoney(account.size)}" ? Les trades restent dans ton journal mais perdent le lien.`
+    );
+    if (!ok) return;
+    await deleteAccount(account.id);
+    router.push("/accounts");
+  };
+
+  const onExportPdf = async () => {
+    // Placeholder — l'étape 3 câblera @react-pdf/renderer (dynamic import) ici.
+    setPdfBusy(true);
+    notify(L === "en" ? "PDF export coming soon" : "Export PDF — bientôt disponible");
+    setTimeout(() => setPdfBusy(false), 400);
   };
 
   return (
-    <div className="space-y-6 print:p-6 print:text-black print:bg-white">
-      {/* Header / Navigation */}
-      <div className="flex items-center justify-between print:hidden">
-        <GhostBtn onClick={() => router.push("/accounts")} className="text-xs">
-          <ArrowLeft size={14} className="mr-1.5" />
-          {L === "en" ? "Accounts" : "Comptes"}
-        </GhostBtn>
-        <div className="flex items-center gap-2">
-          <GhostBtn onClick={handlePrint} className="text-xs text-accent">
-            <Printer size={14} className="mr-1.5" />
-            {L === "en" ? "Export PDF / Print" : "Exporter PDF / Imprimer"}
-          </GhostBtn>
-          <GhostBtn onClick={() => setEditModal(true)} className="text-xs">
-            <Pencil size={14} className="mr-1.5" />
-            {L === "en" ? "Edit" : "Éditer"}
-          </GhostBtn>
-          <GhostBtn
-            onClick={() => {
-              if (window.confirm(L === "en" ? "Delete this account?" : "Supprimer ce compte ?")) {
-                deleteAccount(account.id);
-                router.push("/accounts");
-              }
-            }}
-            className="text-xs text-loss hover:bg-lossDim"
+    <div>
+      {/* Fil d'ariane */}
+      <Link
+        href="/accounts"
+        className="mb-3 inline-flex items-center gap-1.5 text-[12px] text-muted2 hover:text-white"
+      >
+        <ArrowLeft size={14} /> {L === "en" ? "Accounts" : "Comptes"}
+      </Link>
+
+      {/* Header */}
+      <div className="mb-4 flex flex-wrap items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex items-center gap-2 text-[18px] font-semibold">
+            <FirmDot color={firmColor(account.firm)} />
+            <span className="truncate">{account.firm}</span>
+          </div>
+          <div className="mt-1.5 flex flex-wrap items-center gap-1.5">
+            <Pill tone="gray">{fmtMoney(account.size)}</Pill>
+            <Pill tone={isEval ? "yellow" : "green"}>{isEval ? t("acc_eval") : t("acc_funded")}</Pill>
+            <Pill tone={stStyle[0]}>{stKey ? t(stKey) : stStyle[1]}</Pill>
+            {account.date ? (
+              <span className="font-mono text-[11px] text-muted2">
+                {L === "en" ? "Opened " : "Ouvert le "}{frDate(String(account.date).slice(0, 10))}
+              </span>
+            ) : null}
+          </div>
+          {account.note ? (
+            <div className="mt-1.5 font-mono text-[11px] text-muted2">{account.note}</div>
+          ) : null}
+        </div>
+
+        <div className="flex shrink-0 flex-wrap items-center gap-2">
+          <PrimaryBtn
+            className="flex items-center gap-1.5 px-3 py-1.5 text-[12px]"
+            onClick={onExportPdf}
+            disabled={pdfBusy}
           >
-            <Trash2 size={14} className="mr-1.5" />
-            {L === "en" ? "Delete" : "Supprimer"}
+            <FileDown size={14} />
+            {pdfBusy ? (L === "en" ? "Preparing…" : "Préparation…") : "Export PDF"}
+          </PrimaryBtn>
+          <GhostBtn
+            className="flex items-center gap-1.5 px-3 py-1.5 text-[12px]"
+            onClick={() => setEditing(true)}
+          >
+            <Pencil size={13} /> {L === "en" ? "Edit" : "Éditer"}
           </GhostBtn>
+          <button
+            onClick={onDelete}
+            className="flex items-center gap-1.5 rounded-lg border border-line px-3 py-1.5 text-[12px] font-semibold text-muted2 transition hover:border-loss hover:text-loss"
+            title={L === "en" ? "Delete account" : "Supprimer le compte"}
+          >
+            <Trash2 size={13} /> {L === "en" ? "Delete" : "Supprimer"}
+          </button>
         </div>
       </div>
 
-      {/* En-tête Rapport d'impression */}
-      <div className="hidden print:block border-b border-gray-300 pb-4 mb-4">
-        <h1 className="text-2xl font-bold">
-          {L === "en" ? "Trading Performance Report" : "Rapport de Performance Trading"}
-        </h1>
-        <p className="text-sm text-gray-600">
-          {L === "en" ? "Generated by My Funded Book" : "Généré par My Funded Book"} — {frDate(new Date().toISOString())}
-        </p>
-      </div>
-
-      {/* Carte d'information principale */}
-      <div className="rounded-2xl border border-line bg-panel p-5 print:border-gray-300 print:bg-gray-50 print:text-black">
-        <div className="flex items-start justify-between">
-          <div>
-            <div className="flex items-center gap-2 text-xl font-bold text-white print:text-black">
-              <FirmDot color={firmColor(account.firm)} />
-              <span>{account.firm}</span>
+      {/* Alertes live */}
+      {h.alerts.length > 0 && (
+        <div className="mb-4 flex flex-col gap-1.5">
+          {h.alerts.map((al, i) => (
+            <div
+              key={i}
+              className="rounded-md px-2.5 py-1.5 text-[12px] font-semibold"
+              style={{ color: alertColor(al.level), background: alertBg(al.level), borderLeft: "2px solid " + alertColor(al.level) }}
+            >
+              {al.msg}
             </div>
-            <div className="mt-2 flex flex-wrap gap-2">
-              <Pill tone="gray">{fmtMoney(account.size)}</Pill>
-              <Pill tone={isEval ? "yellow" : "green"}>
-                {isEval ? t("acc_eval") : t("acc_funded")}
-              </Pill>
-              <Pill tone={stStyle[0]}>{stStyle[1]}</Pill>
-            </div>
-            {account.note && <p className="mt-2 text-sm text-muted2 print:text-gray-700">{account.note}</p>}
-          </div>
-          <div className="text-right">
-            <div className="text-xs text-muted2 print:text-gray-600">{L === "en" ? "Current PnL" : "PnL Actuel"}</div>
-            <div className={`font-mono text-2xl font-extrabold ${h.netPnL >= 0 ? "text-accent print:text-green-700" : "text-loss print:text-red-700"}`}>
-              {signedMoney(h.netPnL)}
-            </div>
-          </div>
+          ))}
         </div>
-      </div>
-
-      {/* Grille de métriques */}
-      <div className="grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
-        <div className="rounded-xl border border-line bg-panel p-4 print:border-gray-300 print:bg-gray-50">
-          <div className="text-xs text-muted2 print:text-gray-600">{L === "en" ? "Trades logged" : "Trades enregistrés"}</div>
-          <div className="mt-1 font-mono text-xl font-bold text-white print:text-black">{accountTrades.length}</div>
-        </div>
-        <div className="rounded-xl border border-line bg-panel p-4 print:border-gray-300 print:bg-gray-50">
-          <div className="text-xs text-muted2 print:text-gray-600">{L === "en" ? "Max Drawdown" : "Drawdown Max"}</div>
-          <div className="mt-1 font-mono text-xl font-bold text-white print:text-black">
-            {account.max_drawdown ? fmtMoney(account.max_drawdown) : "—"}
-          </div>
-        </div>
-        <div className="rounded-xl border border-line bg-panel p-4 print:border-gray-300 print:bg-gray-50">
-          <div className="text-xs text-muted2 print:text-gray-600">{L === "en" ? "Daily Loss Limit" : "Perte max / jour"}</div>
-          <div className="mt-1 font-mono text-xl font-bold text-white print:text-black">
-            {account.daily_loss_limit ? fmtMoney(account.daily_loss_limit) : "—"}
-          </div>
-        </div>
-        <div className="rounded-xl border border-line bg-panel p-4 print:border-gray-300 print:bg-gray-50">
-          <div className="text-xs text-muted2 print:text-gray-600">{L === "en" ? "Profit Target" : "Objectif de profit"}</div>
-          <div className="mt-1 font-mono text-xl font-bold text-white print:text-black">
-            {account.profit_target ? fmtMoney(account.profit_target) : "—"}
-          </div>
-        </div>
-      </div>
-
-      {/* Section Liste des Trades */}
-      <div className="rounded-2xl border border-line bg-panel p-5 print:border-gray-300 print:bg-white">
-        <h3 className="text-sm font-semibold text-white print:text-black mb-3">
-          {L === "en" ? "Trade History" : "Historique des Trades"}
-        </h3>
-        {accountTrades.length === 0 ? (
-          <p className="text-xs text-muted2 print:text-gray-500">
-            {L === "en" ? "No trades recorded for this account." : "Aucun trade enregistré pour ce compte."}
-          </p>
-        ) : (
-          <div className="overflow-x-auto">
-            <table className="w-full text-left text-xs text-muted2 print:text-black">
-              <thead className="border-b border-line text-white print:border-gray-300 print:text-black">
-                <tr>
-                  <th className="pb-2">{L === "en" ? "Date" : "Date"}</th>
-                  <th className="pb-2">{L === "en" ? "Asset" : "Actif"}</th>
-                  <th className="pb-2">{L === "en" ? "Type" : "Sens"}</th>
-                  <th className="pb-2 text-right">{L === "en" ? "Result ($)" : "Résultat ($)"}</th>
-                </tr>
-              </thead>
-              <tbody className="divide-y divide-line/50 print:divide-gray-200">
-                {accountTrades.map((tr) => (
-                  <tr key={tr.id}>
-                    <td className="py-2">{frDate(tr.date || tr.created_at)}</td>
-                    <td className="py-2 font-semibold text-white print:text-black">{tr.symbol || tr.asset || "—"}</td>
-                    <td className="py-2">{tr.side || "BUY"}</td>
-                    <td className={`py-2 text-right font-mono font-bold ${(tr.pnl || 0) >= 0 ? "text-accent print:text-green-700" : "text-loss print:text-red-700"}`}>
-                      {signedMoney(tr.pnl || 0)}
-                    </td>
-                  </tr>
-                ))}
-              </tbody>
-            </table>
-          </div>
-        )}
-      </div>
-
-      {/* Modal Édition */}
-      {editModal && (
-        <AccountModal editing={account} onClose={() => setEditModal(false)} />
       )}
+
+      {/* Grid principale */}
+      <div className="grid gap-4 lg:grid-cols-2">
+        {/* Col gauche — Santé */}
+        <div
+          className="rounded-2xl border bg-panel p-4"
+          style={{ borderColor: h.breached ? RED : "#242833" }}
+        >
+          <div className="mb-3 text-[11px] font-semibold uppercase tracking-wide text-muted2">
+            {L === "en" ? "Health" : "Santé"}
+          </div>
+
+          {/* Headline balance + cushion */}
+          <div className="mb-3 flex items-center justify-between rounded-xl bg-panel2 px-3.5 py-3">
+            <div>
+              <div className="text-[10px] uppercase tracking-wide text-muted2">
+                {L === "en" ? "Margin before breach" : "Marge avant breach"}
+                {h.maxDD != null ? " · " + (h.trailing ? "trailing" : "static") : ""}
+              </div>
+              <div className="font-mono text-[22px] font-extrabold leading-tight" style={{ color: ddColor }}>
+                {cushionTxt}
+              </div>
+            </div>
+            <div className="text-right">
+              <div className="text-[10px] uppercase tracking-wide text-muted2">
+                {L === "en" ? "Balance" : "Solde"}
+              </div>
+              <div className="font-mono text-[15px] font-bold text-white">
+                ~ {fmtMoney(Math.round(h.balance))}
+              </div>
+              <div className="mt-0.5 font-mono text-[10px] text-muted2">
+                {L === "en" ? "High-water " : "Plus haut "} {fmtMoney(Math.round(h.highWater))}
+              </div>
+            </div>
+          </div>
+
+          {/* Meters */}
+          {h.target != null && h.target > 0 && (
+            <Meter
+              label={isEval ? (L === "en" ? "Profit target" : "Objectif profit") : (L === "en" ? "Payout target" : "Objectif payout")}
+              sub={signedMoney(h.cum) + " / " + fmtMoney(h.target)}
+              pct={h.targetPct || 0}
+              color={h.targetReached ? GREEN : "var(--accent)"}
+            />
+          )}
+
+          {hasDD && (
+            <Meter
+              label={L === "en" ? "Drawdown used" : "Drawdown utilisé"}
+              sub={fmtMoney(Math.max(0, h.maxDD - h.ddMargin)) + " / " + fmtMoney(h.maxDD)}
+              pct={h.maxDD > 0 ? Math.max(0, 100 - (h.ddMargin / h.maxDD) * 100) : 0}
+              color={ddColor}
+            />
+          )}
+
+          {h.dailyLimit != null && (
+            <Meter
+              label={L === "en" ? "Day loss (today)" : "Perte du jour"}
+              sub={fmtMoney(h.dailyUsed) + " / " + fmtMoney(h.dailyLimit)}
+              pct={h.dailyPct || 0}
+              color={h.dailyHit ? RED : (h.dailyPct || 0) >= 70 ? AMBER : GREEN}
+            />
+          )}
+
+          {/* Payout status (funded) */}
+          {!isEval && (
+            <div className="mt-3 flex items-center justify-between rounded-lg bg-panel2 px-3 py-2">
+              <span className="text-[10px] uppercase tracking-wide text-muted2">Payout</span>
+              <span
+                className="font-mono text-[12px] font-bold"
+                style={{ color: h.payoutEligible ? GREEN : "#8a93a6" }}
+              >
+                {h.payoutEligible
+                  ? (L === "en" ? "✅ Available" : "✅ Disponible")
+                  : h.daysToPayout != null && h.daysToPayout > 0
+                  ? "⏳ " + h.daysToPayout + (L === "en" ? "d" : "j")
+                  : h.minDaysLeft > 0
+                  ? h.minDaysLeft + (L === "en" ? "d min" : "j min")
+                  : "—"}
+              </span>
+            </div>
+          )}
+
+          {/* Mini stats */}
+          <div className={"mt-3 grid " + (isEval ? "grid-cols-3" : "grid-cols-4") + " gap-1.5"}>
+            <Stat
+              label="Trades"
+              value={
+                <span>
+                  {h.trades} <span className="text-[10px] text-accent">{h.wins}W</span>{" "}
+                  <span className="text-[10px] text-loss">{h.losses}L</span>
+                </span>
+              }
+            />
+            <Stat label="PnL" value={signedMoney(h.cum)} color={h.cum >= 0 ? GREEN : RED} />
+            <Stat label={L === "en" ? "Days" : "Jours"} value={h.tradingDays} />
+            {!isEval && <Stat label="Payouts" value={fmtMoney(h.payoutTotal)} color="#ff66e4" />}
+          </div>
+        </div>
+
+        {/* Col droite — Trades récents + payouts */}
+        <div className="flex flex-col gap-4">
+          {/* Trades du compte */}
+          <div className="rounded-2xl border border-line bg-panel p-4">
+            <div className="mb-3 flex items-center justify-between">
+              <div className="text-[11px] font-semibold uppercase tracking-wide text-muted2">
+                {L === "en" ? "Recent trades" : "Trades récents"}
+              </div>
+              <span className="font-mono text-[11px] text-muted2">
+                {acctTrades.length} {L === "en" ? "total" : "total"}
+              </span>
+            </div>
+
+            {acctTrades.length === 0 ? (
+              <div className="rounded-lg bg-panel2 px-3 py-6 text-center text-[12px] text-muted2">
+                {L === "en" ? "No trades on this account yet." : "Aucun trade sur ce compte pour l'instant."}
+              </div>
+            ) : (
+              <div className="flex flex-col gap-1">
+                {acctTrades.slice(0, 15).map((tr) => {
+                  const p = Number(tr.pnl) || 0;
+                  const win = p > 0;
+                  const dir = tr.direction || tr.side || null;
+                  return (
+                    <div
+                      key={tr.id}
+                      className="flex items-center justify-between gap-2 rounded-lg bg-panel2 px-3 py-2"
+                    >
+                      <div className="flex min-w-0 items-center gap-2">
+                        <span
+                          className="inline-flex h-6 w-6 shrink-0 items-center justify-center rounded-md"
+                          style={{
+                            background: win
+                              ? "color-mix(in srgb, var(--accent) 15%, transparent)"
+                              : "color-mix(in srgb, var(--loss) 15%, transparent)",
+                            color: win ? GREEN : RED,
+                          }}
+                          aria-hidden
+                        >
+                          {win ? <TrendingUp size={13} /> : <TrendingDown size={13} />}
+                        </span>
+                        <div className="min-w-0">
+                          <div className="flex items-center gap-1.5 text-[12px] font-semibold">
+                            {tr.symbol ? <span className="truncate">{tr.symbol}</span> : <span className="text-muted2">—</span>}
+                            {dir && (
+                              <span
+                                className="rounded-md px-1.5 py-px font-mono text-[9.5px] uppercase"
+                                style={{
+                                  background: dir === "short" ? "rgba(255,59,92,.12)" : "rgba(0,211,1,.12)",
+                                  color: dir === "short" ? RED : GREEN,
+                                }}
+                              >
+                                {dir}
+                              </span>
+                            )}
+                          </div>
+                          <div className="font-mono text-[10.5px] text-muted2">
+                            {frDate(String(tr.date || "").slice(0, 10))}
+                          </div>
+                        </div>
+                      </div>
+                      <div className="font-mono text-[13px] font-bold" style={{ color: win ? GREEN : RED }}>
+                        {signedMoney(p)}
+                      </div>
+                    </div>
+                  );
+                })}
+                {acctTrades.length > 15 && (
+                  <div className="pt-1 text-center font-mono text-[10.5px] text-muted2">
+                    + {acctTrades.length - 15} {L === "en" ? "more" : "de plus"}
+                  </div>
+                )}
+              </div>
+            )}
+          </div>
+
+          {/* Payouts (funded uniquement) */}
+          {!isEval && (
+            <div className="rounded-2xl border border-line bg-panel p-4">
+              <div className="mb-3 flex items-center justify-between">
+                <div className="text-[11px] font-semibold uppercase tracking-wide text-muted2">
+                  {L === "en" ? "Payout history" : "Historique payouts"}
+                </div>
+                <span className="font-mono text-[11px]" style={{ color: "#ff66e4" }}>
+                  {fmtMoney(h.payoutTotal)} · {h.payoutCount}
+                </span>
+              </div>
+
+              {payouts.length === 0 ? (
+                <div className="rounded-lg bg-panel2 px-3 py-5 text-center text-[12px] text-muted2">
+                  {L === "en" ? "No payout yet." : "Aucun payout pour l'instant."}
+                </div>
+              ) : (
+                <div className="flex flex-col gap-1">
+                  {payouts.slice(0, 10).map((c) => (
+                    <div key={c.id} className="flex items-center justify-between rounded-lg bg-panel2 px-3 py-2">
+                      <div className="font-mono text-[11px] text-muted2">
+                        {frDate(String(c.date || "").slice(0, 10))}
+                      </div>
+                      <div className="font-mono text-[13px] font-bold" style={{ color: "#ff66e4" }}>
+                        {fmtMoney(Number(c.amount) || 0)}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-4 flex items-start gap-1.5 text-[11px] text-muted2">
+        <Info size={13} className="mt-px shrink-0" />
+        {L === "en"
+          ? "Estimates from your logged trades (realized PnL), not intraday unrealized. Indicator, not the firm's official value."
+          : "Estimations basées sur tes trades loggés (PnL réalisé), pas l'unrealized intraday. Indicateur, pas la valeur officielle de la prop firm."}
+      </div>
+
+      {editing && <AccountModal editing={account} onClose={() => setEditing(false)} />}
     </div>
   );
 }
