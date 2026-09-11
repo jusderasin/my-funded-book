@@ -131,7 +131,7 @@ export default function AccountDetailPage() {
   const router = useRouter();
   const id = params?.id;
 
-  const { accounts, trades, certificates, deleteAccount, notify, t, lang, loading } = useBook();
+  const { accounts, trades, certificates, deleteAccount, notify, t, lang, loading, profile } = useBook();
   const L = lang === "en" ? "en" : "fr";
 
   const [editing, setEditing] = useState(false);
@@ -182,10 +182,24 @@ export default function AccountDetailPage() {
   };
 
   const onExportPdf = async () => {
-    // Placeholder — l'étape 3b câblera @react-pdf/renderer ici.
+    if (pdfBusy) return;
     setPdfBusy(true);
-    notify(L === "en" ? "PDF export coming soon" : "Export PDF — bientôt disponible");
-    setTimeout(() => setPdfBusy(false), 400);
+    try {
+      const { exportPropfirmPdf } = await import("@/lib/pdf/propfirm");
+      await exportPropfirmPdf({
+        account,
+        health: h,
+        analytics: A,
+        trades: acctTrades,
+        profile,
+        lang: L,
+      });
+    } catch (err) {
+      console.error("[propfirm pdf]", err);
+      notify(L === "en" ? "PDF export failed" : "Échec de l'export PDF", true);
+    } finally {
+      setPdfBusy(false);
+    }
   };
 
   return (
