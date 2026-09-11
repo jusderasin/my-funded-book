@@ -12,19 +12,32 @@ export function signedMoney(v) {
  * Indicateur — pas la valeur officielle de la prop firm (pas d'unrealized intraday).
  *
  * account : { id, firm, size, type, status, date, daily_loss_limit, max_drawdown,
- *             trailing_drawdown, profit_target,
- *             payout_min?, payout_cycle_days?, min_trading_days? }  (les 3 derniers optionnels)
- * allTrades   : tous les trades (on filtre sur account_id)
- * certificates: pour l'historique payout (type === "payout", matché par firm)
- * L : "fr" | "en"
+ *             trailing_type, trailing_lock_offset,
+ *             trailing_drawdown (legacy), profit_target,
+ *             payout_min?, payout_cycle_days?, min_trading_days? }
+ *
+ * trailing_type :
+ *   - "intraday" : le seuil trail sur le peak après chaque trade (style Apex)
+ *   - "eod"      : le seuil trail sur le peak à la clôture (Lucid/Topstep/MFF)
+ *                  → la journée en cours ne fait PAS monter le seuil tant qu'elle n'est pas fermée
+ *   - "static"   : pas de trail, seuil fixe à size - max_drawdown
+ *
+ * trailing_lock_offset :
+ *   - offset en $ au-dessus du solde initial où le seuil se fige définitivement
+ *     une fois que le peak a franchi (size + max_drawdown).
+ *   - Apex : 0 (lock à size). Lucid : 100 (lock à size + $100).
  */
 export function accountHealth(account, allTrades, certificates = [], L = "fr") {
   const en = L === "en";
   const size = Number(account.size) || 0;
   const dailyLimit = account.daily_loss_limit != null ? Number(account.daily_loss_limit) : null;
   const maxDD = account.max_drawdown != null ? Number(account.max_drawdown) : null;
-  const trailing = account.trailing_drawdown !== false;
   const target = account.profit_target != null ? Number(account.profit_target) : null;
+
+  // Type de trailing — nouveau champ, fallback sur l'ancien boolean pour rétrocompat
+  const trailingType =
+    account.trailing_type || (account.trailing_drawdown === false ? "static" : "intraday");
+  const lockOffset = Number(account.trailing_lock_offset) || 0;
 
   // Règles payout optionnelles (colonnes ajoutées via migration)
   const payoutMin = account.payout_min != null ? Number(account.payout_min) : null;
@@ -51,19 +64,45 @@ export function accountHealth(account, allTrades, certificates = [], L = "fr") {
   const highWater = size + peak;
   const tradingDays = Object.keys(byDay).length;
 
-  // ----- Drawdown (trailing avec lock à la balance initiale, façon Apex ; sinon statique) -----
+  const today = todayISO();
+
+  // ----- Peak EOD (exclut la journée en cours) -----
+  // Pour le trailing EOD : la journée en cours ne fait pas bouger le seuil
+  // tant qu'elle n'est pas clôturée. Le seuil du jour est celui d'hier soir.
+  let eodPeak = 0;
+  if (trailingType === "eod") {
+    const closedDates = Object.keys(byDay).filter((d) => d !== today).sort();
+    let ec = 0;
+    for (const d of closedDates) {
+      ec += byDay[d];
+      if (ec > eodPeak) eodPeak = ec;
+    }
+  }
+
+  // ----- Drawdown -----
+  // static   : seuil fixe (size - maxDD)
+  // intraday : trail sur peak après chaque trade, lock à (size + lockOffset)
+  // eod      : trail sur eodPeak (jours clôturés uniquement), lock idem
   let ddThreshold = null;
   let ddMargin = null;
   let ddMarginPct = null;
+  let ddLocked = false;
   if (maxDD != null) {
-    ddThreshold = trailing ? Math.min(highWater - maxDD, size) : size - maxDD;
+    if (trailingType === "static") {
+      ddThreshold = size - maxDD;
+    } else {
+      const peakForDd = trailingType === "eod" ? eodPeak : peak;
+      const lockValue = size + lockOffset;
+      const trailValue = size + peakForDd - maxDD;
+      ddThreshold = Math.min(trailValue, lockValue);
+      ddLocked = trailValue >= lockValue;
+    }
     ddMargin = balance - ddThreshold; // $ restants avant de cramer
     ddMarginPct = maxDD > 0 ? (ddMargin / maxDD) * 100 : null;
   }
   const breached = ddMargin != null && ddMargin <= 0;
 
   // ----- Daily loss (aujourd'hui) -----
-  const today = todayISO();
   const todayPnl = byDay[today] || 0;
   let dailyUsed = null;
   let dailyLeft = null;
@@ -134,7 +173,11 @@ export function accountHealth(account, allTrades, certificates = [], L = "fr") {
 
   return {
     size, balance, highWater, cum, tradingDays,
-    maxDD, trailing, ddThreshold, ddMargin, ddMarginPct, breached,
+    maxDD,
+    trailingType,
+    trailing: trailingType !== "static", // legacy — pour compat avec l'ancien code UI
+    lockOffset,
+    ddThreshold, ddMargin, ddMarginPct, ddLocked, breached,
     dailyLimit, dailyUsed, dailyLeft, dailyPct, dailyHit, todayPnl,
     target, targetPct, targetReached,
     isFunded, payoutTotal, payoutCount: payouts.length, lastPayoutDate,
