@@ -166,6 +166,22 @@ export function LogTradeModal({ editing, onClose }) {
   );
 }
 
+// Presets par prop firm : type de trailing DD et offset du lock ($).
+// - intraday : le seuil bouge tick-by-tick (Apex)
+// - eod      : le seuil bouge uniquement à la clôture (Lucid, Topstep, MFF, Tradeify…)
+// - static   : pas de trail
+// Le lock_offset = $ au-dessus de l'initial où le seuil se fige une fois "trailed out".
+const FIRM_TRAILING_DEFAULTS = {
+  MFF:      { type: "eod",      lock: 0 },
+  Lucid:    { type: "eod",      lock: 100 },
+  Phidias:  { type: "intraday", lock: 0 },
+  Topstep:  { type: "eod",      lock: 0 },
+  Apex:     { type: "intraday", lock: 0 },
+  Alpha:    { type: "intraday", lock: 0 },
+  Tradeify: { type: "eod",      lock: 0 },
+  Autre:    { type: "intraday", lock: 0 },
+};
+
 export function AccountModal({ editing, onClose }) {
   const { addAccount, updateAccount, t, lang } = useBook();
   const isEdit = !!editing;
@@ -185,16 +201,41 @@ export function AccountModal({ editing, onClose }) {
           daily_loss_limit: editing.daily_loss_limit == null ? "" : editing.daily_loss_limit,
           max_drawdown: editing.max_drawdown == null ? "" : editing.max_drawdown,
           profit_target: editing.profit_target == null ? "" : editing.profit_target,
-          trailing_drawdown: editing.trailing_drawdown !== false,
+          trailing_type:
+            editing.trailing_type ||
+            (editing.trailing_drawdown === false ? "static" : "intraday"),
+          trailing_lock_offset:
+            editing.trailing_lock_offset == null ? "" : editing.trailing_lock_offset,
         }
       : {
           firm: "MFF", size: 50000, cost: 0, type: "eval", status: "active", date: todayISO(), note: "",
-          daily_loss_limit: "", max_drawdown: "", profit_target: "", trailing_drawdown: true,
+          daily_loss_limit: "", max_drawdown: "", profit_target: "",
+          trailing_type: FIRM_TRAILING_DEFAULTS.MFF.type,
+          trailing_lock_offset: FIRM_TRAILING_DEFAULTS.MFF.lock,
         }
   );
   const set = (k, v) => setF((s) => ({ ...s, [k]: v }));
+
+  // Changement de firm en création → applique le preset (type + lock).
+  // En édition on garde ce que l'user avait pour ne pas écraser sa config.
+  const onFirmChange = (firm) => {
+    if (isEdit) {
+      set("firm", firm);
+      return;
+    }
+    const preset = FIRM_TRAILING_DEFAULTS[firm] || FIRM_TRAILING_DEFAULTS.Autre;
+    setF((s) => ({
+      ...s,
+      firm,
+      trailing_type: preset.type,
+      trailing_lock_offset: preset.lock,
+    }));
+  };
+
   const numOrNull = (v) => (v === "" || v == null ? null : Number(v));
   const L = lang === "en" ? "en" : "fr";
+  const isStatic = f.trailing_type === "static";
+
   return (
     <Modal title={isEdit ? (L === "en" ? "Edit account" : "Éditer le compte") : t("m_new_account")} onClose={onClose}
       footer={<><GhostBtn className="flex-1" onClick={onClose}>{t("m_cancel")}</GhostBtn><PrimaryBtn className="flex-1" onClick={async () => {
@@ -205,13 +246,16 @@ export function AccountModal({ editing, onClose }) {
           daily_loss_limit: numOrNull(f.daily_loss_limit),
           max_drawdown: numOrNull(f.max_drawdown),
           profit_target: numOrNull(f.profit_target),
-          trailing_drawdown: !!f.trailing_drawdown,
+          trailing_type: f.trailing_type || "intraday",
+          trailing_lock_offset: isStatic ? 0 : (numOrNull(f.trailing_lock_offset) ?? 0),
+          // On garde l'ancien boolean synchronisé pour rétrocompat (au cas où d'autres modules le lisent)
+          trailing_drawdown: f.trailing_type !== "static",
         };
         if (isEdit) await updateAccount(editing.id, payload);
         else await addAccount(payload);
         onClose();
       }}>{t("m_save")}</PrimaryBtn></>}>
-      <Field label={t("m_firm")}><select className={inputCls} value={f.firm} onChange={(e) => set("firm", e.target.value)}>{firmOptions.map((x) => <option key={x}>{x}</option>)}</select></Field>
+      <Field label={t("m_firm")}><select className={inputCls} value={f.firm} onChange={(e) => onFirmChange(e.target.value)}>{firmOptions.map((x) => <option key={x}>{x}</option>)}</select></Field>
       <div className="grid grid-cols-2 gap-3">
         <Field label={t("m_size")}><input type="number" className={inputCls} value={f.size} onChange={(e) => set("size", e.target.value)} /></Field>
         <Field label={t("m_eval_cost")}><input type="number" className={inputCls} value={f.cost} onChange={(e) => set("cost", e.target.value)} placeholder={t("m_free_if")} /></Field>
@@ -230,13 +274,24 @@ export function AccountModal({ editing, onClose }) {
       </div>
       <div className="grid grid-cols-2 gap-3">
         <Field label={L === "en" ? "Profit target ($)" : "Objectif de profit ($)"}><input type="number" className={inputCls} value={f.profit_target} onChange={(e) => set("profit_target", e.target.value)} placeholder="1500" /></Field>
-        <Field label={L === "en" ? "Trailing drawdown" : "Drawdown trailing"}>
+        <Field label={L === "en" ? "Trailing type" : "Type de trailing"}>
           <div className="flex gap-1.5">
-            <Chip active={f.trailing_drawdown} onClick={() => set("trailing_drawdown", true)}>{t("m_yes")}</Chip>
-            <Chip active={!f.trailing_drawdown} onClick={() => set("trailing_drawdown", false)}>{t("m_no")}</Chip>
+            <Chip active={f.trailing_type === "intraday"} onClick={() => set("trailing_type", "intraday")}>Intraday</Chip>
+            <Chip active={f.trailing_type === "eod"} onClick={() => set("trailing_type", "eod")}>EOD</Chip>
+            <Chip active={f.trailing_type === "static"} onClick={() => set("trailing_type", "static")}>Static</Chip>
           </div>
         </Field>
       </div>
+      {!isStatic && (
+        <Field label={L === "en" ? "Lock offset ($ above initial)" : "Lock offset ($ au-dessus de l'initial)"}>
+          <input type="number" className={inputCls} value={f.trailing_lock_offset} onChange={(e) => set("trailing_lock_offset", e.target.value)} placeholder="0" />
+          <div className="mt-1 text-[10.5px] text-muted2">
+            {L === "en"
+              ? "Once the peak crosses (initial + max DD), the threshold locks at (initial + this offset). Apex: 0. Lucid: 100."
+              : "Une fois que le peak franchit (initial + max DD), le seuil se fige à (initial + cet offset). Apex : 0. Lucid : 100."}
+          </div>
+        </Field>
+      )}
 
       <Field label={t("m_date")}><input type="date" className={inputCls} value={f.date} onChange={(e) => set("date", e.target.value)} /></Field>
       <Field label={t("m_note")}><input className={inputCls} value={f.note} onChange={(e) => set("note", e.target.value)} placeholder="Rapid 50K, static drawdown…" /></Field>
