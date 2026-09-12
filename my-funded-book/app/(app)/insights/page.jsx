@@ -69,9 +69,9 @@ export default function InsightsPage() {
     : null;
 
   // 4. Consistency check
-  const profitFactor = s.totalWins && s.totalLosses
-    ? (s.totalWins / Math.abs(s.totalLosses)).toFixed(2)
-    : "—";
+  // (s.pf est déjà calculé par computeStats — s.totalWins/s.totalLosses n'existent pas
+  // sur l'objet stats, ce qui affichait toujours "—" auparavant)
+  const profitFactor = Number.isFinite(s.pf) ? s.pf.toFixed(2) : "—";
 
   // 5. Risk metrics
   const currentDrawdown = s.maxDD || 0;
@@ -258,7 +258,7 @@ export default function InsightsPage() {
           <NovaInsightCard
             icon="📋"
             statusLabel={L === "en" ? "Playbook" : "Playbook"}
-            statusColor={s.planPct >= 80 ? "text-accent" : s.planPct >= 50 ? "goldx" : "text-loss"}
+            statusColor={s.planPct >= 80 ? "text-accent" : s.planPct >= 50 ? "text-goldx" : "text-loss"}
             title={L === "en" ? "Playbook Adherence" : "Respect du Playbook"}
             metric1={{ label: L === "en" ? "Adherence" : "Respect", value: `${s.planPct.toFixed(0)}%`, change: null }}
             metric2={{ label: L === "en" ? "Green Days" : "Jours Verts", value: `${s.greenDays}`, change: null }}
