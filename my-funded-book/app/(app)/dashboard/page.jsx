@@ -174,7 +174,7 @@ export default function DashboardPage() {
           <Area
             values={s.curve.map((c) => c.eq)}
             color="#e8edf5"
-            fill="#8a93a6"
+            fill="var(--muted)"
             labels={s.curve.map((c) => frDate(c.d))}
             fmt={fmtMoney}
           />
