@@ -25,7 +25,7 @@ function derive(ctx) {
     total: trades.length,
     planStreak: maxStreak(chrono, (t) => t.plan === true),
     whyCount: trades.filter((t) => t.why && String(t.why).trim()).length,
-    calmStreak: maxStreak(chrono, (t) => !(t.tags || []).some((x) => TILT_TAGS.includes(String(x).toLowerCase()))),
+    calmStreak: maxStreak(chrono, (t) => !TILT_TAGS.includes(String(t.emotion || "").toLowerCase())),
     sumR: Math.round(chrono.reduce((a, t) => a + Number(t.r || 0), 0)),
     winStreak: maxStreak(chrono, (t) => Number(t.pnl) > 0),
     greenDayStreak: maxStreak(days, (d) => byDay[d] > 0),
