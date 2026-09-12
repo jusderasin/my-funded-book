@@ -2,7 +2,7 @@ import { redirect } from "next/navigation";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { sql } from "@/lib/db";
 import { BookProvider } from "@/components/BookProvider";
-import { AppShell } from "@/components/AppShell";
+import { AppShellPrism } from "@/components/prism";
 
 const ACTIVE = ["active", "trialing"];
 
@@ -31,7 +31,7 @@ export default async function AppLayout({ children }) {
 
   return (
     <BookProvider user={{ id: user.id, email: user.email }}>
-      <AppShell>{children}</AppShell>
+      <AppShellPrism user={{ email: user.email }}>{children}</AppShellPrism>
     </BookProvider>
   );
 }
