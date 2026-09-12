@@ -16,8 +16,9 @@ function applyProfileVars(p) {
   if (p.accent_gain) document.documentElement.style.setProperty("--accent", p.accent_gain);
   if (p.accent_loss) document.documentElement.style.setProperty("--loss", p.accent_loss);
   // Thème global (bind aux data-theme dans globals.css)
-  const theme = p.theme || "dark";
-  if (theme === "dark") {
+  // "nova" = défaut (identité TradeX Nova), pas d'attribut data-theme posé.
+  const theme = p.theme || "nova";
+  if (theme === "nova") {
     document.documentElement.removeAttribute("data-theme");
   } else {
     document.documentElement.setAttribute("data-theme", theme);
