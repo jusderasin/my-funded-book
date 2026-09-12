@@ -9,10 +9,23 @@
 /*                                                                    */
 /*  Le thème est activé via l'attribut data-theme sur <html>, posé     */
 /*  par applyProfileVars() dans BookProvider. Pas de data-theme =      */
-/*  thème "dark" (défaut).                                             */
+/*  thème "nova" (défaut, identité TradeX Nova).                       */
 /* ------------------------------------------------------------------ */
 
 :root {
+  color-scheme: dark;
+  --ink:    #0a0e27;
+  --ink2:   #05071a;
+  --panel:  #1a1f3a;
+  --panel2: #212748;
+  --line:   #2a3050;
+  --line2:  #3a4060;
+  --muted:  #8892b0;
+  --muted2: #6b7395;
+}
+
+/* Classique — ancien thème par défaut, conservé pour ceux qui le préfèrent */
+:root[data-theme="dark"] {
   color-scheme: dark;
   --ink:    #0D0F12;
   --ink2:   #0a0c10;
