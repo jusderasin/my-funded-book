@@ -4,11 +4,11 @@ import { useState, useEffect } from "react";
 import { Palette, Check } from "lucide-react";
 import { PrimaryBtn } from "@/components/ui";
 
-const DEFAULT_GAIN = "#00E676";
-const DEFAULT_LOSS = "#FF5252";
+const DEFAULT_GAIN = "#00d301";
+const DEFAULT_LOSS = "#ff3b5c";
 
 const PALETTES = [
-  { name: "Emerald & Red", gain: "#00E676", loss: "#FF5252" },
+  { name: "TradeX Nova", gain: "#00d301", loss: "#ff3b5c" },
   { name: "Cyan & Rose", gain: "#00E5FF", loss: "#FF4081" },
   { name: "Gold & Coral", gain: "#FFD700", loss: "#FF6B6B" },
   { name: "Purple & Amber", gain: "#B388FF", loss: "#FFAB40" },
