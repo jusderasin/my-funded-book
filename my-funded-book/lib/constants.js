@@ -1,5 +1,5 @@
 export const FIRMS = {
-  MFF: { n: "My Funded Futures", c: "#00E676" },
+  MFF: { n: "My Funded Futures", c: "#00d301" },
   Lucid: { n: "Lucid Trading", c: "#00d4a0" },
   Phidias: { n: "Phidias", c: "#ff66e4" },
   Topstep: { n: "Topstep", c: "#f5b301" },
