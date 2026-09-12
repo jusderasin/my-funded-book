@@ -14,7 +14,7 @@ const firmOptions = Object.keys(FIRMS);
 const OUTCOME_DEFAULT_R = { TP: 2, SL: -1, BE: 0 };
 
 export function LogTradeModal({ editing, onClose }) {
-  const { addTrade, updateTrade, playbooks, accounts, notify, t, lang } = useBook();
+  const { addTrade, updateTrade, playbooks, accounts, trades, notify, t, lang } = useBook();
   const defaultAccountId =
     accounts.find((a) => a.type === "funded" && a.status === "active")?.id ||
     accounts.find((a) => a.status === "active")?.id ||
@@ -31,9 +31,26 @@ export function LogTradeModal({ editing, onClose }) {
   const [shotUrl, setShotUrl] = useState(editing ? editing.screenshot_url || null : null);
   const [shotUrl2, setShotUrl2] = useState(editing ? editing.screenshot_url_2 || null : null);
   const [uploading, setUploading] = useState(false);
+  const [tagInput, setTagInput] = useState("");
   const set = (k, v) => setF((s) => ({ ...s, [k]: v }));
-  const toggleTag = (tag) => set("tags", f.tags.includes(tag) ? f.tags.filter((x) => x !== tag) : [...f.tags, tag]);
   const toggleEmotion = (k) => set("emotion", f.emotion === k ? null : k);
+
+  // Tags libres : on tape et on ajoute (Entrée ou bouton +), au lieu d'une liste figée.
+  // TAG_LIB reste proposé en suggestion, complété par les tags déjà utilisés dans l'historique.
+  const addTag = (raw) => {
+    const v = (raw || "").trim();
+    if (!v) return;
+    if (f.tags.some((x) => x.toLowerCase() === v.toLowerCase())) { setTagInput(""); return; }
+    set("tags", [...f.tags, v]);
+    setTagInput("");
+  };
+  const removeTag = (tag) => set("tags", f.tags.filter((x) => x !== tag));
+  const tagFreq = {};
+  (trades || []).forEach((tr) => (tr.tags || []).forEach((tg) => { tagFreq[tg] = (tagFreq[tg] || 0) + 1; }));
+  const historyTags = Object.keys(tagFreq).sort((a, b) => tagFreq[b] - tagFreq[a]);
+  const tagSuggestions = [...new Set([...TAG_LIB, ...historyTags])]
+    .filter((tg) => !f.tags.some((x) => x.toLowerCase() === tg.toLowerCase()))
+    .slice(0, 16);
 
   // Clique sur TP/SL/BE : sélectionne l'outcome ET propose un R par défaut
   // (TP=+2, SL=-1, BE=0). Le trader peut ensuite corriger le champ R librement.
@@ -141,7 +158,28 @@ export function LogTradeModal({ editing, onClose }) {
         </div>
       </Field>
       <Field label={t("m_tags")}>
-        <div className="flex flex-wrap gap-1.5">{TAG_LIB.map((tag) => <Chip key={tag} active={f.tags.includes(tag)} danger onClick={() => toggleTag(tag)}>{tag}</Chip>)}</div>
+        {f.tags.length > 0 && (
+          <div className="mb-2 flex flex-wrap gap-1.5">
+            {f.tags.map((tag) => (
+              <Chip key={tag} active danger onClick={() => removeTag(tag)}>{tag} ×</Chip>
+            ))}
+          </div>
+        )}
+        <div className="flex gap-1.5">
+          <input
+            className={inputCls}
+            value={tagInput}
+            onChange={(e) => setTagInput(e.target.value)}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTag(tagInput); } }}
+            placeholder={lang === "en" ? "Add a tag and press Enter…" : "Ajoute un tag et appuie sur Entrée…"}
+          />
+          <GhostBtn type="button" className="px-3" onClick={() => addTag(tagInput)}>+</GhostBtn>
+        </div>
+        {tagSuggestions.length > 0 && (
+          <div className="mt-2 flex flex-wrap gap-1.5">
+            {tagSuggestions.map((tag) => <Chip key={tag} onClick={() => addTag(tag)}>{tag}</Chip>)}
+          </div>
+        )}
       </Field>
       <Field label={t("m_chart")}>
         <div className="grid grid-cols-2 gap-2.5">
