@@ -251,7 +251,10 @@ export function Gauge({ pct, color = "var(--accent, #00d301)" }) {
 }
 
 // ---------- Monthly calendar ----------
-export function Calendar({ byDay, tradesByDay, month, onShift, t, onDayClick }) {
+// mode "pnl" (par défaut) : cellule = PnL du jour (comportement historique, inchangé).
+// mode "psych" : cellule = état mental moyen du jour, dérivé du champ "emotion" des trades
+// (psychByDay = { "YYYY-MM-DD": scoreMoyen0à100 }), coloré selon PSYCH_SPECTRUM.
+export function Calendar({ byDay, tradesByDay, month, onShift, t, onDayClick, mode = "pnl", psychByDay, psychBucketFn }) {
   const today = new Date();
   const safe = month || { y: today.getFullYear(), m: today.getMonth() + 1 };
   const { y, m } = safe;
@@ -259,27 +262,50 @@ export function Calendar({ byDay, tradesByDay, month, onShift, t, onDayClick }) 
   const first = new Date(y, m - 1, 1).getDay();
   const dim = new Date(y, m, 0).getDate();
   const dows = ["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
+  const isPsych = mode === "psych";
   const cells = [];
   for (let i = 0; i < first; i++) cells.push(<div key={"e" + i} />);
   for (let d = 1; d <= dim; d++) {
     const key = `${y}-${String(m).padStart(2, "0")}-${String(d).padStart(2, "0")}`;
     const pnl = byDay[key];
     const nT = tradesByDay[key] || 0;
-    const cls = pnl > 0 ? "bg-accentDim border-accent/30" : pnl < 0 ? "bg-lossDim border-loss/30" : "bg-panel2 border-transparent";
     const clickable = nT > 0 && typeof onDayClick === "function";
+    let cls = "bg-panel2 border-transparent";
+    let style;
+    let body = null;
+
+    if (isPsych) {
+      const score = psychByDay ? psychByDay[key] : null;
+      if (score != null && psychBucketFn) {
+        const b = psychBucketFn(score);
+        cls = "border";
+        style = { background: `color-mix(in srgb, ${b.color} 16%, transparent)`, borderColor: `color-mix(in srgb, ${b.color} 45%, transparent)` };
+        body = (
+          <div>
+            <div className="font-mono text-[10px] font-extrabold leading-tight" style={{ color: b.color }}>{Math.round(score)}</div>
+            <div className="text-[8px] text-muted2">{b.label}</div>
+          </div>
+        );
+      }
+    } else if (pnl != null) {
+      cls = pnl > 0 ? "bg-accentDim border-accent/30" : pnl < 0 ? "bg-lossDim border-loss/30" : "bg-panel2 border-transparent";
+      body = (
+        <div>
+          <div className={`font-mono text-[10px] font-extrabold leading-tight ${pnl >= 0 ? "text-accent" : "text-loss"}`}>{fmtK(pnl)}</div>
+          <div className="text-[8px] text-muted2">{nT} {nT > 1 ? (t ? t("cal_trades") : "trades") : (t ? t("cal_trade") : "trade")}</div>
+        </div>
+      );
+    }
+
     cells.push(
       <div
         key={d}
         onClick={clickable ? () => onDayClick(key) : undefined}
+        style={style}
         className={`flex aspect-square min-h-[44px] flex-col justify-between rounded-lg border p-1.5 ${cls} ${clickable ? "cursor-pointer transition hover:brightness-125" : ""}`}
       >
         <div className="font-mono text-[9px] text-muted2">{d}</div>
-        {pnl != null && (
-          <div>
-            <div className={`font-mono text-[10px] font-extrabold leading-tight ${pnl >= 0 ? "text-accent" : "text-loss"}`}>{fmtK(pnl)}</div>
-            <div className="text-[8px] text-muted2">{nT} {nT > 1 ? (t ? t("cal_trades") : "trades") : (t ? t("cal_trade") : "trade")}</div>
-          </div>
-        )}
+        {body}
       </div>
     );
   }
