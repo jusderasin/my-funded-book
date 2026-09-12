@@ -2,6 +2,9 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Google Fonts — Inter pour tout le look PRISM (300 → 900) */
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
+
 /* ------------------------------------------------------------------ */
 /*  THÈMES — palettes de tokens de fond/bordure/texte.                 */
 /*  L'accent (gain) et loss restent gérés séparément par --accent /    */
@@ -76,6 +79,21 @@
   --muted2: #7d87a8;
 }
 
+/* PRISM — thème TradeXNova (bleu accent, fond noir pur, bordures white/10) */
+:root[data-theme="prism"] {
+  color-scheme: dark;
+  --ink:    #000000;
+  --ink2:   #000000;
+  --panel:  #0a0a0a;
+  --panel2: #141414;
+  --line:   rgba(255, 255, 255, 0.08);
+  --line2:  rgba(255, 255, 255, 0.12);
+  --muted:  #a1a1aa;
+  --muted2: #71717a;
+  --accent: #3b82f6;
+  --loss:   #ef4444;
+}
+
 html, body { background: var(--ink); }
 
 * { -webkit-tap-highlight-color: transparent; }
@@ -90,3 +108,45 @@ input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.7); }
 /* Masque la scrollbar tout en gardant le scroll (molette, trackpad, tactile) */
 .no-scrollbar { scrollbar-width: none; -ms-overflow-style: none; }
 .no-scrollbar::-webkit-scrollbar { display: none; }
+
+/* ------------------------------------------------------------------ */
+/*  PRISM — utility classes indépendantes du thème actif.              */
+/*  Utilisables partout pour obtenir le look TradeXNova sans forcer    */
+/*  le thème sur l'app entière. Utilisées par /components/prism/*.     */
+/* ------------------------------------------------------------------ */
+
+.prism-glass {
+  background: rgba(10, 10, 10, 0.6);
+  backdrop-filter: blur(12px);
+  -webkit-backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.prism-glow-blue {
+  box-shadow:
+    0 0 40px -8px rgba(59, 130, 246, 0.35),
+    inset 0 1px 0 rgba(255, 255, 255, 0.04);
+}
+
+.prism-hairline {
+  border: 1px solid rgba(255, 255, 255, 0.08);
+}
+
+.prism-hairline-2 {
+  border: 1px solid rgba(255, 255, 255, 0.12);
+}
+
+.prism-eyebrow {
+  font-size: 0.75rem;
+  font-weight: 500;
+  letter-spacing: 0.1em;
+  text-transform: uppercase;
+  color: #a1a1aa;
+}
+
+/* Gradient de fond radial subtil pour les hero sections */
+.prism-hero-bg {
+  background:
+    radial-gradient(ellipse at top, rgba(59, 130, 246, 0.08) 0%, transparent 50%),
+    #000000;
+}
