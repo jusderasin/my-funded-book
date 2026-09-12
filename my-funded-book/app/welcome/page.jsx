@@ -457,7 +457,7 @@ export default function WelcomePage() {
           MyTradeBook
         </Link>
         <Link
-          href="/auth"
+          href="/"
           className="text-sm font-medium text-white/70 hover:text-white transition-colors"
         >
           {t.nav.signin}
@@ -477,7 +477,7 @@ export default function WelcomePage() {
             {t.hero.desc}
           </p>
 
-          <Link href="/auth">
+          <Link href="/">
             <Button variant="primary" size="lg" pill iconRight={<ArrowRight className="h-5 w-5" />}>
               {t.hero.cta}
             </Button>
@@ -589,7 +589,7 @@ export default function WelcomePage() {
           <Gift className="h-3.5 w-3.5 text-prism-accent" />
           {lang === "fr" ? "Accès complet dès l'inscription" : "Full access from the moment you join"}
         </Pill>
-        <Link href="/auth">
+        <Link href="/">
           <Button
             variant="primary"
             size="lg"
