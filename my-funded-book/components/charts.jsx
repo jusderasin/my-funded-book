@@ -66,17 +66,17 @@ export function Radar({ axes }) {
       const [x, y] = pt(i, R * f);
       p += (i ? "L" : "M") + x.toFixed(1) + "," + y.toFixed(1);
     }
-    return <path key={ri} d={p + "Z"} fill="none" stroke="#242833" strokeWidth="1" />;
+    return <path key={ri} d={p + "Z"} fill="none" stroke="var(--line)" strokeWidth="1" />;
   });
   const spokes = keys.map((k, i) => {
     const [x, y] = pt(i, R);
-    return <line key={i} x1={cx} y1={cy} x2={x.toFixed(1)} y2={y.toFixed(1)} stroke="#1c2029" strokeWidth="1" />;
+    return <line key={i} x1={cx} y1={cy} x2={x.toFixed(1)} y2={y.toFixed(1)} stroke="var(--panel2)" strokeWidth="1" />;
   });
   const labels = keys.map((k, i) => {
     const [lx, ly] = pt(i, R + 16);
     const anchor = Math.abs(lx - cx) < 6 ? "middle" : lx > cx ? "start" : "end";
     return (
-      <text key={i} x={lx.toFixed(1)} y={(ly + 3).toFixed(1)} textAnchor={anchor} fontSize="8.5" fill="#8a93a6">
+      <text key={i} x={lx.toFixed(1)} y={(ly + 3).toFixed(1)} textAnchor={anchor} fontSize="8.5" fill="var(--muted)">
         {k}
       </text>
     );
@@ -88,7 +88,7 @@ export function Radar({ axes }) {
   });
   const dots = keys.map((k, i) => {
     const [x, y] = pt(i, (R * axes[k]) / 100);
-    return <circle key={i} cx={x.toFixed(1)} cy={y.toFixed(1)} r={hi === i ? "3.6" : "2.4"} fill="#00E676" />;
+    return <circle key={i} cx={x.toFixed(1)} cy={y.toFixed(1)} r={hi === i ? "3.6" : "2.4"} fill="var(--accent, #00d301)" />;
   });
   const hotspots = keys.map((k, i) => {
     const [x, y] = pt(i, (R * axes[k]) / 100);
@@ -102,7 +102,7 @@ export function Radar({ axes }) {
     tip = (
       <Tip leftPct={(x / VB_W) * 100} topPct={(y / VB_H) * 100} place={y / VB_H < 0.35 ? "bottom" : "top"}>
         <div className="text-muted2">{keys[hi]}</div>
-        <div className="font-extrabold" style={{ color: "#00E676" }}>
+        <div className="font-extrabold" style={{ color: "var(--accent, #00d301)" }}>
           {Math.round(axes[keys[hi]])}<span className="text-muted2">/100</span>
         </div>
       </Tip>
@@ -113,7 +113,7 @@ export function Radar({ axes }) {
       <svg viewBox={`0 0 ${VB_W} ${VB_H}`} className="w-full overflow-visible">
         {rings}
         {spokes}
-        <path d={poly + "Z"} fill="rgba(0,230,118,0.14)" stroke="#00E676" strokeWidth="1.6" />
+        <path d={poly + "Z"} fill="color-mix(in srgb, var(--accent, #00d301) 14%, transparent)" stroke="var(--accent, #00d301)" strokeWidth="1.6" />
         {dots}
         {labels}
         {hotspots}
@@ -124,7 +124,7 @@ export function Radar({ axes }) {
 }
 
 // ---------- Area chart ----------
-export function Area({ values, color = "#00E676", fill = "#00E676", labels, fmt }) {
+export function Area({ values, color = "var(--accent, #00d301)", fill = "var(--accent, #00d301)", labels, fmt }) {
   const { hi, ref, zone } = useChartTip();
   if (!values || values.length < 2) return <ChartEmpty />;
   const W = 560, H = 150, pad = 8;
@@ -149,13 +149,13 @@ export function Area({ values, color = "#00E676", fill = "#00E676", labels, fmt 
             <stop offset="1" stopColor={fill} stopOpacity="0" />
           </linearGradient>
         </defs>
-        {zeroY != null && <line x1={pad} y1={zeroY.toFixed(1)} x2={W - pad} y2={zeroY.toFixed(1)} stroke="#2e3340" strokeDasharray="3 3" />}
+        {zeroY != null && <line x1={pad} y1={zeroY.toFixed(1)} x2={W - pad} y2={zeroY.toFixed(1)} stroke="var(--line2)" strokeDasharray="3 3" />}
         <path d={area} fill={`url(#${gid})`} />
         <path d={line} fill="none" stroke={color} strokeWidth="2" />
         {hi != null && (
           <g>
-            <line x1={x(hi).toFixed(1)} y1={pad} x2={x(hi).toFixed(1)} y2={H - pad} stroke="#3a4150" strokeWidth="1" strokeDasharray="3 3" />
-            <circle cx={x(hi).toFixed(1)} cy={y(values[hi]).toFixed(1)} r="3.5" fill={color} stroke="#0b0d12" strokeWidth="1.5" />
+            <line x1={x(hi).toFixed(1)} y1={pad} x2={x(hi).toFixed(1)} y2={H - pad} stroke="var(--line2)" strokeWidth="1" strokeDasharray="3 3" />
+            <circle cx={x(hi).toFixed(1)} cy={y(values[hi]).toFixed(1)} r="3.5" fill={color} stroke="var(--ink2)" strokeWidth="1.5" />
           </g>
         )}
         {values.map((v, i) => (
@@ -186,7 +186,7 @@ export function Bars({ byDay, days, labels, fmt }) {
   return (
     <div ref={ref} className="relative w-full">
       <svg viewBox={`0 0 ${W} ${H}`} className="w-full">
-        <line x1={pad} y1={zeroY} x2={W - pad} y2={zeroY} stroke="#2e3340" />
+        <line x1={pad} y1={zeroY} x2={W - pad} y2={zeroY} stroke="var(--line2)" />
         {days.map((d, i) => {
           const v = byDay[d];
           const h = (Math.abs(v) / mx) * (H / 2 - 14);
@@ -199,7 +199,7 @@ export function Bars({ byDay, days, labels, fmt }) {
               width={bw.toFixed(1)}
               height={Math.max(1, h).toFixed(1)}
               rx="2"
-              fill={v >= 0 ? "#00E676" : "#FF5252"}
+              fill={v >= 0 ? "var(--accent, #00d301)" : "var(--loss, #ff3b5c)"}
               opacity={hi === i ? "1" : "0.9"}
             />
           );
@@ -217,7 +217,7 @@ export function Bars({ byDay, days, labels, fmt }) {
         return (
           <Tip leftPct={(cx / W) * 100} topPct={(zeroY / H) * 100} place={v >= 0 ? "top" : "bottom"}>
             <div className="text-muted2">{labels && labels[hi] != null ? labels[hi] : days[hi]}</div>
-            <div className="font-extrabold" style={{ color: v >= 0 ? "#00E676" : "#FF5252" }}>{format(v)}</div>
+            <div className="font-extrabold" style={{ color: v >= 0 ? "var(--accent, #00d301)" : "var(--loss, #ff3b5c)" }}>{format(v)}</div>
           </Tip>
         );
       })()}
@@ -226,14 +226,14 @@ export function Bars({ byDay, days, labels, fmt }) {
 }
 
 // ---------- Circular gauge ----------
-export function Gauge({ pct, color = "#00E676" }) {
+export function Gauge({ pct, color = "var(--accent, #00d301)" }) {
   const p = Math.max(0, Math.min(100, pct));
   const r = 13;
   const c = 2 * Math.PI * r;
   const off = c * (1 - p / 100);
   return (
     <svg width="34" height="34" viewBox="0 0 34 34">
-      <circle cx="17" cy="17" r={r} fill="none" stroke="#1c2029" strokeWidth="3.5" />
+      <circle cx="17" cy="17" r={r} fill="none" stroke="var(--panel2)" strokeWidth="3.5" />
       <circle
         cx="17"
         cy="17"
