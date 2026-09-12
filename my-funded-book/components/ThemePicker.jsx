@@ -4,15 +4,21 @@ import { useState, useEffect } from "react";
 import { Layers, Check } from "lucide-react";
 import { PrimaryBtn } from "@/components/ui";
 
-const DEFAULT_THEME = "dark";
+const DEFAULT_THEME = "nova";
 
 // Palettes miroir de globals.css — utilisées uniquement pour le mini-preview
 // dans les cards du picker (le vrai thème est appliqué via data-theme).
 const THEMES = [
   {
+    id: "nova",
+    labelFr: "TradeX Nova",
+    labelEn: "TradeX Nova",
+    tokens: { ink: "#0a0e27", panel: "#1a1f3a", panel2: "#212748", line: "#2a3050", muted: "#8892b0" },
+  },
+  {
     id: "dark",
-    labelFr: "Dark",
-    labelEn: "Dark",
+    labelFr: "Classique",
+    labelEn: "Classic",
     tokens: { ink: "#0D0F12", panel: "#161920", panel2: "#1c2029", line: "#242833", muted: "#8a93a6" },
   },
   {
@@ -37,7 +43,7 @@ const THEMES = [
 
 function applyLive(themeId) {
   if (typeof document === "undefined") return;
-  if (themeId === "dark") {
+  if (themeId === "nova") {
     document.documentElement.removeAttribute("data-theme");
   } else {
     document.documentElement.setAttribute("data-theme", themeId);
@@ -92,7 +98,7 @@ export function ThemePicker({ profile, saveProfile, lang }) {
                 style={{ background: th.tokens.panel, borderColor: th.tokens.line }}
               >
                 <div className="flex items-center gap-1.5">
-                  <span className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--accent, #00E676)" }} />
+                  <span className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--accent, #00d301)" }} />
                   <span className="h-1 flex-1 rounded-full" style={{ background: th.tokens.panel2 }} />
                   <span className="h-1 w-3 rounded-full" style={{ background: th.tokens.line }} />
                 </div>
