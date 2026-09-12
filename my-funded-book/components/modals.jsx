@@ -5,7 +5,7 @@ import { Modal, Field, inputCls, Chip, PrimaryBtn, GhostBtn } from "./ui";
 import { FilePicker } from "./FilePicker";
 import { useBook } from "./BookProvider";
 import { uploadFile } from "@/lib/upload";
-import { FIRMS, SESSIONS, GRADES, TAG_LIB } from "@/lib/constants";
+import { FIRMS, SESSIONS, GRADES, TAG_LIB, EMOTIONS } from "@/lib/constants";
 import { todayISO, fmtMoney } from "@/lib/format";
 
 const firmOptions = Object.keys(FIRMS);
@@ -23,7 +23,7 @@ export function LogTradeModal({ editing, onClose }) {
   const [f, setF] = useState(
     editing || {
       symbol: "MNQ", date: todayISO(), dir: "long", session: "NY AM", grade: "A+",
-      r: "", pnl: "", setup: "", tags: [], why: "", plan: true, account_id: defaultAccountId, outcome: "",
+      r: "", pnl: "", setup: "", tags: [], emotion: null, why: "", plan: true, account_id: defaultAccountId, outcome: "",
     }
   );
   const [file, setFile] = useState(null);
@@ -33,6 +33,7 @@ export function LogTradeModal({ editing, onClose }) {
   const [uploading, setUploading] = useState(false);
   const set = (k, v) => setF((s) => ({ ...s, [k]: v }));
   const toggleTag = (tag) => set("tags", f.tags.includes(tag) ? f.tags.filter((x) => x !== tag) : [...f.tags, tag]);
+  const toggleEmotion = (k) => set("emotion", f.emotion === k ? null : k);
 
   // Clique sur TP/SL/BE : sélectionne l'outcome ET propose un R par défaut
   // (TP=+2, SL=-1, BE=0). Le trader peut ensuite corriger le champ R librement.
@@ -59,7 +60,7 @@ export function LogTradeModal({ editing, onClose }) {
     const row = {
       symbol: (f.symbol || "MNQ").toUpperCase(), date: f.date, dir: f.dir, session: f.session,
       grade: f.grade, r: Number(f.r) || 0, pnl: Number(f.pnl) || 0, setup: f.setup || null,
-      tags: f.tags, why: f.why || null, plan: !!f.plan,
+      tags: f.tags, emotion: f.emotion || null, why: f.why || null, plan: !!f.plan,
       screenshot_url: screenshot_url || null,
       screenshot_url_2: screenshot_url_2 || null,
       account_id: f.account_id || null,
@@ -129,6 +130,15 @@ export function LogTradeModal({ editing, onClose }) {
           <option value="">{t("m_none")}</option>
           {playbooks.map((p) => <option key={p.id} value={p.name}>{p.name}</option>)}
         </select>
+      </Field>
+      <Field label={lang === "en" ? "Emotion at entry" : "Émotion à l'entrée"}>
+        <div className="flex flex-wrap gap-1.5">
+          {EMOTIONS.map((em) => (
+            <Chip key={em.k} active={f.emotion === em.k} danger={em.tone === "red"} onClick={() => toggleEmotion(em.k)}>
+              {em.e} {lang === "en" ? em.en : em.fr}
+            </Chip>
+          ))}
+        </div>
       </Field>
       <Field label={t("m_tags")}>
         <div className="flex flex-wrap gap-1.5">{TAG_LIB.map((tag) => <Chip key={tag} active={f.tags.includes(tag)} danger onClick={() => toggleTag(tag)}>{tag}</Chip>)}</div>
