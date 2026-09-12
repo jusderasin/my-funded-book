@@ -19,10 +19,11 @@ module.exports = {
         muted:  "var(--muted, #8a93a6)",
         muted2: "var(--muted2, #6b7385)",
         // Accent gain / loss — posés par AccentPicker.
-        accent: "var(--accent, #00E676)",
-        accentDim: "color-mix(in srgb, var(--accent, #00E676) 12%, transparent)",
-        loss: "var(--loss, #FF5252)",
-        lossDim: "color-mix(in srgb, var(--loss, #FF5252) 12%, transparent)",
+        // Fallback = identité TradeX Nova (vert/rouge de marque d'origine).
+        accent: "var(--accent, #00d301)",
+        accentDim: "color-mix(in srgb, var(--accent, #00d301) 12%, transparent)",
+        loss: "var(--loss, #ff3b5c)",
+        lossDim: "color-mix(in srgb, var(--loss, #ff3b5c) 12%, transparent)",
         // Couleurs de charts (invariantes selon le thème).
         pinkx: "#ff66e4",
         cyanx: "#00d4a0",
