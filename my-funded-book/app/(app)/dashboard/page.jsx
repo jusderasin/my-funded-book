@@ -10,6 +10,7 @@ import RiskBanner from "@/components/RiskBanner";
 import { LogTradeModal } from "@/components/modals";
 import KpiCustomizer from "@/components/KpiCustomizer";
 import { KPI_CATALOG, DEFAULT_KPI_IDS, MIN_KPIS, MAX_KPIS } from "@/lib/kpiCatalog";
+import { emotionScore, psychBucket } from "@/lib/constants";
 
 const KPI_STORAGE_KEY = "mfb.dashboard.kpis";
 
@@ -25,6 +26,7 @@ export default function DashboardPage() {
   const [editing, setEditing] = useState(null);
   const [kpiIds, setKpiIds] = useState(DEFAULT_KPI_IDS);
   const [customizing, setCustomizing] = useState(false);
+  const [calMode, setCalMode] = useState("pnl"); // "pnl" | "psych"
 
   useEffect(() => {
     try {
@@ -58,6 +60,27 @@ export default function DashboardPage() {
   trades.forEach((t) => { tradesByDay[t.date] = (tradesByDay[t.date] || 0) + 1; });
   const recent = trades.slice(0, 8);
   const dayTrades = dayKey ? trades.filter((tr) => tr.date === dayKey) : [];
+
+  // --- Vue "Psych" du calendrier : état mental moyen par jour, dérivé du champ emotion ---
+  const psychSums = {};
+  trades.forEach((tr) => {
+    const sc = emotionScore(tr.emotion);
+    if (sc == null) return;
+    if (!psychSums[tr.date]) psychSums[tr.date] = { sum: 0, n: 0 };
+    psychSums[tr.date].sum += sc;
+    psychSums[tr.date].n += 1;
+  });
+  const psychByDay = {};
+  Object.keys(psychSums).forEach((d) => { psychByDay[d] = psychSums[d].sum / psychSums[d].n; });
+  const psychBucketFn = (score) => {
+    const b = psychBucket(score);
+    return { color: b.color, label: L === "en" ? b.en : b.fr };
+  };
+  const psychDayScores = Object.values(psychByDay);
+  const psychAvg = psychDayScores.length ? psychDayScores.reduce((a, v) => a + v, 0) / psychDayScores.length : null;
+  const psychPeakDays = psychDayScores.filter((v) => v >= 75).length;
+  const psychGoodDays = psychDayScores.filter((v) => v >= 45 && v < 75).length;
+  const psychChallengingDays = psychDayScores.filter((v) => v < 45).length;
 
   const kpiCount = kpiIds.length;
   const gridCls =
@@ -164,7 +187,60 @@ export default function DashboardPage() {
           )}
         </div>
         <div className="rounded-2xl border border-line bg-panel p-[18px]">
-          <Calendar byDay={s.byDay} tradesByDay={tradesByDay} month={cal} onShift={shift} t={t} onDayClick={setDayKey} />
+          <div className="mb-3 flex items-center justify-between">
+            <div className="flex gap-1.5">
+              <button
+                type="button"
+                onClick={() => setCalMode("pnl")}
+                className={`rounded-lg border px-2.5 py-1 text-[11px] font-semibold ${calMode === "pnl" ? "border-accent bg-accentDim text-accent" : "border-line2 bg-panel2 text-muted2 hover:text-white"}`}
+              >
+                $ P&L
+              </button>
+              <button
+                type="button"
+                onClick={() => setCalMode("psych")}
+                className={`rounded-lg border px-2.5 py-1 text-[11px] font-semibold ${calMode === "psych" ? "border-accent bg-accentDim text-accent" : "border-line2 bg-panel2 text-muted2 hover:text-white"}`}
+              >
+                {L === "en" ? "Psych" : "Psycho"}
+              </button>
+            </div>
+          </div>
+          <Calendar
+            byDay={s.byDay}
+            tradesByDay={tradesByDay}
+            month={cal}
+            onShift={shift}
+            t={t}
+            onDayClick={setDayKey}
+            mode={calMode}
+            psychByDay={psychByDay}
+            psychBucketFn={psychBucketFn}
+          />
+          {calMode === "psych" && (
+            <div className="mt-3.5 border-t border-line pt-3">
+              {psychAvg == null ? (
+                <div className="text-center text-[11px] text-muted2">
+                  {L === "en" ? "No emotion logged yet — set one when logging a trade." : "Aucune émotion renseignée pour l'instant — logge-la à la saisie d'un trade."}
+                </div>
+              ) : (
+                <div className="flex flex-wrap items-center justify-between gap-3">
+                  <div>
+                    <div className="text-[10px] font-bold uppercase tracking-widest text-muted2">
+                      {L === "en" ? "Average mental state" : "État mental moyen"}
+                    </div>
+                    <div className="font-mono text-[22px] font-extrabold" style={{ color: psychBucketFn(psychAvg).color }}>
+                      {Math.round(psychAvg)} <span className="text-[12px] font-semibold text-muted2">{psychBucketFn(psychAvg).label}</span>
+                    </div>
+                  </div>
+                  <div className="flex gap-4 text-[11px]">
+                    <span className="text-muted2">{L === "en" ? "Peak" : "Pic"} <b className="font-mono text-accent">{psychPeakDays}</b></span>
+                    <span className="text-muted2">{L === "en" ? "Good" : "Bons"} <b className="font-mono" style={{ color: "#f5b301" }}>{psychGoodDays}</b></span>
+                    <span className="text-muted2">{L === "en" ? "Challenging" : "Difficiles"} <b className="font-mono text-loss">{psychChallengingDays}</b></span>
+                  </div>
+                </div>
+              )}
+            </div>
+          )}
         </div>
       </div>
       <div className="grid gap-3.5 md:grid-cols-2">
