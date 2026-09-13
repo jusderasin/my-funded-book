@@ -58,7 +58,7 @@ const STR = {
 };
 
 const rOf = (t) => (t.result === "win" ? Number(t.rr || 0) : t.result === "loss" ? -1 : 0);
-const emptyForm = { name: "", instrument: "MNQ", timeframe: "", one_r: 200, period_start: "", period_end: "", note: "" };
+const emptyForm = { name: "", instrument: "MNQ", timeframe: "", one_r: 200, period_start: "", period_end: "", setup: "", note: "" };
 
 // RR suggéré à la sélection du résultat (cohérent avec rOf : Loss = toujours -1R,
 // BE = toujours 0R côté stats). Reste modifiable à la main pour un Win.
@@ -117,7 +117,7 @@ export default function BacktestPage() {
     setEditingSession(s);
     setForm({
       name: s.name || "", instrument: s.instrument || "MNQ", timeframe: s.timeframe || "",
-      one_r: s.one_r ?? 200, period_start: s.period_start || "", period_end: s.period_end || "", note: s.note || "",
+      one_r: s.one_r ?? 200, period_start: s.period_start || "", period_end: s.period_end || "", setup: s.setup || "", note: s.note || "",
     });
     setShowSession(true);
   }
@@ -132,6 +132,7 @@ export default function BacktestPage() {
       one_r: Number(form.one_r) || 200,
       period_start: form.period_start || null,
       period_end: form.period_end || null,
+      setup: form.setup || null,
       note: form.note || null,
     };
     if (editingSession) {
@@ -317,19 +318,25 @@ export default function BacktestPage() {
             <Field label={L.sEnd}><input type="date" className={inputCls} value={form.period_end} onChange={(e) => setForm((f) => ({ ...f, period_end: e.target.value }))} /></Field>
           </div>
           <Field label={L.sOneR}><input type="number" className={inputCls} value={form.one_r} onChange={(e) => setForm((f) => ({ ...f, one_r: e.target.value }))} placeholder="200" /></Field>
+          <Field label={lang === "en" ? "Strategy to test" : "Strat\u00e9gie \u00e0 tester"}>
+            <select className={inputCls} value={form.setup || ""} onChange={(e) => setForm((f) => ({ ...f, setup: e.target.value }))}>
+              <option value="">{lang === "en" ? "- none -" : "- aucune -"}</option>
+              {playbooks.map((playbook) => <option key={playbook.id} value={playbook.name}>{playbook.name}</option>)}
+            </select>
+          </Field>
           <Field label={L.sNote}><input className={inputCls} value={form.note} onChange={(e) => setForm((f) => ({ ...f, note: e.target.value }))} /></Field>
         </Modal>
       )}
 
       {showTrade && (
-        <BtTradeModal L={L} playbooks={playbooks} editing={editing} onClose={() => { setShowTrade(false); setEditing(null); }} onSave={saveTrade} />
+        <BtTradeModal L={L} playbooks={playbooks} defaultSetup={selected?.setup || ""} editing={editing} onClose={() => { setShowTrade(false); setEditing(null); }} onSave={saveTrade} />
       )}
     </div>
   );
 }
 
-function BtTradeModal({ L, playbooks, editing, onClose, onSave }) {
-  const [f, setF] = useState(editing || { date: new Date().toISOString().slice(0, 10), entry_time: "", dir: "long", result: "win", rr: 2, setup: "", notes: "" });
+function BtTradeModal({ L, playbooks, defaultSetup, editing, onClose, onSave }) {
+  const [f, setF] = useState(editing || { date: new Date().toISOString().slice(0, 10), entry_time: "", dir: "long", result: "win", rr: 2, setup: defaultSetup, notes: "" });
   const [file, setFile] = useState(null);
   const [shotUrl, setShotUrl] = useState(editing ? editing.screenshot_url || null : null);
   const [uploading, setUploading] = useState(false);
