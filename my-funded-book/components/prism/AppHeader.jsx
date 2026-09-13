@@ -49,7 +49,7 @@ export default function AppHeader({ user, onMenuClick }) {
         </button>
         <div className="flex items-baseline gap-2 min-w-0">
           <span className="text-sm text-prism-muted hidden sm:inline">
-            Bienvenue,
+            Bonjour,
           </span>
           <span className="text-sm font-semibold text-white capitalize truncate">
             {displayName}

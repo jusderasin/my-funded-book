@@ -17,14 +17,16 @@
 
 :root {
   color-scheme: dark;
-  --ink:    #0a0e27;
-  --ink2:   #05071a;
-  --panel:  #1a1f3a;
-  --panel2: #212748;
-  --line:   #2a3050;
-  --line2:  #3a4060;
-  --muted:  #8892b0;
-  --muted2: #6b7395;
+  --ink:    #000000;
+  --ink2:   #050505;
+  --panel:  #0b0b0e;
+  --panel2: #15151a;
+  --line:   rgba(255, 255, 255, 0.08);
+  --line2:  rgba(255, 255, 255, 0.14);
+  --muted:  #a1a1aa;
+  --muted2: #71717a;
+  --accent: #3b82f6;
+  --loss:   #ef4444;
 }
 
 /* Classique — ancien thème par défaut, conservé pour ceux qui le préfèrent */
@@ -149,4 +151,47 @@ input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.7); }
   background:
     radial-gradient(ellipse at top, rgba(59, 130, 246, 0.08) 0%, transparent 50%),
     #000000;
+}
+
+.app-aurora {
+  background:
+    radial-gradient(850px 380px at 50% -180px, rgba(59, 130, 246, 0.15), transparent 68%),
+    #000;
+}
+
+.app-dot-grid {
+  background-image: radial-gradient(rgba(255, 255, 255, 0.09) 0.7px, transparent 0.7px);
+  background-size: 18px 18px;
+  mask-image: linear-gradient(to bottom, rgba(0,0,0,.28), transparent 78%);
+}
+
+/* Micro-interactions for public marketing surfaces.  These use transforms
+   only, keeping the landing page light and accessible. */
+.nova-lift {
+  transition: transform 220ms ease, border-color 220ms ease, box-shadow 220ms ease, background-color 220ms ease;
+}
+.nova-lift:hover {
+  transform: translateY(-5px);
+  border-color: rgba(96, 165, 250, 0.42);
+  box-shadow: 0 18px 42px -24px rgba(59, 130, 246, 0.72);
+}
+.nova-sheen {
+  position: relative;
+  overflow: hidden;
+}
+.nova-sheen::after {
+  content: "";
+  position: absolute;
+  inset: -110% -55%;
+  background: linear-gradient(110deg, transparent 42%, rgba(147, 197, 253, 0.11) 50%, transparent 58%);
+  transform: translateX(-65%) rotate(8deg);
+  transition: transform 650ms ease;
+  pointer-events: none;
+}
+.nova-sheen:hover::after { transform: translateX(65%) rotate(8deg); }
+.nova-cta { transition: transform 180ms ease, box-shadow 180ms ease, filter 180ms ease; }
+.nova-cta:hover { transform: translateY(-2px) scale(1.015); box-shadow: 0 14px 30px -15px rgba(59, 130, 246, .9); filter: brightness(1.08); }
+@media (prefers-reduced-motion: reduce) {
+  .nova-lift, .nova-sheen::after, .nova-cta { transition: none; }
+  .nova-lift:hover, .nova-cta:hover { transform: none; }
 }

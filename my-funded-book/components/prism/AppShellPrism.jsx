@@ -18,7 +18,7 @@ export default function AppShellPrism({ user, children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-black text-white font-sans antialiased">
+    <div className="min-h-screen bg-black text-white font-sans antialiased app-aurora">
       <Sidebar
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
@@ -29,7 +29,8 @@ export default function AppShellPrism({ user, children }) {
           user={user}
           onMenuClick={() => setSidebarOpen(true)}
         />
-        <main className="flex-1">
+        <main className="relative flex-1">
+          <div className="pointer-events-none absolute inset-x-0 top-0 h-56 app-dot-grid opacity-40" />
           {children}
         </main>
       </div>

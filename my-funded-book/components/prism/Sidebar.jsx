@@ -103,9 +103,10 @@ export default function Sidebar({ open = false, onClose }) {
           <Link
             href="/dashboard"
             onClick={onClose}
-            className="text-lg font-semibold text-white tracking-tight"
+            className="flex items-center gap-2 text-lg font-semibold text-white tracking-tight"
           >
-            MyTradeBook
+            <span className="flex h-7 w-7 items-center justify-center rounded-lg bg-prism-accent text-xs font-black text-white shadow-prism-glow">M</span>
+            <span>MyTrade<span className="text-prism-accent">Book</span></span>
           </Link>
           <button
             onClick={onClose}

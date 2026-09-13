@@ -340,7 +340,7 @@ function Badge({ children, tone = "accent" }) {
 function PatternCard({ card }) {
   const Icon = card.icon;
   return (
-    <Card padding="p-6" className="flex flex-col gap-4">
+    <Card padding="p-6" className="nova-lift nova-sheen flex flex-col gap-4">
       <div className="flex items-start gap-3">
         <span className="inline-flex h-11 w-11 shrink-0 items-center justify-center rounded-xl bg-prism-accentDim text-prism-accent">
           <Icon className="h-5 w-5" />
@@ -387,7 +387,7 @@ function PatternCard({ card }) {
 
 function ChatQuestion({ item }) {
   return (
-    <Card padding="p-5" className="flex flex-col gap-3 bg-prism-accentDim border-prism-accent/20">
+    <Card padding="p-5" className="nova-lift nova-sheen flex flex-col gap-3 bg-prism-accentDim border-prism-accent/20">
       <div className="flex items-start gap-2.5">
         <span className="inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg bg-prism-accent text-white">
           <MessageSquare className="h-4 w-4" />
@@ -418,7 +418,7 @@ function FeatureBlock({ item }) {
 
 function Testimonial({ item }) {
   return (
-    <Card padding="p-6" className="flex flex-col gap-4 h-full">
+    <Card padding="p-6" className="nova-lift nova-sheen flex flex-col gap-4 h-full">
       <p className="text-sm italic text-white/80 leading-relaxed flex-1">
         &ldquo;{item.quote}&rdquo;
       </p>
@@ -457,7 +457,7 @@ export default function WelcomePage() {
           MyTradeBook
         </Link>
         <Link
-          href="/"
+          href="/login"
           className="text-sm font-medium text-white/70 hover:text-white transition-colors"
         >
           {t.nav.signin}
@@ -477,8 +477,8 @@ export default function WelcomePage() {
             {t.hero.desc}
           </p>
 
-          <Link href="/">
-            <Button variant="primary" size="lg" pill iconRight={<ArrowRight className="h-5 w-5" />}>
+          <Link href="/login">
+            <Button variant="primary" size="lg" pill className="nova-cta" iconRight={<ArrowRight className="h-5 w-5" />}>
               {t.hero.cta}
             </Button>
           </Link>
@@ -501,7 +501,7 @@ export default function WelcomePage() {
           {t.stats.map((s, i) => (
             <div
               key={i}
-              className="rounded-2xl border border-prism-line bg-prism-panel p-6 sm:p-8 text-center"
+              className="nova-lift nova-sheen rounded-2xl border border-prism-line bg-prism-panel p-6 sm:p-8 text-center"
             >
               <div className="text-3xl sm:text-4xl font-bold text-white tabular-nums">
                 {s.value}
@@ -589,11 +589,12 @@ export default function WelcomePage() {
           <Gift className="h-3.5 w-3.5 text-prism-accent" />
           {lang === "fr" ? "Accès complet dès l'inscription" : "Full access from the moment you join"}
         </Pill>
-        <Link href="/">
+        <Link href="/login">
           <Button
             variant="primary"
             size="lg"
             pill
+            className="nova-cta"
             icon={<Zap className="h-5 w-5" />}
           >
             {t.hero.cta}
