@@ -21,7 +21,7 @@ export default function Card({
   padding = "p-6",
   ...rest
 }) {
-  const base = "rounded-2xl border border-prism-line bg-prism-panel transition-all";
+  const base = "rounded-2xl border border-prism-line bg-prism-panel shadow-[0_1px_0_rgba(255,255,255,0.03)_inset] transition-all";
   const glassCls = glass ? "prism-glass" : "";
   const glowCls = glow ? "prism-glow-blue" : "";
 

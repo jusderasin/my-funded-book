@@ -13,7 +13,7 @@ const toneText = {
 
 export function Kpi({ label, value, tone = "neu", sub, gauge, big }) {
   return (
-    <div className="relative overflow-hidden rounded-2xl border border-line bg-panel p-4 min-h-[92px]">
+    <div className="nova-lift relative overflow-hidden rounded-2xl border border-line bg-panel p-4 min-h-[92px] shadow-[0_1px_0_rgba(255,255,255,0.03)_inset]">
       <div className="text-[10.5px] font-semibold uppercase tracking-wide text-muted2 mb-2">{label}</div>
       <div className={`font-mono font-extrabold tabular-nums leading-none ${big ? "text-[26px]" : "text-[22px]"} ${toneText[tone]}`}>
         {value}
@@ -48,7 +48,7 @@ export function FirmDot({ color }) {
 
 export function EmptyState({ icon, title, sub }) {
   return (
-    <div className="rounded-2xl border border-dashed border-line2 bg-panel py-11 px-5 text-center text-muted">
+    <div className="rounded-2xl border border-dashed border-line2 bg-panel/80 py-11 px-5 text-center text-muted">
       <div className="text-4xl mb-3">{icon}</div>
       <div className="text-[15px] font-bold text-white/90 mb-1.5">{title}</div>
       <div className="mx-auto max-w-[320px] text-[12.5px] leading-relaxed">{sub}</div>
@@ -67,7 +67,7 @@ export function Modal({ title, onClose, children, footer }) {
       className="fixed inset-0 z-[70] flex items-end justify-center bg-black/70 backdrop-blur-sm sm:items-center"
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="w-full max-w-[560px] max-h-[92vh] overflow-y-auto rounded-t-2xl border border-line2 bg-ink2 p-5 sm:rounded-2xl">
+      <div className="w-full max-w-[560px] max-h-[92vh] overflow-y-auto rounded-t-2xl border border-line2 bg-ink2 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.7)] sm:rounded-2xl">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-[17px] font-extrabold">{title}</h3>
           <button onClick={onClose} className="rounded-lg p-1 text-muted hover:bg-panel2 hover:text-white">
@@ -91,7 +91,7 @@ export function Field({ label, children }) {
 }
 
 export const inputCls =
-  "w-full rounded-lg border border-line2 bg-panel2 px-3 py-2.5 text-[14px] text-white outline-none focus:border-accent";
+  "w-full rounded-xl border border-line2 bg-panel2 px-3 py-2.5 text-[14px] text-white outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/15";
 
 export function Chip({ active, danger, children, ...props }) {
   return (
@@ -132,7 +132,7 @@ export function SegTabs({ tabs, active, onChange }) {
 export function PrimaryBtn({ children, className = "", ...props }) {
   return (
     <button
-      className={`inline-flex items-center justify-center gap-1.5 rounded-lg bg-accent px-4 py-2.5 text-[13px] font-bold text-black transition hover:brightness-110 ${className}`}
+      className={`nova-cta inline-flex items-center justify-center gap-1.5 rounded-xl bg-accent px-4 py-2.5 text-[13px] font-bold text-white transition hover:brightness-110 ${className}`}
       {...props}
     >
       {children}
@@ -143,7 +143,7 @@ export function PrimaryBtn({ children, className = "", ...props }) {
 export function GhostBtn({ children, className = "", ...props }) {
   return (
     <button
-      className={`inline-flex items-center justify-center gap-1.5 rounded-lg border border-line2 bg-panel2 px-4 py-2.5 text-[13px] font-semibold text-white/90 transition hover:bg-line ${className}`}
+      className={`inline-flex items-center justify-center gap-1.5 rounded-xl border border-line2 bg-panel2 px-4 py-2.5 text-[13px] font-semibold text-white/90 transition hover:border-accent/40 hover:bg-white/[0.06] ${className}`}
       {...props}
     >
       {children}

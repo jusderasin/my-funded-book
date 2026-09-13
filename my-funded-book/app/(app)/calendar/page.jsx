@@ -64,10 +64,11 @@ export default function CalendarPage() {
   }
 
   return (
-    <div>
-      <div className="mb-4 flex items-start justify-between gap-3">
+    <div className="min-h-full bg-black p-4 text-white sm:p-6 lg:p-8">
+      <div className="mx-auto max-w-[1180px]">
+      <div className="mb-6 flex items-start justify-between gap-3">
         <div>
-          <h2 className="flex items-center gap-2 text-[16px] font-extrabold">
+          <h2 className="flex items-center gap-2 text-2xl font-bold tracking-tight sm:text-3xl">
             <CalendarDays size={18} className="text-accent" /> {L === "en" ? "Economic calendar" : "Calendrier économique"}
           </h2>
           <div className="mt-0.5 text-[12px] text-muted2">
@@ -82,6 +83,7 @@ export default function CalendarPage() {
 
       <div className={`overflow-hidden rounded-2xl border border-line p-2 ${theme === "light" ? "bg-white" : "bg-panel"}`}>
         <div id={CONTAINER_ID} key={theme} />
+      </div>
       </div>
     </div>
   );
