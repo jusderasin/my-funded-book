@@ -7,11 +7,110 @@ import { useBook } from "./BookProvider";
 import { uploadFile } from "@/lib/upload";
 import { FIRMS, SESSIONS, GRADES, TAG_LIB, EMOTIONS } from "@/lib/constants";
 import { todayISO, fmtMoney } from "@/lib/format";
+import { X } from "lucide-react";
 
 const firmOptions = Object.keys(FIRMS);
 
 // Valeurs de R suggérées à la sélection d'une sortie — modifiables ensuite à la main.
 const OUTCOME_DEFAULT_R = { TP: 2, SL: -1, BE: 0 };
+
+/* ------------------------------------------------------------------ */
+/*  PRIMITIVES PRISM locales — utilisées uniquement par LogTradeModal. */
+/*  Nommées LTM_* pour ne pas conflicter avec les imports ./ui         */
+/*  (Modal, Field, Chip, etc.) que les autres modals continuent à      */
+/*  utiliser pour rester inchangés.                                    */
+/* ------------------------------------------------------------------ */
+
+const LTM_INPUT_CLS =
+  "w-full rounded-xl border border-prism-line bg-black/40 px-3 py-2.5 text-sm text-white placeholder:text-prism-muted2 focus:border-prism-accent focus:outline-none transition-colors disabled:opacity-50";
+
+function LTM_Modal({ title, onClose, footer, children }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+      <div
+        className="fixed inset-0 bg-black/70 backdrop-blur-sm"
+        onClick={onClose}
+        aria-hidden="true"
+      />
+      <div className="relative z-10 w-full max-w-2xl max-h-[92vh] flex flex-col rounded-2xl border border-prism-line bg-prism-panel shadow-2xl">
+        <div className="flex items-center justify-between px-6 py-4 border-b border-prism-line shrink-0">
+          <h2 className="text-lg font-semibold text-white tracking-tight">{title}</h2>
+          <button
+            type="button"
+            onClick={onClose}
+            className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-prism-muted hover:text-white hover:bg-white/5 transition-colors"
+            aria-label="Fermer"
+          >
+            <X className="h-5 w-5" />
+          </button>
+        </div>
+        <div className="flex-1 overflow-y-auto px-6 py-5">{children}</div>
+        {footer && (
+          <div className="flex gap-2 px-6 py-4 border-t border-prism-line shrink-0">
+            {footer}
+          </div>
+        )}
+      </div>
+    </div>
+  );
+}
+
+function LTM_Field({ label, children, hint }) {
+  return (
+    <div className="mb-4">
+      <label className="block text-[10px] font-semibold uppercase tracking-widest text-prism-muted mb-2">
+        {label}
+      </label>
+      {children}
+      {hint && <div className="mt-1.5 text-[11px] text-prism-muted2">{hint}</div>}
+    </div>
+  );
+}
+
+function LTM_Chip({ children, active, danger, onClick, type = "button" }) {
+  const base =
+    "inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer";
+  const cls = active
+    ? danger
+      ? "border-prism-loss/40 bg-prism-loss/10 text-prism-loss"
+      : "border-prism-accent bg-prism-accentDim text-prism-accent"
+    : "border-prism-line bg-transparent text-prism-muted hover:border-prism-line2 hover:text-white";
+  return (
+    <button type={type} onClick={onClick} className={`${base} ${cls}`}>
+      {children}
+    </button>
+  );
+}
+
+function LTM_GhostBtn({ children, onClick, className = "", type = "button", disabled }) {
+  return (
+    <button
+      type={type}
+      onClick={onClick}
+      disabled={disabled}
+      className={`inline-flex items-center justify-center rounded-xl border border-prism-line bg-transparent px-4 py-2.5 text-sm font-medium text-white hover:bg-white/[0.03] hover:border-prism-line2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${className}`}
+    >
+      {children}
+    </button>
+  );
+}
+
+function LTM_PrimaryBtn({ children, onClick, className = "", type = "button", disabled }) {
+  return (
+    <button
+      type={type}
+      onClick={onClick}
+      disabled={disabled}
+      className={`inline-flex items-center justify-center rounded-xl bg-white text-black px-4 py-2.5 text-sm font-semibold hover:bg-white/90 active:bg-white/80 transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${className}`}
+    >
+      {children}
+    </button>
+  );
+}
+
+/* ------------------------------------------------------------------ */
+/*  LogTradeModal — reskin PRISM, logique inchangée                    */
+/* ------------------------------------------------------------------ */
 
 export function LogTradeModal({ editing, onClose }) {
   const { addTrade, updateTrade, playbooks, accounts, trades, notify, t, lang } = useBook();
@@ -36,7 +135,6 @@ export function LogTradeModal({ editing, onClose }) {
   const toggleEmotion = (k) => set("emotion", f.emotion === k ? null : k);
 
   // Tags libres : on tape et on ajoute (Entrée ou bouton +), au lieu d'une liste figée.
-  // TAG_LIB reste proposé en suggestion, complété par les tags déjà utilisés dans l'historique.
   const addTag = (raw) => {
     const v = (raw || "").trim();
     if (!v) return;
@@ -52,8 +150,6 @@ export function LogTradeModal({ editing, onClose }) {
     .filter((tg) => !f.tags.some((x) => x.toLowerCase() === tg.toLowerCase()))
     .slice(0, 16);
 
-  // Clique sur TP/SL/BE : sélectionne l'outcome ET propose un R par défaut
-  // (TP=+2, SL=-1, BE=0). Le trader peut ensuite corriger le champ R librement.
   function pickOutcome(o) {
     const next = f.outcome === o ? "" : o;
     set("outcome", next);
@@ -89,106 +185,208 @@ export function LogTradeModal({ editing, onClose }) {
   }
 
   return (
-    <Modal
+    <LTM_Modal
       title={editing ? t("m_edit_trade") : t("m_log_trade")}
       onClose={onClose}
       footer={
         <>
-          <GhostBtn className="flex-1" onClick={onClose}>{t("m_cancel")}</GhostBtn>
-          <PrimaryBtn className="flex-1" onClick={submit} disabled={uploading}>
+          <LTM_GhostBtn className="flex-1" onClick={onClose}>{t("m_cancel")}</LTM_GhostBtn>
+          <LTM_PrimaryBtn className="flex-1" onClick={submit} disabled={uploading}>
             {uploading ? t("m_sending") : editing ? t("m_save") : t("m_log_trade")}
-          </PrimaryBtn>
+          </LTM_PrimaryBtn>
         </>
       }
     >
       <div className="grid grid-cols-2 gap-3">
-        <Field label={t("m_instrument")}><input className={inputCls} value={f.symbol} onChange={(e) => set("symbol", e.target.value)} placeholder="MNQ, NQ, MGC…" /></Field>
-        <Field label={t("m_date")}><input type="date" className={inputCls} value={f.date} onChange={(e) => set("date", e.target.value)} /></Field>
+        <LTM_Field label={t("m_instrument")}>
+          <input
+            className={LTM_INPUT_CLS}
+            value={f.symbol}
+            onChange={(e) => set("symbol", e.target.value)}
+            placeholder="MNQ, NQ, MGC…"
+          />
+        </LTM_Field>
+        <LTM_Field label={t("m_date")}>
+          <input
+            type="date"
+            className={LTM_INPUT_CLS}
+            value={f.date}
+            onChange={(e) => set("date", e.target.value)}
+          />
+        </LTM_Field>
       </div>
+
       {accounts.length > 0 && (
-        <Field label={lang === "en" ? "Account" : "Compte"}>
-          <select className={inputCls} value={f.account_id || ""} onChange={(e) => set("account_id", e.target.value)}>
+        <LTM_Field label={lang === "en" ? "Account" : "Compte"}>
+          <select
+            className={LTM_INPUT_CLS}
+            value={f.account_id || ""}
+            onChange={(e) => set("account_id", e.target.value)}
+          >
             <option value="">{lang === "en" ? "None" : "Aucun"}</option>
             {accounts.map((a) => (
-              <option key={a.id} value={a.id}>{a.firm} · {fmtMoney(a.size)}{a.note ? " · " + a.note : ""}</option>
+              <option key={a.id} value={a.id}>
+                {a.firm} · {fmtMoney(a.size)}
+                {a.note ? " · " + a.note : ""}
+              </option>
             ))}
           </select>
-        </Field>
+        </LTM_Field>
       )}
-      <Field label={t("m_direction")}>
+
+      <LTM_Field label={t("m_direction")}>
         <div className="flex gap-1.5">
-          {["long", "short"].map((d) => <Chip key={d} active={f.dir === d} onClick={() => set("dir", d)}>{d === "long" ? "LONG" : "SHORT"}</Chip>)}
+          {["long", "short"].map((d) => (
+            <LTM_Chip key={d} active={f.dir === d} onClick={() => set("dir", d)}>
+              {d === "long" ? "LONG" : "SHORT"}
+            </LTM_Chip>
+          ))}
         </div>
-      </Field>
-      <Field label={t("m_session")}>
-        <div className="flex flex-wrap gap-1.5">{SESSIONS.map((s) => <Chip key={s} active={f.session === s} onClick={() => set("session", s)}>{s}</Chip>)}</div>
-      </Field>
-      <Field label={t("m_grade")}>
-        <div className="flex flex-wrap gap-1.5">{GRADES.map((g) => <Chip key={g} active={f.grade === g} onClick={() => set("grade", g)}>{g}</Chip>)}</div>
-      </Field>
+      </LTM_Field>
+
+      <LTM_Field label={t("m_session")}>
+        <div className="flex flex-wrap gap-1.5">
+          {SESSIONS.map((s) => (
+            <LTM_Chip key={s} active={f.session === s} onClick={() => set("session", s)}>
+              {s}
+            </LTM_Chip>
+          ))}
+        </div>
+      </LTM_Field>
+
+      <LTM_Field label={t("m_grade")}>
+        <div className="flex flex-wrap gap-1.5">
+          {GRADES.map((g) => (
+            <LTM_Chip key={g} active={f.grade === g} onClick={() => set("grade", g)}>
+              {g}
+            </LTM_Chip>
+          ))}
+        </div>
+      </LTM_Field>
+
       <div className="grid grid-cols-2 gap-3">
-        <Field label="R"><input type="number" step="0.1" className={inputCls} value={f.r} onChange={(e) => set("r", e.target.value)} placeholder="1" /></Field>
-        <Field label={t("m_pnl_net")}><input type="number" step="0.01" className={inputCls} value={f.pnl} onChange={(e) => set("pnl", e.target.value)} placeholder="520" /></Field>
+        <LTM_Field label="R">
+          <input
+            type="number"
+            step="0.1"
+            className={LTM_INPUT_CLS}
+            value={f.r}
+            onChange={(e) => set("r", e.target.value)}
+            placeholder="1"
+          />
+        </LTM_Field>
+        <LTM_Field label={t("m_pnl_net")}>
+          <input
+            type="number"
+            step="0.01"
+            className={LTM_INPUT_CLS}
+            value={f.pnl}
+            onChange={(e) => set("pnl", e.target.value)}
+            placeholder="520"
+          />
+        </LTM_Field>
       </div>
-      <Field label={lang === "en" ? "Exit (TP/SL/BE)" : "Sortie (TP/SL/BE)"}>
+
+      <LTM_Field
+        label={lang === "en" ? "Exit (TP/SL/BE)" : "Sortie (TP/SL/BE)"}
+        hint={
+          lang === "en"
+            ? "Suggests a default R (TP = +2, SL = -1, BE = 0) — you can still edit the R field above."
+            : "Propose un R par défaut (TP = +2, SL = -1, BE = 0) — le champ R ci-dessus reste modifiable."
+        }
+      >
         <div className="flex gap-1.5">
           {["TP", "SL", "BE"].map((o) => (
-            <Chip key={o} active={f.outcome === o} onClick={() => pickOutcome(o)}>{o}</Chip>
+            <LTM_Chip key={o} active={f.outcome === o} onClick={() => pickOutcome(o)}>
+              {o}
+            </LTM_Chip>
           ))}
         </div>
-        <div className="mt-1.5 text-[11px] text-muted2">
-          {lang === "en"
-            ? "Suggests a default R (TP = +2, SL = -1, BE = 0) — you can still edit the R field above."
-            : "Propose un R par défaut (TP = +2, SL = -1, BE = 0) — le champ R ci-dessus reste modifiable."}
-        </div>
-      </Field>
-      <Field label={t("m_setup")}>
-        <select className={inputCls} value={f.setup || ""} onChange={(e) => set("setup", e.target.value)}>
+      </LTM_Field>
+
+      <LTM_Field label={t("m_setup")}>
+        <select
+          className={LTM_INPUT_CLS}
+          value={f.setup || ""}
+          onChange={(e) => set("setup", e.target.value)}
+        >
           <option value="">{t("m_none")}</option>
-          {playbooks.map((p) => <option key={p.id} value={p.name}>{p.name}</option>)}
+          {playbooks.map((p) => (
+            <option key={p.id} value={p.name}>
+              {p.name}
+            </option>
+          ))}
         </select>
-      </Field>
-      <Field label={lang === "en" ? "Emotion at entry" : "Émotion à l'entrée"}>
+      </LTM_Field>
+
+      <LTM_Field label={lang === "en" ? "Emotion at entry" : "Émotion à l'entrée"}>
         <div className="flex flex-wrap gap-1.5">
           {EMOTIONS.map((em) => (
-            <Chip key={em.k} active={f.emotion === em.k} danger={em.tone === "red"} onClick={() => toggleEmotion(em.k)}>
+            <LTM_Chip
+              key={em.k}
+              active={f.emotion === em.k}
+              danger={em.tone === "red"}
+              onClick={() => toggleEmotion(em.k)}
+            >
               {em.e} {lang === "en" ? em.en : em.fr}
-            </Chip>
+            </LTM_Chip>
           ))}
         </div>
-      </Field>
-      <Field label={t("m_tags")}>
+      </LTM_Field>
+
+      <LTM_Field label={t("m_tags")}>
         {f.tags.length > 0 && (
           <div className="mb-2 flex flex-wrap gap-1.5">
             {f.tags.map((tag) => (
-              <Chip key={tag} active danger onClick={() => removeTag(tag)}>{tag} ×</Chip>
+              <LTM_Chip key={tag} active danger onClick={() => removeTag(tag)}>
+                {tag} ×
+              </LTM_Chip>
             ))}
           </div>
         )}
         <div className="flex gap-1.5">
           <input
-            className={inputCls}
+            className={LTM_INPUT_CLS}
             value={tagInput}
             onChange={(e) => setTagInput(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTag(tagInput); } }}
-            placeholder={lang === "en" ? "Add a tag and press Enter…" : "Ajoute un tag et appuie sur Entrée…"}
+            onKeyDown={(e) => {
+              if (e.key === "Enter") {
+                e.preventDefault();
+                addTag(tagInput);
+              }
+            }}
+            placeholder={
+              lang === "en"
+                ? "Add a tag and press Enter…"
+                : "Ajoute un tag et appuie sur Entrée…"
+            }
           />
-          <GhostBtn type="button" className="px-3" onClick={() => addTag(tagInput)}>+</GhostBtn>
+          <LTM_GhostBtn className="px-3" onClick={() => addTag(tagInput)}>
+            +
+          </LTM_GhostBtn>
         </div>
         {tagSuggestions.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1.5">
-            {tagSuggestions.map((tag) => <Chip key={tag} onClick={() => addTag(tag)}>{tag}</Chip>)}
+            {tagSuggestions.map((tag) => (
+              <LTM_Chip key={tag} onClick={() => addTag(tag)}>
+                {tag}
+              </LTM_Chip>
+            ))}
           </div>
         )}
-      </Field>
-      <Field label={t("m_chart")}>
+      </LTM_Field>
+
+      <LTM_Field label={t("m_chart")}>
         <div className="grid grid-cols-2 gap-2.5">
           <FilePicker
             accept="image/*"
             value={file}
             existingUrl={shotUrl}
             onChange={setFile}
-            onRemove={() => { setFile(null); setShotUrl(null); }}
+            onRemove={() => {
+              setFile(null);
+              setShotUrl(null);
+            }}
             hint={t("m_chart_hint")}
           />
           <FilePicker
@@ -196,29 +394,43 @@ export function LogTradeModal({ editing, onClose }) {
             value={file2}
             existingUrl={shotUrl2}
             onChange={setFile2}
-            onRemove={() => { setFile2(null); setShotUrl2(null); }}
+            onRemove={() => {
+              setFile2(null);
+              setShotUrl2(null);
+            }}
             hint={lang === "en" ? "2nd screenshot (optional)" : "2e capture (optionnel)"}
           />
         </div>
-      </Field>
-      <Field label={t("m_why")}>
-        <textarea className={inputCls + " min-h-[70px] resize-y leading-relaxed"} value={f.why} onChange={(e) => set("why", e.target.value)} placeholder={t("m_why_ph")} />
-      </Field>
-      <Field label={t("m_plan_ok")}>
+      </LTM_Field>
+
+      <LTM_Field label={t("m_why")}>
+        <textarea
+          className={`${LTM_INPUT_CLS} min-h-[80px] resize-y leading-relaxed`}
+          value={f.why}
+          onChange={(e) => set("why", e.target.value)}
+          placeholder={t("m_why_ph")}
+        />
+      </LTM_Field>
+
+      <LTM_Field label={t("m_plan_ok")}>
         <div className="flex gap-1.5">
-          <Chip active={f.plan} onClick={() => set("plan", true)}>{t("m_yes")}</Chip>
-          <Chip active={!f.plan} danger onClick={() => set("plan", false)}>{t("m_no")}</Chip>
+          <LTM_Chip active={f.plan} onClick={() => set("plan", true)}>
+            {t("m_yes")}
+          </LTM_Chip>
+          <LTM_Chip active={!f.plan} danger onClick={() => set("plan", false)}>
+            {t("m_no")}
+          </LTM_Chip>
         </div>
-      </Field>
-    </Modal>
+      </LTM_Field>
+    </LTM_Modal>
   );
 }
 
+/* ------------------------------------------------------------------ */
+/*  Autres modals — INCHANGÉS (utilisent les primitives de ./ui)       */
+/* ------------------------------------------------------------------ */
+
 // Presets par prop firm : type de trailing DD et offset du lock ($).
-// - intraday : le seuil bouge tick-by-tick (Apex)
-// - eod      : le seuil bouge uniquement à la clôture (Lucid, Topstep, MFF, Tradeify…)
-// - static   : pas de trail
-// Le lock_offset = $ au-dessus de l'initial où le seuil se fige une fois "trailed out".
 const FIRM_TRAILING_DEFAULTS = {
   MFF:      { type: "eod",      lock: 0 },
   Lucid:    { type: "eod",      lock: 100 },
@@ -233,9 +445,6 @@ const FIRM_TRAILING_DEFAULTS = {
 export function AccountModal({ editing, onClose }) {
   const { addAccount, updateAccount, t, lang } = useBook();
   const isEdit = !!editing;
-  // En édition on préfill depuis l'objet existant. Les colonnes numériques nullables
-  // (daily_loss_limit / max_drawdown / profit_target) sont remises en string vide si null
-  // pour que les <input type="number"> restent contrôlés sans crier.
   const [f, setF] = useState(
     editing
       ? {
@@ -264,8 +473,6 @@ export function AccountModal({ editing, onClose }) {
   );
   const set = (k, v) => setF((s) => ({ ...s, [k]: v }));
 
-  // Changement de firm en création → applique le preset (type + lock).
-  // En édition on garde ce que l'user avait pour ne pas écraser sa config.
   const onFirmChange = (firm) => {
     if (isEdit) {
       set("firm", firm);
@@ -296,7 +503,6 @@ export function AccountModal({ editing, onClose }) {
           profit_target: numOrNull(f.profit_target),
           trailing_type: f.trailing_type || "intraday",
           trailing_lock_offset: isStatic ? 0 : (numOrNull(f.trailing_lock_offset) ?? 0),
-          // On garde l'ancien boolean synchronisé pour rétrocompat (au cas où d'autres modules le lisent)
           trailing_drawdown: f.trailing_type !== "static",
         };
         if (isEdit) await updateAccount(editing.id, payload);
