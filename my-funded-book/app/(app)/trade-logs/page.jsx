@@ -12,7 +12,7 @@ import { Search, Grid3x3, List, Plus, ImageOff } from "lucide-react";
  * Filtres : search par symbol/tag/setup, toggle grid/list.
  *
  * Se base sur `useBook().trades`, tri par date décroissante (plus récent en 1er),
- * filtre les trades sans screenshot dans le view "avec captures uniquement".
+ * affiche tous les trades, avec ou sans capture.
  */
 export default function TradeLogsPage() {
   const { trades, lang } = useBook();
@@ -25,7 +25,6 @@ export default function TradeLogsPage() {
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
     let list = trades
-      .filter((tr) => tr.screenshot_url || tr.screenshot_url_2)
       .slice()
       .sort((a, b) => (b.date > a.date ? 1 : b.date < a.date ? -1 : 0));
     if (q) {
@@ -46,7 +45,7 @@ export default function TradeLogsPage() {
     return list;
   }, [trades, query]);
 
-  const totalCount = trades.filter((tr) => tr.screenshot_url || tr.screenshot_url_2).length;
+  const totalCount = trades.length;
 
   return (
     <div className="min-h-full bg-black text-white p-4 sm:p-6 lg:p-8">
@@ -56,8 +55,8 @@ export default function TradeLogsPage() {
           <h1 className="text-2xl font-bold text-white tracking-tight">Trade Logs</h1>
           <p className="mt-1 text-sm text-prism-muted">
             {L === "en"
-              ? `${filtered.length} of ${totalCount} trades with charts`
-              : `${filtered.length} sur ${totalCount} trades avec captures`}
+              ? `${filtered.length} of ${totalCount} trades`
+              : `${filtered.length} sur ${totalCount} trades`}
           </p>
         </div>
       </div>
@@ -290,8 +289,8 @@ function EmptyLogs({ L, hasQuery, totalCount }) {
             : "Aucun trade ne correspond à ta recherche"
           : totalCount === 0
           ? L === "en"
-            ? "No screenshots yet"
-            : "Aucune capture pour l'instant"
+            ? "No trades yet"
+            : "Aucun trade pour l'instant"
           : L === "en"
           ? "Nothing to show"
           : "Rien à afficher"}
@@ -302,8 +301,8 @@ function EmptyLogs({ L, hasQuery, totalCount }) {
             ? "Try a different keyword."
             : "Essaie un autre mot-clé."
           : L === "en"
-          ? "Add a screenshot when logging a trade to see it here."
-          : "Ajoute une capture en loggant un trade pour la voir ici."}
+          ? "Log your first trade to see it here."
+          : "Log ton premier trade pour le voir ici."}
       </div>
     </div>
   );

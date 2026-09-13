@@ -4,7 +4,6 @@ import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
   LayoutDashboard,
-  BookOpen,
   List,
   BarChart3,
   Calendar,
@@ -32,12 +31,11 @@ import {
 
 const NAV_ITEMS = [
   { icon: LayoutDashboard, label: "Dashboard",  href: "/dashboard" },
-  { icon: BookOpen,        label: "Journal",    href: "/journal" },
   { icon: List,            label: "Trade Logs", href: "/trade-logs" },
   { icon: BarChart3,       label: "Analytics",  href: "/breakdown" },
   { icon: Calendar,        label: "Calendar",   href: "/calendar" },
   { icon: Sparkles,        label: "PRISM AI",   href: "/report" },
-  { icon: ClipboardList,   label: "Playbook",   href: "/playbook" },
+  { icon: ClipboardList,   label: "Strat\u00e9gies", href: "/playbook" },
   { icon: Settings,        label: "Réglages",   href: "/settings" },
   { icon: Building2,       label: "Comptes",     href: "/accounts" },
   { icon: History,         label: "Backtest",    href: "/backtest" },

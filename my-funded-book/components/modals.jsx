@@ -170,9 +170,9 @@ export function LogTradeModal({ editing, onClose }) {
     accounts[0]?.id ||
     "";
   const [f, setF] = useState(
-    editing || {
+    editing ? { ...editing, strategy_checks: Array.isArray(editing.strategy_checks) ? editing.strategy_checks : [] } : {
       symbol: "MNQ", date: todayISO(), dir: "long", session: "NY AM", grade: "A+",
-      r: "", pnl: "", setup: "", tags: [], emotion: null, why: "", plan: true, account_id: defaultAccountId, outcome: "",
+      r: "", pnl: "", setup: "", strategy_checks: [], tags: [], emotion: null, why: "", plan: true, account_id: defaultAccountId, outcome: "",
     }
   );
   const [file, setFile] = useState(null);
@@ -184,6 +184,15 @@ export function LogTradeModal({ editing, onClose }) {
   const [tagInput, setTagInput] = useState("");
   const set = (k, v) => setF((s) => ({ ...s, [k]: v }));
   const toggleEmotion = (k) => set("emotion", f.emotion === k ? null : k);
+  const selectedStrategy = playbooks.find((strategy) => strategy.name === f.setup);
+  const strategyRules = Array.isArray(selectedStrategy?.rules) ? selectedStrategy.rules : [];
+  const selectedChecks = Array.isArray(f.strategy_checks) ? f.strategy_checks : [];
+
+  const selectStrategy = (name) => setF((current) => ({ ...current, setup: name, strategy_checks: name === current.setup ? current.strategy_checks : [] }));
+  const toggleStrategyRule = (rule) => setF((current) => {
+    const checks = Array.isArray(current.strategy_checks) ? current.strategy_checks : [];
+    return { ...current, strategy_checks: checks.includes(rule) ? checks.filter((item) => item !== rule) : [...checks, rule] };
+  });
 
   const addTag = (raw) => {
     const v = (raw || "").trim();
@@ -223,7 +232,7 @@ export function LogTradeModal({ editing, onClose }) {
     const row = {
       symbol: (f.symbol || "MNQ").toUpperCase(), date: f.date, dir: f.dir, session: f.session,
       grade: f.grade, r: Number(f.r) || 0, pnl: Number(f.pnl) || 0, setup: f.setup || null,
-      tags: f.tags, emotion: f.emotion || null, why: f.why || null, plan: !!f.plan,
+      strategy_checks: selectedChecks, tags: f.tags, emotion: f.emotion || null, why: f.why || null, plan: !!f.plan,
       screenshot_url: screenshot_url || null,
       screenshot_url_2: screenshot_url_2 || null,
       account_id: f.account_id || null,
@@ -353,11 +362,11 @@ export function LogTradeModal({ editing, onClose }) {
         </div>
       </PrismField>
 
-      <PrismField label={t("m_setup")}>
+      <PrismField label={lang === "en" ? "Strategy" : "Strat\u00e9gie"}>
         <select
           className={PRISM_SELECT}
           value={f.setup || ""}
-          onChange={(e) => set("setup", e.target.value)}
+          onChange={(e) => selectStrategy(e.target.value)}
         >
           <option value="">{t("m_none")}</option>
           {playbooks.map((p) => (
@@ -365,6 +374,22 @@ export function LogTradeModal({ editing, onClose }) {
           ))}
         </select>
       </PrismField>
+
+      {selectedStrategy && (
+        <section className="mb-4 rounded-xl border border-prism-accent/30 bg-prism-accentDim/20 p-3 sm:p-4">
+          <div className="mb-2 flex items-center justify-between gap-3">
+            <div>
+              <p className="text-xs font-bold text-white">{lang === "en" ? "Entry checklist" : "Checklist d'entr\u00e9e"}</p>
+              <p className="mt-0.5 text-[11px] text-prism-muted">{selectedStrategy.name}</p>
+            </div>
+            <span className="rounded-full border border-prism-accent/30 px-2 py-0.5 text-[10px] font-semibold text-prism-accent">{selectedChecks.length}/{strategyRules.length}</span>
+          </div>
+          {strategyRules.length ? <div className="space-y-1.5">{strategyRules.map((rule, index) => {
+            const checked = selectedChecks.includes(rule);
+            return <button key={`${rule}-${index}`} type="button" onClick={() => toggleStrategyRule(rule)} className={`flex w-full items-start gap-2 rounded-lg px-2 py-2 text-left text-xs transition-colors ${checked ? "bg-prism-accentDim text-white" : "text-prism-muted hover:bg-white/5 hover:text-white"}`}><span className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border ${checked ? "border-prism-accent bg-prism-accent text-black" : "border-prism-muted2"}`}>{checked && <Check className="h-3 w-3 stroke-[3]" />}</span><span>{rule}</span></button>;
+          })}</div> : <p className="text-xs text-prism-muted2">{lang === "en" ? "This strategy does not have any checklist rule yet." : "Cette strat\u00e9gie n'a pas encore de r\u00e8gle de checklist."}</p>}
+        </section>
+      )}
 
       <button
         type="button"

@@ -54,6 +54,7 @@ create table if not exists public.trades (
   why text,
   plan boolean not null default true,
   screenshot_url text,
+  strategy_checks text[] default '{}',
   created_at timestamptz not null default now()
 );
 
