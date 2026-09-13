@@ -2,15 +2,16 @@
 
 import { useState, useEffect } from "react";
 import { useBook } from "@/components/BookProvider";
-import { Kpi } from "@/components/ui";
 import { Modal, GhostBtn } from "@/components/ui";
-import { Radar, Area, Bars, Gauge, Calendar } from "@/components/charts";
-import { fmtMoney, fmtK, frDate } from "@/lib/format";
+import { Area, Bars, Calendar } from "@/components/charts";
+import { fmtMoney, frDate } from "@/lib/format";
 import RiskBanner from "@/components/RiskBanner";
 import { LogTradeModal } from "@/components/modals";
 import KpiCustomizer from "@/components/KpiCustomizer";
 import { KPI_CATALOG, DEFAULT_KPI_IDS, MIN_KPIS, MAX_KPIS } from "@/lib/kpiCatalog";
 import { emotionScore, psychBucket } from "@/lib/constants";
+import { Gauge as PrismGauge, Card } from "@/components/prism";
+import { Settings2, Flame, Sparkles } from "lucide-react";
 
 const KPI_STORAGE_KEY = "mfb.dashboard.kpis";
 
@@ -57,7 +58,7 @@ export default function DashboardPage() {
   };
 
   const tradesByDay = {};
-  trades.forEach((t) => { tradesByDay[t.date] = (tradesByDay[t.date] || 0) + 1; });
+  trades.forEach((tr) => { tradesByDay[tr.date] = (tradesByDay[tr.date] || 0) + 1; });
   const recent = trades.slice(0, 8);
   const dayTrades = dayKey ? trades.filter((tr) => tr.date === dayKey) : [];
 
@@ -90,116 +91,199 @@ export default function DashboardPage() {
       ? "grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6"
       : "grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5";
 
+  // Sublabel PRISM Score : nombre total de trades
+  const gaugeSublabel =
+    trades.length > 0
+      ? L === "en"
+        ? `Based on ${trades.length} trades`
+        : `Basé sur ${trades.length} trades`
+      : L === "en"
+      ? "No trades yet"
+      : "Aucun trade";
+
   return (
-    <div>
+    <div className="min-h-full bg-black text-white p-4 sm:p-6 lg:p-8">
       <RiskBanner />
-      <div className="mb-2 flex justify-end">
+
+      {/* Bouton Personnaliser */}
+      <div className="mb-4 flex justify-end">
         <button
           type="button"
           onClick={() => setCustomizing(true)}
-          className="flex items-center gap-1.5 rounded-lg border border-line bg-panel px-2.5 py-1 text-[11px] text-muted2 hover:border-line2 hover:text-white"
+          className="inline-flex items-center gap-2 rounded-xl border border-prism-line bg-prism-panel px-3 py-1.5 text-xs font-medium text-prism-muted hover:border-prism-line2 hover:text-white transition-colors"
           title={L === "en" ? "Customize KPIs" : "Personnaliser les KPIs"}
         >
-          <span aria-hidden>⚙</span>
-          <span>{L === "en" ? "Customize" : "Personnaliser"}</span>
+          <Settings2 className="h-3.5 w-3.5" />
+          <span>{L === "en" ? "Personnaliser" : "Personnaliser"}</span>
         </button>
       </div>
-      <div className={`mb-3.5 ${gridCls}`}>
+
+      {/* KPIs grid */}
+      <div className={`mb-4 ${gridCls}`}>
         {kpiIds.map((id) => {
           const kpi = KPI_CATALOG.find((k) => k.id === id);
           if (!kpi) return null;
           const p = kpi.render(s, L);
           return (
-            <Kpi
+            <KpiPrism
               key={id}
               label={kpi.labels[L]}
               value={p.value}
               tone={p.tone}
-              big={p.big}
               sub={p.sub}
-              gauge={p.gaugePct != null ? <Gauge pct={p.gaugePct} color={p.gaugeColor} /> : null}
             />
           );
         })}
       </div>
-      <div className="mb-3.5 flex flex-wrap items-center gap-4 rounded-xl border border-line bg-panel px-4 py-3 text-[12.5px]">
-        <span className="flex items-center gap-1.5 text-muted">🔥 <b className="font-mono font-extrabold text-white">{s.streak}</b> {t("streak_plan")}</span>
-        <span className="flex items-center gap-1.5 text-muted"><b className="font-mono font-extrabold text-white">{s.days.length}</b> {t("streak_days")}</span>
-        <span className="flex items-center gap-1.5 text-accent"><b className="font-mono font-extrabold">{s.planPct.toFixed(0)}%</b> {t("streak_adher")}</span>
-        <span className="flex items-center gap-1.5 text-muted"><b className="font-mono font-extrabold text-white">{s.greenDays}</b> {t("streak_green")}</span>
-      </div>
-      <div className="mb-3.5 grid gap-3.5 lg:grid-cols-[340px_1fr]">
-        <div className="rounded-2xl border border-line bg-panel p-[18px]">
-          <H>{t("edge_score")}</H>
-          <Radar axes={s.axes} />
-          <div className="mt-1.5 text-center">
-            <div className="relative my-2.5 h-[7px] rounded" style={{ background: "linear-gradient(90deg,var(--loss),#f5b301,var(--accent))" }}>
-              <div className="absolute -top-[3px] h-[13px] w-[3px] rounded bg-white shadow-[0_0_6px_#fff]" style={{ left: `${Math.max(0, Math.min(100, s.edge))}%` }} />
-            </div>
-            <div className="flex justify-between font-mono text-[9px] text-muted2"><span>0</span><span>20</span><span>40</span><span>60</span><span>80</span><span>100</span></div>
-            <div className="mt-2 text-[11px] uppercase tracking-wide text-muted2">{t("your_edge")}</div>
-            <div className="font-mono text-[30px] font-extrabold">{s.edge.toFixed(1)}</div>
-          </div>
+
+      {/* Streak bandeau */}
+      <Card padding="p-4" className="mb-4">
+        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
+          <span className="inline-flex items-center gap-2 text-prism-muted">
+            <Flame className="h-4 w-4 text-prism-accent" />
+            <b className="font-mono font-bold text-white tabular-nums">{s.streak}</b>
+            <span>{t("streak_plan")}</span>
+          </span>
+          <span className="inline-flex items-center gap-2 text-prism-muted">
+            <b className="font-mono font-bold text-white tabular-nums">{s.days.length}</b>
+            <span>{t("streak_days")}</span>
+          </span>
+          <span className="inline-flex items-center gap-2">
+            <b className="font-mono font-bold text-prism-accent tabular-nums">{s.planPct.toFixed(0)}%</b>
+            <span className="text-prism-muted">{t("streak_adher")}</span>
+          </span>
+          <span className="inline-flex items-center gap-2 text-prism-muted">
+            <b className="font-mono font-bold text-prism-win tabular-nums">{s.greenDays}</b>
+            <span>{t("streak_green")}</span>
+          </span>
         </div>
-        <div className="rounded-2xl border border-line bg-panel p-[18px]">
-          <H>{t("daily_cum")}</H>
+      </Card>
+
+      {/* Row : PRISM Score + Charts */}
+      <div className="mb-4 grid gap-4 lg:grid-cols-[380px_1fr]">
+        {/* PRISM Score card */}
+        <Card padding="p-6">
+          <SectionHeader icon={<Sparkles className="h-4 w-4" />}>
+            {L === "en" ? "PRISM Score" : "Score PRISM"}
+          </SectionHeader>
+
+          <div className="flex flex-col items-center pt-2 pb-4">
+            <PrismGauge
+              value={s.edge}
+              max={100}
+              label="PRISM"
+              sublabel={gaugeSublabel}
+              size={180}
+              strokeWidth={10}
+            />
+          </div>
+
+          {/* Score Breakdown en progress bars */}
+          <div className="mt-2 space-y-3">
+            <div className="text-[10px] font-semibold uppercase tracking-widest text-prism-muted2 pb-1">
+              {L === "en" ? "Score Breakdown" : "Décomposition"}
+            </div>
+            {(Array.isArray(s.axes) ? s.axes : []).map((axis, i) => {
+              const name = axis?.label || axis?.name || axis?.k || `Axe ${i + 1}`;
+              const value = Number(axis?.value ?? axis?.v ?? axis?.pct ?? 0);
+              const pct = Math.max(0, Math.min(100, value));
+              return (
+                <div key={i}>
+                  <div className="flex items-center justify-between text-xs mb-1">
+                    <span className="text-prism-muted">{name}</span>
+                    <span className="text-white font-semibold tabular-nums">{pct.toFixed(0)}</span>
+                  </div>
+                  <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
+                    <div
+                      className="h-full bg-prism-accent transition-all"
+                      style={{ width: `${pct}%` }}
+                    />
+                  </div>
+                </div>
+              );
+            })}
+          </div>
+        </Card>
+
+        {/* Charts card : Cumul + Bars */}
+        <Card padding="p-6">
+          <SectionHeader>{t("daily_cum")}</SectionHeader>
           <Area
             values={s.cumSeries}
-            color="var(--accent)"
-            fill="var(--accent)"
+            color="#3b82f6"
+            fill="#3b82f6"
             labels={s.days.map(frDate)}
             fmt={(v) => (v >= 0 ? "+" : "") + fmtMoney(v)}
           />
-          <H className="mt-5">{t("net_daily")}</H>
+          <SectionHeader className="mt-6">{t("net_daily")}</SectionHeader>
           <Bars byDay={s.byDay} days={s.days} labels={s.days.map(frDate)} />
-        </div>
+        </Card>
       </div>
-      <div className="mb-3.5 grid gap-3.5 lg:grid-cols-[1fr_1fr]">
-        <div className="rounded-2xl border border-line bg-panel p-[18px]">
-          <H>{t("recent_trades")}</H>
+
+      {/* Row : Recent trades + Calendar */}
+      <div className="mb-4 grid gap-4 lg:grid-cols-2">
+        {/* Recent trades */}
+        <Card padding="p-6">
+          <SectionHeader>{t("recent_trades")}</SectionHeader>
           {recent.length === 0 ? (
-            <p className="py-6 text-center text-[12px] text-muted2">{t("no_trades")}</p>
+            <p className="py-8 text-center text-xs text-prism-muted2">{t("no_trades")}</p>
           ) : (
             <>
               <table className="w-full">
                 <thead>
-                  <tr className="text-[10px] uppercase tracking-wide text-muted2">
-                    <th className="pb-2.5 text-left font-bold">{t("th_close_date")}</th>
-                    <th className="pb-2.5 text-left font-bold">{t("th_symbol")}</th>
-                    <th className="pb-2.5 text-right font-bold">{t("th_net_pnl")}</th>
+                  <tr className="text-[10px] uppercase tracking-widest text-prism-muted2">
+                    <th className="pb-3 text-left font-semibold">{t("th_close_date")}</th>
+                    <th className="pb-3 text-left font-semibold">{t("th_symbol")}</th>
+                    <th className="pb-3 text-right font-semibold">{t("th_net_pnl")}</th>
                   </tr>
                 </thead>
                 <tbody>
                   {recent.map((tr) => (
-                    <tr key={tr.id} className="border-t border-line text-[13px]">
-                      <td className="py-2 font-mono text-muted2">{frDate(tr.date)}</td>
-                      <td className="py-2 font-mono">{tr.symbol}</td>
-                      <td className={`py-2 text-right font-mono ${tr.pnl >= 0 ? "text-accent" : "text-loss"}`}>{(tr.pnl >= 0 ? "+" : "") + fmtMoney(tr.pnl)}</td>
+                    <tr key={tr.id} className="border-t border-prism-line text-sm">
+                      <td className="py-2.5 font-mono text-prism-muted">{frDate(tr.date)}</td>
+                      <td className="py-2.5 font-mono text-white">{tr.symbol}</td>
+                      <td className={`py-2.5 text-right font-mono tabular-nums ${tr.pnl >= 0 ? "text-prism-win" : "text-prism-loss"}`}>
+                        {(tr.pnl >= 0 ? "+" : "") + fmtMoney(tr.pnl)}
+                      </td>
                     </tr>
                   ))}
                 </tbody>
               </table>
-              <div className="mt-3 flex justify-between border-t border-line2 pt-3 font-mono text-[14px] font-extrabold">
-                <span className="font-sans text-[12px] font-semibold uppercase tracking-wide text-muted2">{t("balance")}</span>
-                <span className={s.net >= 0 ? "text-accent" : "text-loss"}>{fmtMoney(s.balance, true)}</span>
+              <div className="mt-4 flex justify-between border-t border-prism-line2 pt-4 font-mono text-base font-bold">
+                <span className="font-sans text-xs font-semibold uppercase tracking-widest text-prism-muted2">
+                  {t("balance")}
+                </span>
+                <span className={`tabular-nums ${s.net >= 0 ? "text-prism-win" : "text-prism-loss"}`}>
+                  {fmtMoney(s.balance, true)}
+                </span>
               </div>
             </>
           )}
-        </div>
-        <div className="rounded-2xl border border-line bg-panel p-[18px]">
-          <div className="mb-3 flex items-center justify-between">
+        </Card>
+
+        {/* Calendar dual mode */}
+        <Card padding="p-6">
+          <div className="mb-4 flex items-center justify-between">
             <div className="flex gap-1.5">
               <button
                 type="button"
                 onClick={() => setCalMode("pnl")}
-                className={`rounded-lg border px-2.5 py-1 text-[11px] font-semibold ${calMode === "pnl" ? "border-accent bg-accentDim text-accent" : "border-line2 bg-panel2 text-muted2 hover:text-white"}`}
+                className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  calMode === "pnl"
+                    ? "border-prism-accent bg-prism-accentDim text-prism-accent"
+                    : "border-prism-line bg-transparent text-prism-muted hover:text-white hover:border-prism-line2"
+                }`}
               >
                 $ P&L
               </button>
               <button
                 type="button"
                 onClick={() => setCalMode("psych")}
-                className={`rounded-lg border px-2.5 py-1 text-[11px] font-semibold ${calMode === "psych" ? "border-accent bg-accentDim text-accent" : "border-line2 bg-panel2 text-muted2 hover:text-white"}`}
+                className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
+                  calMode === "psych"
+                    ? "border-prism-accent bg-prism-accentDim text-prism-accent"
+                    : "border-prism-line bg-transparent text-prism-muted hover:text-white hover:border-prism-line2"
+                }`}
               >
                 {L === "en" ? "Psych" : "Psycho"}
               </button>
@@ -217,76 +301,148 @@ export default function DashboardPage() {
             psychBucketFn={psychBucketFn}
           />
           {calMode === "psych" && (
-            <div className="mt-3.5 border-t border-line pt-3">
+            <div className="mt-4 border-t border-prism-line pt-4">
               {psychAvg == null ? (
-                <div className="text-center text-[11px] text-muted2">
-                  {L === "en" ? "No emotion logged yet — set one when logging a trade." : "Aucune émotion renseignée pour l'instant — logge-la à la saisie d'un trade."}
+                <div className="text-center text-xs text-prism-muted2">
+                  {L === "en"
+                    ? "No emotion logged yet — set one when logging a trade."
+                    : "Aucune émotion renseignée pour l'instant — logge-la à la saisie d'un trade."}
                 </div>
               ) : (
                 <div className="flex flex-wrap items-center justify-between gap-3">
                   <div>
-                    <div className="text-[10px] font-bold uppercase tracking-widest text-muted2">
+                    <div className="text-[10px] font-semibold uppercase tracking-widest text-prism-muted2">
                       {L === "en" ? "Average mental state" : "État mental moyen"}
                     </div>
-                    <div className="font-mono text-[22px] font-extrabold" style={{ color: psychBucketFn(psychAvg).color }}>
-                      {Math.round(psychAvg)} <span className="text-[12px] font-semibold text-muted2">{psychBucketFn(psychAvg).label}</span>
+                    <div
+                      className="font-mono text-2xl font-bold tabular-nums"
+                      style={{ color: psychBucketFn(psychAvg).color }}
+                    >
+                      {Math.round(psychAvg)}{" "}
+                      <span className="text-xs font-semibold text-prism-muted2">
+                        {psychBucketFn(psychAvg).label}
+                      </span>
                     </div>
                   </div>
-                  <div className="flex gap-4 text-[11px]">
-                    <span className="text-muted2">{L === "en" ? "Peak" : "Pic"} <b className="font-mono text-accent">{psychPeakDays}</b></span>
-                    <span className="text-muted2">{L === "en" ? "Good" : "Bons"} <b className="font-mono" style={{ color: "#f5b301" }}>{psychGoodDays}</b></span>
-                    <span className="text-muted2">{L === "en" ? "Challenging" : "Difficiles"} <b className="font-mono text-loss">{psychChallengingDays}</b></span>
+                  <div className="flex gap-4 text-xs">
+                    <span className="text-prism-muted2">
+                      {L === "en" ? "Peak" : "Pic"}{" "}
+                      <b className="font-mono text-prism-accent tabular-nums">{psychPeakDays}</b>
+                    </span>
+                    <span className="text-prism-muted2">
+                      {L === "en" ? "Good" : "Bons"}{" "}
+                      <b className="font-mono tabular-nums" style={{ color: "#f5b301" }}>
+                        {psychGoodDays}
+                      </b>
+                    </span>
+                    <span className="text-prism-muted2">
+                      {L === "en" ? "Challenging" : "Difficiles"}{" "}
+                      <b className="font-mono text-prism-loss tabular-nums">{psychChallengingDays}</b>
+                    </span>
                   </div>
                 </div>
               )}
             </div>
           )}
-        </div>
+        </Card>
       </div>
-      <div className="grid gap-3.5 md:grid-cols-2">
-        <div className="rounded-2xl border border-line bg-panel p-[18px]">
-          <H>{t("account_balance")} <span className={`float-right font-mono ${s.net >= 0 ? "text-accent" : "text-loss"}`}>{fmtMoney(s.balance)}</span></H>
-          <div className="mb-2 text-[11px] text-muted2">{t("starting_balance_lbl")} <span className="font-mono text-white">{fmtMoney(profile.starting_balance)}</span></div>
+
+      {/* Row : Account balance + Drawdown */}
+      <div className="grid gap-4 md:grid-cols-2">
+        <Card padding="p-6">
+          <div className="mb-4 flex items-center justify-between">
+            <div className="text-[10px] font-semibold uppercase tracking-widest text-prism-muted2">
+              {t("account_balance")}
+            </div>
+            <span className={`font-mono text-sm font-bold tabular-nums ${s.net >= 0 ? "text-prism-win" : "text-prism-loss"}`}>
+              {fmtMoney(s.balance)}
+            </span>
+          </div>
+          <div className="mb-2 text-xs text-prism-muted2">
+            {t("starting_balance_lbl")}{" "}
+            <span className="font-mono text-white tabular-nums">{fmtMoney(profile.starting_balance)}</span>
+          </div>
           <Area
             values={s.curve.map((c) => c.eq)}
             color="#e8edf5"
-            fill="var(--muted)"
+            fill="#8b95a8"
             labels={s.curve.map((c) => frDate(c.d))}
             fmt={fmtMoney}
           />
-        </div>
-        <div className="rounded-2xl border border-line bg-panel p-[18px]">
-          <H>{t("drawdown")} <span className="float-right font-mono text-loss">{fmtMoney(-s.maxDD)}</span></H>
+        </Card>
+
+        <Card padding="p-6">
+          <div className="mb-4 flex items-center justify-between">
+            <div className="text-[10px] font-semibold uppercase tracking-widest text-prism-muted2">
+              {t("drawdown")}
+            </div>
+            <span className="font-mono text-sm font-bold text-prism-loss tabular-nums">
+              {fmtMoney(-s.maxDD)}
+            </span>
+          </div>
           <div className="h-[26px]" />
           <Area
             values={s.ddSeries}
-            color="#ff66e4"
-            fill="#ff66e4"
+            color="#ef4444"
+            fill="#ef4444"
             labels={s.curve.map((c) => frDate(c.d))}
             fmt={fmtMoney}
           />
-        </div>
+        </Card>
       </div>
+
+      {/* Modals */}
       {dayKey && (
-        <Modal title={frDate(dayKey)} onClose={() => setDayKey(null)}
-          footer={<GhostBtn className="flex-1" onClick={() => setDayKey(null)}>{L === "en" ? "Close" : "Fermer"}</GhostBtn>}>
+        <Modal
+          title={frDate(dayKey)}
+          onClose={() => setDayKey(null)}
+          footer={
+            <GhostBtn className="flex-1" onClick={() => setDayKey(null)}>
+              {L === "en" ? "Close" : "Fermer"}
+            </GhostBtn>
+          }
+        >
           {dayTrades.length === 0 ? (
-            <div className="py-4 text-center text-[12px] text-muted2">{L === "en" ? "No trade this day." : "Aucun trade ce jour."}</div>
+            <div className="py-4 text-center text-xs text-prism-muted2">
+              {L === "en" ? "No trade this day." : "Aucun trade ce jour."}
+            </div>
           ) : (
             <div className="flex flex-col gap-2">
               {dayTrades.map((tr) => (
-                <div key={tr.id} className="flex flex-wrap items-center gap-3 rounded-lg border border-line bg-panel2 px-3 py-2.5">
-                  <span className={`font-mono text-[15px] font-extrabold ${tr.pnl >= 0 ? "text-accent" : "text-loss"}`}>{(tr.pnl >= 0 ? "+" : "") + fmtMoney(tr.pnl)}</span>
-                  <span className="font-mono text-[11px] text-muted2">{frDate(tr.date)} · {tr.symbol} · {tr.dir === "long" ? "LONG" : "SHORT"} · {fmtR(tr.r)}{tr.session ? " · " + tr.session : ""}</span>
+                <div
+                  key={tr.id}
+                  className="flex flex-wrap items-center gap-3 rounded-xl border border-prism-line bg-white/[0.02] px-3 py-2.5"
+                >
+                  <span
+                    className={`font-mono text-base font-bold tabular-nums ${
+                      tr.pnl >= 0 ? "text-prism-win" : "text-prism-loss"
+                    }`}
+                  >
+                    {(tr.pnl >= 0 ? "+" : "") + fmtMoney(tr.pnl)}
+                  </span>
+                  <span className="font-mono text-[11px] text-prism-muted2">
+                    {frDate(tr.date)} · {tr.symbol} · {tr.dir === "long" ? "LONG" : "SHORT"} · {fmtR(tr.r)}
+                    {tr.session ? " · " + tr.session : ""}
+                  </span>
                   <div className="flex-1" />
-                  <GhostBtn className="px-3 py-1.5 text-[12px]" onClick={() => { setEditing(tr); setDayKey(null); }}>{L === "en" ? "Edit" : "Éditer"}</GhostBtn>
+                  <GhostBtn
+                    className="px-3 py-1.5 text-xs"
+                    onClick={() => {
+                      setEditing(tr);
+                      setDayKey(null);
+                    }}
+                  >
+                    {L === "en" ? "Edit" : "Éditer"}
+                  </GhostBtn>
                 </div>
               ))}
             </div>
           )}
         </Modal>
       )}
+
       {editing && <LogTradeModal editing={editing} onClose={() => setEditing(null)} />}
+
       {customizing && (
         <KpiCustomizer
           selected={kpiIds}
@@ -299,8 +455,48 @@ export default function DashboardPage() {
   );
 }
 
-function H({ children, className = "" }) {
-  return <h3 className={`mb-3.5 text-[12px] font-semibold uppercase tracking-wide text-muted2 ${className}`}>{children}</h3>;
+/* ------------------------------------------------------------------ */
+/*  Sous-composants locaux                                             */
+/* ------------------------------------------------------------------ */
+
+/**
+ * KpiPrism — carte de KPI dans le style PRISM (label muted + valeur massive).
+ * Remplace le composant Kpi legacy sur ce dashboard uniquement pour matcher
+ * le look TradeXNova. Prend les mêmes {value, tone, sub} que kpi.render() renvoie.
+ */
+function KpiPrism({ label, value, tone, sub }) {
+  const toneClass =
+    tone === "positive" || tone === "up" || tone === "good"
+      ? "text-prism-win"
+      : tone === "negative" || tone === "down" || tone === "bad"
+      ? "text-prism-loss"
+      : "text-white";
+
+  return (
+    <div className="rounded-2xl border border-prism-line bg-prism-panel p-4 sm:p-5">
+      <div className="text-[10px] font-semibold uppercase tracking-widest text-prism-muted2 mb-2">
+        {label}
+      </div>
+      <div className={`text-2xl sm:text-3xl font-bold tracking-tight tabular-nums ${toneClass}`}>
+        {value}
+      </div>
+      {sub && (
+        <div className="mt-1 text-[11px] text-prism-muted2">{sub}</div>
+      )}
+    </div>
+  );
+}
+
+/** SectionHeader — libellé de section discret style TradeXNova. */
+function SectionHeader({ children, icon, className = "" }) {
+  return (
+    <h3
+      className={`mb-4 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-widest text-prism-muted2 ${className}`}
+    >
+      {icon && <span className="text-prism-accent">{icon}</span>}
+      {children}
+    </h3>
+  );
 }
 
 function fmtR(r) {
