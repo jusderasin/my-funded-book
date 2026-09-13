@@ -37,7 +37,10 @@ export default function AppHeader({ user, onMenuClick }) {
   const initial = displayName.charAt(0).toUpperCase();
 
   return (
-    <header className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-prism-line bg-black/80 backdrop-blur-md px-4 sm:px-6">
+    <header
+      className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-prism-line bg-black/80 px-4 backdrop-blur-md sm:px-6"
+      style={{ height: "calc(4rem + env(safe-area-inset-top))", paddingTop: "env(safe-area-inset-top)" }}
+    >
       {/* Left : hamburger (mobile) + welcome */}
       <div className="flex items-center gap-3 min-w-0">
         <button

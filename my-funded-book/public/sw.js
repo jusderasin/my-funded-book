@@ -1,4 +1,4 @@
-const CACHE = "mfb-v1";
+const CACHE = "mfb-v2";
 const ASSETS = ["/", "/dashboard", "/manifest.json"];
 
 self.addEventListener("install", (e) => {

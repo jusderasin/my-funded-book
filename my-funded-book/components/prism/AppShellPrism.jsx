@@ -18,13 +18,13 @@ export default function AppShellPrism({ user, children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
 
   return (
-    <div className="min-h-screen bg-black text-white font-sans antialiased app-aurora">
+    <div className="min-h-[100dvh] bg-black text-white font-sans antialiased app-aurora">
       <Sidebar
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
       />
       {/* La marge gauche compense la sidebar fixed sur desktop (lg+) uniquement */}
-      <div className="lg:pl-64 flex flex-col min-h-screen">
+      <div className="flex min-h-[100dvh] flex-col lg:pl-64">
         <AppHeader
           user={user}
           onMenuClick={() => setSidebarOpen(true)}

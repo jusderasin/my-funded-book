@@ -44,7 +44,7 @@ export const EMOTION_BY_KEY = EMOTIONS.reduce((m, x) => (m[x.k] = x, m), {});
 export const emotionLabel = (k, lang = "fr") => {
   const em = EMOTION_BY_KEY[k];
   if (!em) return "";
-  return em.e + " " + (lang === "en" ? em.en : em.fr);
+  return lang === "en" ? em.en : em.fr;
 };
 
 // score 0-100 pour une émotion donnée (null si inconnue / non renseignée)

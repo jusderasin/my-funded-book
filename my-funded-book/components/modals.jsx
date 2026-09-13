@@ -4,7 +4,7 @@ import { useState } from "react";
 import { FilePicker } from "./FilePicker";
 import { useBook } from "./BookProvider";
 import { uploadFile } from "@/lib/upload";
-import { FIRMS, SESSIONS, GRADES, TAG_LIB, EMOTIONS } from "@/lib/constants";
+import { FIRMS, SESSIONS, GRADES, TAG_LIB } from "@/lib/constants";
 import { todayISO, fmtMoney } from "@/lib/format";
 import {
   X,
@@ -21,6 +21,13 @@ const firmOptions = Object.keys(FIRMS);
 
 // Valeurs de R suggérées à la sélection d'une sortie — modifiables ensuite à la main.
 const OUTCOME_DEFAULT_R = { TP: 2, SL: -1, BE: 0 };
+
+const MENTAL_STATES = [
+  { key: "calm", fr: "Calme", en: "Calm", dot: "bg-emerald-400" },
+  { key: "focused", fr: "Concentré", en: "Focused", dot: "bg-blue-400" },
+  { key: "fear", fr: "Sous pression", en: "Under pressure", dot: "bg-amber-400" },
+  { key: "fomo", fr: "Impulsif", en: "Impulsive", dot: "bg-rose-400" },
+];
 
 // Presets par prop firm : type de trailing DD et offset du lock ($).
 const FIRM_TRAILING_DEFAULTS = {
@@ -46,16 +53,16 @@ const PRISM_SELECT =
 
 function PrismModal({ title, onClose, footer, children, maxWidth = "max-w-2xl" }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4">
       <div
         className="fixed inset-0 bg-black/70 backdrop-blur-sm"
         onClick={onClose}
         aria-hidden="true"
       />
       <div
-        className={`relative z-10 w-full ${maxWidth} max-h-[92vh] flex flex-col rounded-2xl border border-prism-line bg-prism-panel shadow-2xl`}
+        className={`relative z-10 flex h-[100dvh] max-h-[100dvh] w-full ${maxWidth} flex-col rounded-none border border-prism-line bg-prism-panel shadow-2xl sm:h-auto sm:max-h-[92vh] sm:rounded-2xl`}
       >
-        <div className="flex items-center justify-between px-6 py-4 border-b border-prism-line shrink-0">
+        <div className="flex items-center justify-between border-b border-prism-line px-4 py-4 shrink-0 sm:px-6">
           <h2 className="text-lg font-semibold text-white tracking-tight">{title}</h2>
           <button
             type="button"
@@ -66,9 +73,9 @@ function PrismModal({ title, onClose, footer, children, maxWidth = "max-w-2xl" }
             <X className="h-5 w-5" />
           </button>
         </div>
-        <div className="flex-1 overflow-y-auto px-6 py-5">{children}</div>
+        <div className="flex-1 overflow-y-auto px-4 py-5 sm:px-6">{children}</div>
         {footer && (
-          <div className="flex gap-2 px-6 py-4 border-t border-prism-line shrink-0">
+          <div className="flex gap-2 border-t border-prism-line px-4 py-4 shrink-0 sm:px-6">
             {footer}
           </div>
         )}
@@ -369,16 +376,17 @@ export function LogTradeModal({ editing, onClose }) {
       </button>
 
       {advanced && <>
-      <PrismField label={lang === "en" ? "Emotion at entry" : "Émotion à l'entrée"}>
+      <PrismField label={lang === "en" ? "Mental state at entry" : "État mental à l'entrée"}>
         <div className="flex flex-wrap gap-1.5">
-          {EMOTIONS.map((em) => (
+          {MENTAL_STATES.map((state) => (
             <PrismChip
-              key={em.k}
-              active={f.emotion === em.k}
-              danger={em.tone === "red"}
-              onClick={() => toggleEmotion(em.k)}
+              key={state.key}
+              active={f.emotion === state.key}
+              danger={state.key === "fomo"}
+              onClick={() => toggleEmotion(state.key)}
             >
-              {em.e} {lang === "en" ? em.en : em.fr}
+              <span className={`mr-1.5 inline-block h-1.5 w-1.5 rounded-full ${state.dot}`} />
+              {lang === "en" ? state.en : state.fr}
             </PrismChip>
           ))}
         </div>

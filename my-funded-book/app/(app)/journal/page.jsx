@@ -171,7 +171,6 @@ export default function JournalPage() {
                           EMOTION_BY_KEY[tr.emotion].tone === "red" ? "red" : "green"
                         }
                       >
-                        {EMOTION_BY_KEY[tr.emotion].e}{" "}
                         {lang === "en"
                           ? EMOTION_BY_KEY[tr.emotion].en
                           : EMOTION_BY_KEY[tr.emotion].fr}

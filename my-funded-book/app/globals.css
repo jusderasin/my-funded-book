@@ -96,7 +96,8 @@
   --loss:   #ef4444;
 }
 
-html, body { background: var(--ink); }
+html, body { min-height: 100%; background: var(--ink); }
+body { min-height: 100dvh; overscroll-behavior-y: none; }
 
 * { -webkit-tap-highlight-color: transparent; }
 

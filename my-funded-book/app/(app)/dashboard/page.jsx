@@ -102,8 +102,15 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-full bg-black text-white p-4 sm:p-6 lg:p-8">
-      {/* Bouton Personnaliser */}
-      <div className="mb-4 flex justify-end">
+      <div className="mb-4 flex items-end justify-between gap-3">
+        <div>
+          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-prism-accent">
+            {L === "en" ? "Trading journal" : "Journal de trading"}
+          </p>
+          <h1 className="mt-1 text-xl font-semibold tracking-tight text-white sm:text-2xl">
+            {L === "en" ? "Performance overview" : "Vue d'ensemble"}
+          </h1>
+        </div>
         <button
           type="button"
           onClick={() => setCustomizing(true)}
@@ -128,6 +135,7 @@ export default function DashboardPage() {
               value={p.value}
               tone={p.tone}
               sub={p.sub}
+              className={kpiCount === 5 && kpiIds.indexOf(id) === 4 ? "hidden sm:block" : ""}
             />
           );
         })}
@@ -461,7 +469,7 @@ export default function DashboardPage() {
  * Remplace le composant Kpi legacy sur ce dashboard uniquement pour matcher
  * le look TradeXNova. Prend les mêmes {value, tone, sub} que kpi.render() renvoie.
  */
-function KpiPrism({ label, value, tone, sub }) {
+function KpiPrism({ label, value, tone, sub, className = "" }) {
   const toneClass =
     tone === "positive" || tone === "up" || tone === "good"
       ? "text-prism-win"
@@ -470,7 +478,7 @@ function KpiPrism({ label, value, tone, sub }) {
       : "text-white";
 
   return (
-    <div className="rounded-2xl border border-prism-line bg-prism-panel p-4 sm:p-5">
+    <div className={`rounded-2xl border border-prism-line bg-prism-panel p-4 sm:p-5 ${className}`}>
       <div className="text-[10px] font-semibold uppercase tracking-widest text-prism-muted2 mb-2">
         {label}
       </div>

@@ -297,7 +297,7 @@ export default function BreakdownPage() {
       byEmotion: groupStats(list, (tr) => {
         const em = tr.emotion ? EMOTION_BY_KEY[tr.emotion] : null;
         if (!em) return L === "en" ? "— not set —" : "— non renseigné —";
-        return em.e + " " + (L === "en" ? em.en : em.fr);
+        return L === "en" ? em.en : em.fr;
       }),
     };
   }, [trades, period, L]);
