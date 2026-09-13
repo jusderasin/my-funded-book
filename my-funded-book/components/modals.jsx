@@ -1,30 +1,50 @@
 "use client";
 
 import { useState } from "react";
-import { Modal, Field, inputCls, Chip, PrimaryBtn, GhostBtn } from "./ui";
 import { FilePicker } from "./FilePicker";
 import { useBook } from "./BookProvider";
 import { uploadFile } from "@/lib/upload";
 import { FIRMS, SESSIONS, GRADES, TAG_LIB, EMOTIONS } from "@/lib/constants";
 import { todayISO, fmtMoney } from "@/lib/format";
-import { X } from "lucide-react";
+import {
+  X,
+  CreditCard,
+  Download,
+  RotateCcw,
+  Sparkles,
+  AlertTriangle,
+  Check,
+  Info,
+} from "lucide-react";
 
 const firmOptions = Object.keys(FIRMS);
 
 // Valeurs de R suggérées à la sélection d'une sortie — modifiables ensuite à la main.
 const OUTCOME_DEFAULT_R = { TP: 2, SL: -1, BE: 0 };
 
-/* ------------------------------------------------------------------ */
-/*  PRIMITIVES PRISM locales — utilisées uniquement par LogTradeModal. */
-/*  Nommées LTM_* pour ne pas conflicter avec les imports ./ui         */
-/*  (Modal, Field, Chip, etc.) que les autres modals continuent à      */
-/*  utiliser pour rester inchangés.                                    */
-/* ------------------------------------------------------------------ */
+// Presets par prop firm : type de trailing DD et offset du lock ($).
+const FIRM_TRAILING_DEFAULTS = {
+  MFF:      { type: "eod",      lock: 0 },
+  Lucid:    { type: "eod",      lock: 100 },
+  Phidias:  { type: "intraday", lock: 0 },
+  Topstep:  { type: "eod",      lock: 0 },
+  Apex:     { type: "intraday", lock: 0 },
+  Alpha:    { type: "intraday", lock: 0 },
+  Tradeify: { type: "eod",      lock: 0 },
+  Autre:    { type: "intraday", lock: 0 },
+};
 
-const LTM_INPUT_CLS =
+/* ================================================================== */
+/*  PRIMITIVES PRISM — partagées par les 5 modals                      */
+/* ================================================================== */
+
+const PRISM_INPUT =
   "w-full rounded-xl border border-prism-line bg-black/40 px-3 py-2.5 text-sm text-white placeholder:text-prism-muted2 focus:border-prism-accent focus:outline-none transition-colors disabled:opacity-50";
 
-function LTM_Modal({ title, onClose, footer, children }) {
+const PRISM_SELECT =
+  "w-full rounded-xl border border-prism-line bg-black/40 px-3 py-2.5 text-sm text-white focus:border-prism-accent focus:outline-none transition-colors appearance-none cursor-pointer";
+
+function PrismModal({ title, onClose, footer, children, maxWidth = "max-w-2xl" }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
       <div
@@ -32,7 +52,9 @@ function LTM_Modal({ title, onClose, footer, children }) {
         onClick={onClose}
         aria-hidden="true"
       />
-      <div className="relative z-10 w-full max-w-2xl max-h-[92vh] flex flex-col rounded-2xl border border-prism-line bg-prism-panel shadow-2xl">
+      <div
+        className={`relative z-10 w-full ${maxWidth} max-h-[92vh] flex flex-col rounded-2xl border border-prism-line bg-prism-panel shadow-2xl`}
+      >
         <div className="flex items-center justify-between px-6 py-4 border-b border-prism-line shrink-0">
           <h2 className="text-lg font-semibold text-white tracking-tight">{title}</h2>
           <button
@@ -55,7 +77,7 @@ function LTM_Modal({ title, onClose, footer, children }) {
   );
 }
 
-function LTM_Field({ label, children, hint }) {
+function PrismField({ label, children, hint }) {
   return (
     <div className="mb-4">
       <label className="block text-[10px] font-semibold uppercase tracking-widest text-prism-muted mb-2">
@@ -67,7 +89,15 @@ function LTM_Field({ label, children, hint }) {
   );
 }
 
-function LTM_Chip({ children, active, danger, onClick, type = "button" }) {
+function PrismSectionLabel({ children }) {
+  return (
+    <div className="mb-3 mt-2 border-t border-prism-line pt-4 text-[10px] font-semibold uppercase tracking-widest text-prism-muted2">
+      {children}
+    </div>
+  );
+}
+
+function PrismChip({ children, active, danger, onClick, type = "button" }) {
   const base =
     "inline-flex items-center rounded-full border px-3 py-1.5 text-xs font-medium transition-colors cursor-pointer";
   const cls = active
@@ -82,35 +112,48 @@ function LTM_Chip({ children, active, danger, onClick, type = "button" }) {
   );
 }
 
-function LTM_GhostBtn({ children, onClick, className = "", type = "button", disabled }) {
+function PrismGhostBtn({ children, onClick, className = "", type = "button", disabled }) {
   return (
     <button
       type={type}
       onClick={onClick}
       disabled={disabled}
-      className={`inline-flex items-center justify-center rounded-xl border border-prism-line bg-transparent px-4 py-2.5 text-sm font-medium text-white hover:bg-white/[0.03] hover:border-prism-line2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${className}`}
+      className={`inline-flex items-center justify-center gap-1.5 rounded-xl border border-prism-line bg-transparent px-4 py-2.5 text-sm font-medium text-white hover:bg-white/[0.03] hover:border-prism-line2 transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${className}`}
     >
       {children}
     </button>
   );
 }
 
-function LTM_PrimaryBtn({ children, onClick, className = "", type = "button", disabled }) {
+function PrismPrimaryBtn({ children, onClick, className = "", type = "button", disabled }) {
   return (
     <button
       type={type}
       onClick={onClick}
       disabled={disabled}
-      className={`inline-flex items-center justify-center rounded-xl bg-white text-black px-4 py-2.5 text-sm font-semibold hover:bg-white/90 active:bg-white/80 transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${className}`}
+      className={`inline-flex items-center justify-center gap-1.5 rounded-xl bg-white text-black px-4 py-2.5 text-sm font-semibold hover:bg-white/90 active:bg-white/80 transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${className}`}
     >
       {children}
     </button>
   );
 }
 
-/* ------------------------------------------------------------------ */
-/*  LogTradeModal — reskin PRISM, logique inchangée                    */
-/* ------------------------------------------------------------------ */
+function PrismDangerBtn({ children, onClick, className = "", type = "button", disabled }) {
+  return (
+    <button
+      type={type}
+      onClick={onClick}
+      disabled={disabled}
+      className={`inline-flex items-center justify-center gap-1.5 rounded-xl bg-prism-loss text-white px-4 py-2.5 text-sm font-semibold hover:bg-prism-loss/90 transition-colors disabled:opacity-40 disabled:cursor-not-allowed ${className}`}
+    >
+      {children}
+    </button>
+  );
+}
+
+/* ================================================================== */
+/*  LogTradeModal — reskin PRISM (déjà refait en Batch 8)              */
+/* ================================================================== */
 
 export function LogTradeModal({ editing, onClose }) {
   const { addTrade, updateTrade, playbooks, accounts, trades, notify, t, lang } = useBook();
@@ -134,7 +177,6 @@ export function LogTradeModal({ editing, onClose }) {
   const set = (k, v) => setF((s) => ({ ...s, [k]: v }));
   const toggleEmotion = (k) => set("emotion", f.emotion === k ? null : k);
 
-  // Tags libres : on tape et on ajoute (Entrée ou bouton +), au lieu d'une liste figée.
   const addTag = (raw) => {
     const v = (raw || "").trim();
     if (!v) return;
@@ -185,109 +227,108 @@ export function LogTradeModal({ editing, onClose }) {
   }
 
   return (
-    <LTM_Modal
+    <PrismModal
       title={editing ? t("m_edit_trade") : t("m_log_trade")}
       onClose={onClose}
       footer={
         <>
-          <LTM_GhostBtn className="flex-1" onClick={onClose}>{t("m_cancel")}</LTM_GhostBtn>
-          <LTM_PrimaryBtn className="flex-1" onClick={submit} disabled={uploading}>
+          <PrismGhostBtn className="flex-1" onClick={onClose}>{t("m_cancel")}</PrismGhostBtn>
+          <PrismPrimaryBtn className="flex-1" onClick={submit} disabled={uploading}>
             {uploading ? t("m_sending") : editing ? t("m_save") : t("m_log_trade")}
-          </LTM_PrimaryBtn>
+          </PrismPrimaryBtn>
         </>
       }
     >
       <div className="grid grid-cols-2 gap-3">
-        <LTM_Field label={t("m_instrument")}>
+        <PrismField label={t("m_instrument")}>
           <input
-            className={LTM_INPUT_CLS}
+            className={PRISM_INPUT}
             value={f.symbol}
             onChange={(e) => set("symbol", e.target.value)}
             placeholder="MNQ, NQ, MGC…"
           />
-        </LTM_Field>
-        <LTM_Field label={t("m_date")}>
+        </PrismField>
+        <PrismField label={t("m_date")}>
           <input
             type="date"
-            className={LTM_INPUT_CLS}
+            className={PRISM_INPUT}
             value={f.date}
             onChange={(e) => set("date", e.target.value)}
           />
-        </LTM_Field>
+        </PrismField>
       </div>
 
       {accounts.length > 0 && (
-        <LTM_Field label={lang === "en" ? "Account" : "Compte"}>
+        <PrismField label={lang === "en" ? "Account" : "Compte"}>
           <select
-            className={LTM_INPUT_CLS}
+            className={PRISM_SELECT}
             value={f.account_id || ""}
             onChange={(e) => set("account_id", e.target.value)}
           >
             <option value="">{lang === "en" ? "None" : "Aucun"}</option>
             {accounts.map((a) => (
               <option key={a.id} value={a.id}>
-                {a.firm} · {fmtMoney(a.size)}
-                {a.note ? " · " + a.note : ""}
+                {a.firm} · {fmtMoney(a.size)}{a.note ? " · " + a.note : ""}
               </option>
             ))}
           </select>
-        </LTM_Field>
+        </PrismField>
       )}
 
-      <LTM_Field label={t("m_direction")}>
+      <PrismField label={t("m_direction")}>
         <div className="flex gap-1.5">
           {["long", "short"].map((d) => (
-            <LTM_Chip key={d} active={f.dir === d} onClick={() => set("dir", d)}>
+            <PrismChip key={d} active={f.dir === d} onClick={() => set("dir", d)}>
               {d === "long" ? "LONG" : "SHORT"}
-            </LTM_Chip>
+            </PrismChip>
           ))}
         </div>
-      </LTM_Field>
+      </PrismField>
 
-      <LTM_Field label={t("m_session")}>
+      <PrismField label={t("m_session")}>
         <div className="flex flex-wrap gap-1.5">
           {SESSIONS.map((s) => (
-            <LTM_Chip key={s} active={f.session === s} onClick={() => set("session", s)}>
+            <PrismChip key={s} active={f.session === s} onClick={() => set("session", s)}>
               {s}
-            </LTM_Chip>
+            </PrismChip>
           ))}
         </div>
-      </LTM_Field>
+      </PrismField>
 
-      <LTM_Field label={t("m_grade")}>
+      <PrismField label={t("m_grade")}>
         <div className="flex flex-wrap gap-1.5">
           {GRADES.map((g) => (
-            <LTM_Chip key={g} active={f.grade === g} onClick={() => set("grade", g)}>
+            <PrismChip key={g} active={f.grade === g} onClick={() => set("grade", g)}>
               {g}
-            </LTM_Chip>
+            </PrismChip>
           ))}
         </div>
-      </LTM_Field>
+      </PrismField>
 
       <div className="grid grid-cols-2 gap-3">
-        <LTM_Field label="R">
+        <PrismField label="R">
           <input
             type="number"
             step="0.1"
-            className={LTM_INPUT_CLS}
+            className={PRISM_INPUT}
             value={f.r}
             onChange={(e) => set("r", e.target.value)}
             placeholder="1"
           />
-        </LTM_Field>
-        <LTM_Field label={t("m_pnl_net")}>
+        </PrismField>
+        <PrismField label={t("m_pnl_net")}>
           <input
             type="number"
             step="0.01"
-            className={LTM_INPUT_CLS}
+            className={PRISM_INPUT}
             value={f.pnl}
             onChange={(e) => set("pnl", e.target.value)}
             placeholder="520"
           />
-        </LTM_Field>
+        </PrismField>
       </div>
 
-      <LTM_Field
+      <PrismField
         label={lang === "en" ? "Exit (TP/SL/BE)" : "Sortie (TP/SL/BE)"}
         hint={
           lang === "en"
@@ -297,96 +338,80 @@ export function LogTradeModal({ editing, onClose }) {
       >
         <div className="flex gap-1.5">
           {["TP", "SL", "BE"].map((o) => (
-            <LTM_Chip key={o} active={f.outcome === o} onClick={() => pickOutcome(o)}>
+            <PrismChip key={o} active={f.outcome === o} onClick={() => pickOutcome(o)}>
               {o}
-            </LTM_Chip>
+            </PrismChip>
           ))}
         </div>
-      </LTM_Field>
+      </PrismField>
 
-      <LTM_Field label={t("m_setup")}>
+      <PrismField label={t("m_setup")}>
         <select
-          className={LTM_INPUT_CLS}
+          className={PRISM_SELECT}
           value={f.setup || ""}
           onChange={(e) => set("setup", e.target.value)}
         >
           <option value="">{t("m_none")}</option>
           {playbooks.map((p) => (
-            <option key={p.id} value={p.name}>
-              {p.name}
-            </option>
+            <option key={p.id} value={p.name}>{p.name}</option>
           ))}
         </select>
-      </LTM_Field>
+      </PrismField>
 
-      <LTM_Field label={lang === "en" ? "Emotion at entry" : "Émotion à l'entrée"}>
+      <PrismField label={lang === "en" ? "Emotion at entry" : "Émotion à l'entrée"}>
         <div className="flex flex-wrap gap-1.5">
           {EMOTIONS.map((em) => (
-            <LTM_Chip
+            <PrismChip
               key={em.k}
               active={f.emotion === em.k}
               danger={em.tone === "red"}
               onClick={() => toggleEmotion(em.k)}
             >
               {em.e} {lang === "en" ? em.en : em.fr}
-            </LTM_Chip>
+            </PrismChip>
           ))}
         </div>
-      </LTM_Field>
+      </PrismField>
 
-      <LTM_Field label={t("m_tags")}>
+      <PrismField label={t("m_tags")}>
         {f.tags.length > 0 && (
           <div className="mb-2 flex flex-wrap gap-1.5">
             {f.tags.map((tag) => (
-              <LTM_Chip key={tag} active danger onClick={() => removeTag(tag)}>
+              <PrismChip key={tag} active danger onClick={() => removeTag(tag)}>
                 {tag} ×
-              </LTM_Chip>
+              </PrismChip>
             ))}
           </div>
         )}
         <div className="flex gap-1.5">
           <input
-            className={LTM_INPUT_CLS}
+            className={PRISM_INPUT}
             value={tagInput}
             onChange={(e) => setTagInput(e.target.value)}
-            onKeyDown={(e) => {
-              if (e.key === "Enter") {
-                e.preventDefault();
-                addTag(tagInput);
-              }
-            }}
+            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTag(tagInput); } }}
             placeholder={
-              lang === "en"
-                ? "Add a tag and press Enter…"
-                : "Ajoute un tag et appuie sur Entrée…"
+              lang === "en" ? "Add a tag and press Enter…" : "Ajoute un tag et appuie sur Entrée…"
             }
           />
-          <LTM_GhostBtn className="px-3" onClick={() => addTag(tagInput)}>
-            +
-          </LTM_GhostBtn>
+          <PrismGhostBtn className="px-3" onClick={() => addTag(tagInput)}>+</PrismGhostBtn>
         </div>
         {tagSuggestions.length > 0 && (
           <div className="mt-2 flex flex-wrap gap-1.5">
             {tagSuggestions.map((tag) => (
-              <LTM_Chip key={tag} onClick={() => addTag(tag)}>
-                {tag}
-              </LTM_Chip>
+              <PrismChip key={tag} onClick={() => addTag(tag)}>{tag}</PrismChip>
             ))}
           </div>
         )}
-      </LTM_Field>
+      </PrismField>
 
-      <LTM_Field label={t("m_chart")}>
+      <PrismField label={t("m_chart")}>
         <div className="grid grid-cols-2 gap-2.5">
           <FilePicker
             accept="image/*"
             value={file}
             existingUrl={shotUrl}
             onChange={setFile}
-            onRemove={() => {
-              setFile(null);
-              setShotUrl(null);
-            }}
+            onRemove={() => { setFile(null); setShotUrl(null); }}
             hint={t("m_chart_hint")}
           />
           <FilePicker
@@ -394,53 +419,34 @@ export function LogTradeModal({ editing, onClose }) {
             value={file2}
             existingUrl={shotUrl2}
             onChange={setFile2}
-            onRemove={() => {
-              setFile2(null);
-              setShotUrl2(null);
-            }}
+            onRemove={() => { setFile2(null); setShotUrl2(null); }}
             hint={lang === "en" ? "2nd screenshot (optional)" : "2e capture (optionnel)"}
           />
         </div>
-      </LTM_Field>
+      </PrismField>
 
-      <LTM_Field label={t("m_why")}>
+      <PrismField label={t("m_why")}>
         <textarea
-          className={`${LTM_INPUT_CLS} min-h-[80px] resize-y leading-relaxed`}
+          className={`${PRISM_INPUT} min-h-[80px] resize-y leading-relaxed`}
           value={f.why}
           onChange={(e) => set("why", e.target.value)}
           placeholder={t("m_why_ph")}
         />
-      </LTM_Field>
+      </PrismField>
 
-      <LTM_Field label={t("m_plan_ok")}>
+      <PrismField label={t("m_plan_ok")}>
         <div className="flex gap-1.5">
-          <LTM_Chip active={f.plan} onClick={() => set("plan", true)}>
-            {t("m_yes")}
-          </LTM_Chip>
-          <LTM_Chip active={!f.plan} danger onClick={() => set("plan", false)}>
-            {t("m_no")}
-          </LTM_Chip>
+          <PrismChip active={f.plan} onClick={() => set("plan", true)}>{t("m_yes")}</PrismChip>
+          <PrismChip active={!f.plan} danger onClick={() => set("plan", false)}>{t("m_no")}</PrismChip>
         </div>
-      </LTM_Field>
-    </LTM_Modal>
+      </PrismField>
+    </PrismModal>
   );
 }
 
-/* ------------------------------------------------------------------ */
-/*  Autres modals — INCHANGÉS (utilisent les primitives de ./ui)       */
-/* ------------------------------------------------------------------ */
-
-// Presets par prop firm : type de trailing DD et offset du lock ($).
-const FIRM_TRAILING_DEFAULTS = {
-  MFF:      { type: "eod",      lock: 0 },
-  Lucid:    { type: "eod",      lock: 100 },
-  Phidias:  { type: "intraday", lock: 0 },
-  Topstep:  { type: "eod",      lock: 0 },
-  Apex:     { type: "intraday", lock: 0 },
-  Alpha:    { type: "intraday", lock: 0 },
-  Tradeify: { type: "eod",      lock: 0 },
-  Autre:    { type: "intraday", lock: 0 },
-};
+/* ================================================================== */
+/*  AccountModal — reskin PRISM                                        */
+/* ================================================================== */
 
 export function AccountModal({ editing, onClose }) {
   const { addAccount, updateAccount, t, lang } = useBook();
@@ -491,67 +497,120 @@ export function AccountModal({ editing, onClose }) {
   const L = lang === "en" ? "en" : "fr";
   const isStatic = f.trailing_type === "static";
 
+  async function save() {
+    const payload = {
+      ...f,
+      size: Number(f.size) || 0,
+      cost: Number(f.cost) || 0,
+      daily_loss_limit: numOrNull(f.daily_loss_limit),
+      max_drawdown: numOrNull(f.max_drawdown),
+      profit_target: numOrNull(f.profit_target),
+      trailing_type: f.trailing_type || "intraday",
+      trailing_lock_offset: isStatic ? 0 : (numOrNull(f.trailing_lock_offset) ?? 0),
+      trailing_drawdown: f.trailing_type !== "static",
+    };
+    if (isEdit) await updateAccount(editing.id, payload);
+    else await addAccount(payload);
+    onClose();
+  }
+
   return (
-    <Modal title={isEdit ? (L === "en" ? "Edit account" : "Éditer le compte") : t("m_new_account")} onClose={onClose}
-      footer={<><GhostBtn className="flex-1" onClick={onClose}>{t("m_cancel")}</GhostBtn><PrimaryBtn className="flex-1" onClick={async () => {
-        const payload = {
-          ...f,
-          size: Number(f.size) || 0,
-          cost: Number(f.cost) || 0,
-          daily_loss_limit: numOrNull(f.daily_loss_limit),
-          max_drawdown: numOrNull(f.max_drawdown),
-          profit_target: numOrNull(f.profit_target),
-          trailing_type: f.trailing_type || "intraday",
-          trailing_lock_offset: isStatic ? 0 : (numOrNull(f.trailing_lock_offset) ?? 0),
-          trailing_drawdown: f.trailing_type !== "static",
-        };
-        if (isEdit) await updateAccount(editing.id, payload);
-        else await addAccount(payload);
-        onClose();
-      }}>{t("m_save")}</PrimaryBtn></>}>
-      <Field label={t("m_firm")}><select className={inputCls} value={f.firm} onChange={(e) => onFirmChange(e.target.value)}>{firmOptions.map((x) => <option key={x}>{x}</option>)}</select></Field>
+    <PrismModal
+      title={isEdit ? (L === "en" ? "Edit account" : "Éditer le compte") : t("m_new_account")}
+      onClose={onClose}
+      footer={
+        <>
+          <PrismGhostBtn className="flex-1" onClick={onClose}>{t("m_cancel")}</PrismGhostBtn>
+          <PrismPrimaryBtn className="flex-1" onClick={save}>{t("m_save")}</PrismPrimaryBtn>
+        </>
+      }
+    >
+      <PrismField label={t("m_firm")}>
+        <select className={PRISM_SELECT} value={f.firm} onChange={(e) => onFirmChange(e.target.value)}>
+          {firmOptions.map((x) => <option key={x} value={x}>{x}</option>)}
+        </select>
+      </PrismField>
+
       <div className="grid grid-cols-2 gap-3">
-        <Field label={t("m_size")}><input type="number" className={inputCls} value={f.size} onChange={(e) => set("size", e.target.value)} /></Field>
-        <Field label={t("m_eval_cost")}><input type="number" className={inputCls} value={f.cost} onChange={(e) => set("cost", e.target.value)} placeholder={t("m_free_if")} /></Field>
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <Field label={t("m_type")}><select className={inputCls} value={f.type} onChange={(e) => set("type", e.target.value)}><option value="eval">{t("m_eval")}</option><option value="funded">{t("m_funded")}</option></select></Field>
-        <Field label={t("m_status")}><select className={inputCls} value={f.status} onChange={(e) => set("status", e.target.value)}><option value="active">{t("m_st_active")}</option><option value="passed">{t("m_st_passed")}</option><option value="funded">{t("m_funded")}</option><option value="failed">{t("m_st_failed")}</option><option value="paid">{t("m_st_paid")}</option></select></Field>
+        <PrismField label={t("m_size")}>
+          <input type="number" className={PRISM_INPUT} value={f.size} onChange={(e) => set("size", e.target.value)} />
+        </PrismField>
+        <PrismField label={t("m_eval_cost")}>
+          <input type="number" className={PRISM_INPUT} value={f.cost} onChange={(e) => set("cost", e.target.value)} placeholder={t("m_free_if")} />
+        </PrismField>
       </div>
 
-      <div className="mb-1 mt-1 border-t border-line pt-2.5 text-[11px] font-bold uppercase tracking-widest text-muted2">
+      <div className="grid grid-cols-2 gap-3">
+        <PrismField label={t("m_type")}>
+          <select className={PRISM_SELECT} value={f.type} onChange={(e) => set("type", e.target.value)}>
+            <option value="eval">{t("m_eval")}</option>
+            <option value="funded">{t("m_funded")}</option>
+          </select>
+        </PrismField>
+        <PrismField label={t("m_status")}>
+          <select className={PRISM_SELECT} value={f.status} onChange={(e) => set("status", e.target.value)}>
+            <option value="active">{t("m_st_active")}</option>
+            <option value="passed">{t("m_st_passed")}</option>
+            <option value="funded">{t("m_funded")}</option>
+            <option value="failed">{t("m_st_failed")}</option>
+            <option value="paid">{t("m_st_paid")}</option>
+          </select>
+        </PrismField>
+      </div>
+
+      <PrismSectionLabel>
         {L === "en" ? "Risk rules (optional)" : "Règles de risque (optionnel)"}
-      </div>
+      </PrismSectionLabel>
+
       <div className="grid grid-cols-2 gap-3">
-        <Field label={L === "en" ? "Daily loss limit ($)" : "Perte max / jour ($)"}><input type="number" className={inputCls} value={f.daily_loss_limit} onChange={(e) => set("daily_loss_limit", e.target.value)} placeholder="500" /></Field>
-        <Field label={L === "en" ? "Max drawdown ($)" : "Drawdown max ($)"}><input type="number" className={inputCls} value={f.max_drawdown} onChange={(e) => set("max_drawdown", e.target.value)} placeholder="1500" /></Field>
+        <PrismField label={L === "en" ? "Daily loss limit ($)" : "Perte max / jour ($)"}>
+          <input type="number" className={PRISM_INPUT} value={f.daily_loss_limit} onChange={(e) => set("daily_loss_limit", e.target.value)} placeholder="500" />
+        </PrismField>
+        <PrismField label={L === "en" ? "Max drawdown ($)" : "Drawdown max ($)"}>
+          <input type="number" className={PRISM_INPUT} value={f.max_drawdown} onChange={(e) => set("max_drawdown", e.target.value)} placeholder="1500" />
+        </PrismField>
       </div>
+
       <div className="grid grid-cols-2 gap-3">
-        <Field label={L === "en" ? "Profit target ($)" : "Objectif de profit ($)"}><input type="number" className={inputCls} value={f.profit_target} onChange={(e) => set("profit_target", e.target.value)} placeholder="1500" /></Field>
-        <Field label={L === "en" ? "Trailing type" : "Type de trailing"}>
+        <PrismField label={L === "en" ? "Profit target ($)" : "Objectif de profit ($)"}>
+          <input type="number" className={PRISM_INPUT} value={f.profit_target} onChange={(e) => set("profit_target", e.target.value)} placeholder="1500" />
+        </PrismField>
+        <PrismField label={L === "en" ? "Trailing type" : "Type de trailing"}>
           <div className="flex gap-1.5">
-            <Chip active={f.trailing_type === "intraday"} onClick={() => set("trailing_type", "intraday")}>Intraday</Chip>
-            <Chip active={f.trailing_type === "eod"} onClick={() => set("trailing_type", "eod")}>EOD</Chip>
-            <Chip active={f.trailing_type === "static"} onClick={() => set("trailing_type", "static")}>Static</Chip>
+            <PrismChip active={f.trailing_type === "intraday"} onClick={() => set("trailing_type", "intraday")}>Intraday</PrismChip>
+            <PrismChip active={f.trailing_type === "eod"} onClick={() => set("trailing_type", "eod")}>EOD</PrismChip>
+            <PrismChip active={f.trailing_type === "static"} onClick={() => set("trailing_type", "static")}>Static</PrismChip>
           </div>
-        </Field>
+        </PrismField>
       </div>
+
       {!isStatic && (
-        <Field label={L === "en" ? "Lock offset ($ above initial)" : "Lock offset ($ au-dessus de l'initial)"}>
-          <input type="number" className={inputCls} value={f.trailing_lock_offset} onChange={(e) => set("trailing_lock_offset", e.target.value)} placeholder="0" />
-          <div className="mt-1 text-[10.5px] text-muted2">
-            {L === "en"
+        <PrismField
+          label={L === "en" ? "Lock offset ($ above initial)" : "Lock offset ($ au-dessus de l'initial)"}
+          hint={
+            L === "en"
               ? "Once the peak crosses (initial + max DD), the threshold locks at (initial + this offset). Apex: 0. Lucid: 100."
-              : "Une fois que le peak franchit (initial + max DD), le seuil se fige à (initial + cet offset). Apex : 0. Lucid : 100."}
-          </div>
-        </Field>
+              : "Une fois que le peak franchit (initial + max DD), le seuil se fige à (initial + cet offset). Apex : 0. Lucid : 100."
+          }
+        >
+          <input type="number" className={PRISM_INPUT} value={f.trailing_lock_offset} onChange={(e) => set("trailing_lock_offset", e.target.value)} placeholder="0" />
+        </PrismField>
       )}
 
-      <Field label={t("m_date")}><input type="date" className={inputCls} value={f.date} onChange={(e) => set("date", e.target.value)} /></Field>
-      <Field label={t("m_note")}><input className={inputCls} value={f.note} onChange={(e) => set("note", e.target.value)} placeholder="Rapid 50K, static drawdown…" /></Field>
-    </Modal>
+      <PrismField label={t("m_date")}>
+        <input type="date" className={PRISM_INPUT} value={f.date} onChange={(e) => set("date", e.target.value)} />
+      </PrismField>
+
+      <PrismField label={t("m_note")}>
+        <input className={PRISM_INPUT} value={f.note} onChange={(e) => set("note", e.target.value)} placeholder="Rapid 50K, static drawdown…" />
+      </PrismField>
+    </PrismModal>
   );
 }
+
+/* ================================================================== */
+/*  CertModal — reskin PRISM                                           */
+/* ================================================================== */
 
 export function CertModal({ onClose }) {
   const { addCert, notify, t } = useBook();
@@ -578,15 +637,41 @@ export function CertModal({ onClose }) {
   }
 
   return (
-    <Modal title={t("m_new_cert")} onClose={onClose}
-      footer={<><GhostBtn className="flex-1" onClick={onClose}>{t("m_cancel")}</GhostBtn><PrimaryBtn className="flex-1" onClick={submit} disabled={uploading}>{uploading ? t("m_sending") : t("m_save")}</PrimaryBtn></>}>
-      <Field label={t("m_firm")}><select className={inputCls} value={f.firm} onChange={(e) => set("firm", e.target.value)}>{firmOptions.map((x) => <option key={x}>{x}</option>)}</select></Field>
+    <PrismModal
+      title={t("m_new_cert")}
+      onClose={onClose}
+      footer={
+        <>
+          <PrismGhostBtn className="flex-1" onClick={onClose}>{t("m_cancel")}</PrismGhostBtn>
+          <PrismPrimaryBtn className="flex-1" onClick={submit} disabled={uploading}>
+            {uploading ? t("m_sending") : t("m_save")}
+          </PrismPrimaryBtn>
+        </>
+      }
+    >
+      <PrismField label={t("m_firm")}>
+        <select className={PRISM_SELECT} value={f.firm} onChange={(e) => set("firm", e.target.value)}>
+          {firmOptions.map((x) => <option key={x} value={x}>{x}</option>)}
+        </select>
+      </PrismField>
+
       <div className="grid grid-cols-2 gap-3">
-        <Field label={t("m_amount")}><input type="number" className={inputCls} value={f.amount} onChange={(e) => set("amount", e.target.value)} placeholder="50000 ou 1017" /></Field>
-        <Field label={t("m_type")}><select className={inputCls} value={f.type} onChange={(e) => set("type", e.target.value)}><option value="eval_passed">{t("m_eval_passed")}</option><option value="payout">{t("m_payout")}</option></select></Field>
+        <PrismField label={t("m_amount")}>
+          <input type="number" className={PRISM_INPUT} value={f.amount} onChange={(e) => set("amount", e.target.value)} placeholder="50000 ou 1017" />
+        </PrismField>
+        <PrismField label={t("m_type")}>
+          <select className={PRISM_SELECT} value={f.type} onChange={(e) => set("type", e.target.value)}>
+            <option value="eval_passed">{t("m_eval_passed")}</option>
+            <option value="payout">{t("m_payout")}</option>
+          </select>
+        </PrismField>
       </div>
-      <Field label={t("m_date")}><input type="date" className={inputCls} value={f.date} onChange={(e) => set("date", e.target.value)} /></Field>
-      <Field label={t("m_cert_file")}>
+
+      <PrismField label={t("m_date")}>
+        <input type="date" className={PRISM_INPUT} value={f.date} onChange={(e) => set("date", e.target.value)} />
+      </PrismField>
+
+      <PrismField label={t("m_cert_file")}>
         <FilePicker
           accept="image/*,application/pdf"
           value={file}
@@ -594,26 +679,65 @@ export function CertModal({ onClose }) {
           onRemove={() => setFile(null)}
           hint={t("m_cert_hint")}
         />
-      </Field>
-      <Field label={t("m_note")}><input className={inputCls} value={f.note} onChange={(e) => set("note", e.target.value)} placeholder="Express funded, certified funded trader…" /></Field>
-    </Modal>
+      </PrismField>
+
+      <PrismField label={t("m_note")}>
+        <input className={PRISM_INPUT} value={f.note} onChange={(e) => set("note", e.target.value)} placeholder="Express funded, certified funded trader…" />
+      </PrismField>
+    </PrismModal>
   );
 }
+
+/* ================================================================== */
+/*  ExpenseModal — reskin PRISM                                        */
+/* ================================================================== */
 
 export function ExpenseModal({ onClose }) {
   const { addExpense, t } = useBook();
   const [f, setF] = useState({ firm: "MFF", amount: "", date: todayISO(), note: "" });
   const set = (k, v) => setF((s) => ({ ...s, [k]: v }));
+
+  async function save() {
+    if (!Number(f.amount)) return;
+    await addExpense({ ...f, amount: Number(f.amount) });
+    onClose();
+  }
+
   return (
-    <Modal title={t("m_new_expense")} onClose={onClose}
-      footer={<><GhostBtn className="flex-1" onClick={onClose}>{t("m_cancel")}</GhostBtn><PrimaryBtn className="flex-1" onClick={async () => { if (!Number(f.amount)) return; await addExpense({ ...f, amount: Number(f.amount) }); onClose(); }}>{t("m_save")}</PrimaryBtn></>}>
-      <Field label={t("m_firm_post")}><select className={inputCls} value={f.firm} onChange={(e) => set("firm", e.target.value)}>{firmOptions.map((x) => <option key={x}>{x}</option>)}</select></Field>
-      <Field label={t("m_amount")}><input type="number" className={inputCls} value={f.amount} onChange={(e) => set("amount", e.target.value)} placeholder="165" /></Field>
-      <Field label={t("m_date")}><input type="date" className={inputCls} value={f.date} onChange={(e) => set("date", e.target.value)} /></Field>
-      <Field label={t("m_note")}><input className={inputCls} value={f.note} onChange={(e) => set("note", e.target.value)} placeholder="Éval 100K, reset, data feed…" /></Field>
-    </Modal>
+    <PrismModal
+      title={t("m_new_expense")}
+      onClose={onClose}
+      footer={
+        <>
+          <PrismGhostBtn className="flex-1" onClick={onClose}>{t("m_cancel")}</PrismGhostBtn>
+          <PrismPrimaryBtn className="flex-1" onClick={save}>{t("m_save")}</PrismPrimaryBtn>
+        </>
+      }
+    >
+      <PrismField label={t("m_firm_post")}>
+        <select className={PRISM_SELECT} value={f.firm} onChange={(e) => set("firm", e.target.value)}>
+          {firmOptions.map((x) => <option key={x} value={x}>{x}</option>)}
+        </select>
+      </PrismField>
+
+      <PrismField label={t("m_amount")}>
+        <input type="number" className={PRISM_INPUT} value={f.amount} onChange={(e) => set("amount", e.target.value)} placeholder="165" />
+      </PrismField>
+
+      <PrismField label={t("m_date")}>
+        <input type="date" className={PRISM_INPUT} value={f.date} onChange={(e) => set("date", e.target.value)} />
+      </PrismField>
+
+      <PrismField label={t("m_note")}>
+        <input className={PRISM_INPUT} value={f.note} onChange={(e) => set("note", e.target.value)} placeholder="Éval 100K, reset, data feed…" />
+      </PrismField>
+    </PrismModal>
   );
 }
+
+/* ================================================================== */
+/*  SettingsModal — reskin PRISM (logique Stripe intacte)              */
+/* ================================================================== */
 
 export function SettingsModal({ onClose, onReplayTutorial }) {
   const { profile, saveProfile, trades, lang, setLang, t, notify, subscription, reload } = useBook();
@@ -679,111 +803,156 @@ export function SettingsModal({ onClose, onReplayTutorial }) {
     }
   }
 
+  async function saveProfileHandler() {
+    await saveProfile({ name: f.name || "trader", pin: f.pin || "1234", starting_balance: profile.starting_balance ?? 0 });
+    onClose();
+  }
+
   return (
-    <Modal title={t("settings_title")} onClose={onClose}
-      footer={<><GhostBtn className="flex-1" onClick={exportCSV}>{t("settings_export")}</GhostBtn><PrimaryBtn className="flex-1" onClick={async () => {
-        await saveProfile({ name: f.name || "trader", pin: f.pin || "1234", starting_balance: profile.starting_balance ?? 0 });
-        onClose();
-      }}>{t("settings_save")}</PrimaryBtn></>}>
-      <Field label={t("settings_name")}><input className={inputCls} value={f.name} onChange={(e) => set("name", e.target.value)} /></Field>
-      <Field label={t("settings_pin")}><input className={inputCls} value={f.pin} maxLength={6} inputMode="numeric" onChange={(e) => set("pin", e.target.value)} /></Field>
-      <Field label={t("settings_lang")}>
+    <PrismModal
+      title={t("settings_title")}
+      onClose={onClose}
+      footer={
+        <>
+          <PrismGhostBtn className="flex-1" onClick={exportCSV}>
+            <Download className="h-3.5 w-3.5" />
+            {t("settings_export")}
+          </PrismGhostBtn>
+          <PrismPrimaryBtn className="flex-1" onClick={saveProfileHandler}>
+            {t("settings_save")}
+          </PrismPrimaryBtn>
+        </>
+      }
+    >
+      <PrismField label={t("settings_name")}>
+        <input className={PRISM_INPUT} value={f.name} onChange={(e) => set("name", e.target.value)} />
+      </PrismField>
+
+      <PrismField label={t("settings_pin")}>
+        <input className={PRISM_INPUT} value={f.pin} maxLength={6} inputMode="numeric" onChange={(e) => set("pin", e.target.value)} />
+      </PrismField>
+
+      <PrismField label={t("settings_lang")}>
         <div className="flex gap-1.5">
-          <Chip active={lang === "fr"} onClick={() => setLang("fr")}>Français</Chip>
-          <Chip active={lang === "en"} onClick={() => setLang("en")}>English</Chip>
+          <PrismChip active={lang === "fr"} onClick={() => setLang("fr")}>Français</PrismChip>
+          <PrismChip active={lang === "en"} onClick={() => setLang("en")}>English</PrismChip>
         </div>
-      </Field>
+      </PrismField>
 
-      <Field label={lang === "en" ? "Help" : "Aide"}>
-        <GhostBtn className="w-full" onClick={() => { if (onReplayTutorial) onReplayTutorial(); }}>
-          {lang === "en" ? "↻ Replay demo" : "↻ Revoir la démo"}
-        </GhostBtn>
-        <div className="mt-1.5 text-[11px] text-muted2">{lang === "en" ? "Take the guided tour of the app again." : "Refaire le tour guidé de l'application."}</div>
-      </Field>
+      <PrismField
+        label={lang === "en" ? "Help" : "Aide"}
+        hint={lang === "en" ? "Take the guided tour of the app again." : "Refaire le tour guidé de l'application."}
+      >
+        <PrismGhostBtn className="w-full" onClick={() => { if (onReplayTutorial) onReplayTutorial(); }}>
+          <RotateCcw className="h-3.5 w-3.5" />
+          {lang === "en" ? "Replay demo" : "Revoir la démo"}
+        </PrismGhostBtn>
+      </PrismField>
 
-      <Field label={t("sub_section")}>
-        {isActive ? (
-          <div className="rounded-xl border border-line2 bg-panel2 p-4">
-            <div className="flex items-center justify-between">
-              <span
-                className="rounded-md px-2 py-0.5 text-[11px] font-bold uppercase tracking-wide"
-                style={{ background: "rgba(0,211,1,.12)", color: "#00d301" }}
-              >
-                {t("sub_active")}
+      <PrismSectionLabel>{t("sub_section")}</PrismSectionLabel>
+
+      {isActive ? (
+        <div className="rounded-2xl border border-prism-line bg-white/[0.02] p-5">
+          {/* Header : status badges */}
+          <div className="flex items-center justify-between">
+            <span className="inline-flex items-center gap-1.5 rounded-md bg-prism-accentDim px-2 py-0.5 text-[10px] font-semibold uppercase tracking-widest text-prism-accent">
+              <Check className="h-3 w-3" />
+              {t("sub_active")}
+            </span>
+            {isCanceling ? (
+              <span className="inline-flex items-center gap-1.5 text-[10px] font-semibold uppercase tracking-widest text-yellow-400">
+                <AlertTriangle className="h-3 w-3" />
+                {t("sub_canceled_title")}
               </span>
-              {isCanceling ? (
-                <span className="text-[11px] font-bold uppercase tracking-wide" style={{ color: "#f59e0b" }}>
-                  {t("sub_canceled_title")}
-                </span>
-              ) : (
-                <span className="text-[11px] uppercase tracking-wide text-muted2">{t("sub_next_payment")}</span>
-              )}
-            </div>
-
-            <div className="mt-2 text-center">
-              <div className="font-mono text-4xl font-extrabold leading-none" style={{ color: isCanceling ? "#f59e0b" : "#00d301" }}>
-                {daysLeft}
-              </div>
-              <div className="mt-1 text-xs text-muted2">
-                {daysLeft === 0 ? t("sub_today") : daysLeft === 1 ? t("sub_day") : t("sub_days")}
-              </div>
-            </div>
-
-            <div className="mt-3 space-y-1.5 border-t border-line2 pt-3">
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted2">{isCanceling ? t("sub_canceled_until") : t("sub_renews_on")}</span>
-                <span className="font-mono text-white">{fmtDate(periodEnd)}</span>
-              </div>
-              <div className="flex items-center justify-between text-xs">
-                <span className="text-muted2">{t("sub_member_since")}</span>
-                <span className="font-mono text-white">{fmtDate(memberSince)}</span>
-              </div>
-            </div>
-
-            <GhostBtn className="mt-3 w-full" onClick={() => { if (!portalLoading) openPortal(); }}>
-              {portalLoading ? t("sub_loading") : t("sub_manage")}
-            </GhostBtn>
-
-            {!isCanceling && (
-              cancelConfirm ? (
-                <div className="mt-3 rounded-lg border border-line2 bg-panel p-3">
-                  <div className="text-sm font-semibold text-white">{t("sub_cancel_confirm")}</div>
-                  <div className="mt-1 text-xs text-muted2">{t("sub_cancel_hint")}</div>
-                  <div className="mt-2.5 flex gap-2">
-                    <button
-                      onClick={() => { if (!cancelLoading) setCancelConfirm(false); }}
-                      className="flex-1 rounded-lg border border-line2 bg-panel2 py-2 text-xs font-semibold text-white"
-                    >
-                      {t("sub_cancel_back")}
-                    </button>
-                    <button
-                      onClick={() => { if (!cancelLoading) cancelSub(); }}
-                      disabled={cancelLoading}
-                      className="flex-1 rounded-lg py-2 text-xs font-bold text-white disabled:opacity-60"
-                      style={{ background: "#ff3b5c" }}
-                    >
-                      {cancelLoading ? t("sub_cancel_loading") : t("sub_cancel_yes")}
-                    </button>
-                  </div>
-                </div>
-              ) : (
-                <button
-                  onClick={() => setCancelConfirm(true)}
-                  className="mt-2 w-full py-1 text-center text-xs font-semibold"
-                  style={{ color: "#ff3b5c" }}
-                >
-                  {t("sub_cancel")}
-                </button>
-              )
+            ) : (
+              <span className="text-[10px] font-medium uppercase tracking-widest text-prism-muted2">
+                {t("sub_next_payment")}
+              </span>
             )}
           </div>
-        ) : (
-          <div className="rounded-xl border border-line2 bg-panel2 p-5 text-center">
-            <div className="text-3xl">💳</div>
-            <div className="mt-2 text-sm text-muted2">{t("sub_none")}</div>
+
+          {/* Chiffre massif jours restants */}
+          <div className="mt-4 text-center">
+            <div
+              className="font-mono text-5xl font-bold leading-none tabular-nums"
+              style={{ color: isCanceling ? "#facc15" : "#ffffff" }}
+            >
+              {daysLeft}
+            </div>
+            <div className="mt-2 text-xs text-prism-muted2">
+              {daysLeft === 0 ? t("sub_today") : daysLeft === 1 ? t("sub_day") : t("sub_days")}
+            </div>
           </div>
-        )}
-      </Field>
-    </Modal>
+
+          {/* Meta lines */}
+          <div className="mt-4 space-y-2 border-t border-prism-line pt-4">
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-prism-muted2">{isCanceling ? t("sub_canceled_until") : t("sub_renews_on")}</span>
+              <span className="font-mono text-white">{fmtDate(periodEnd)}</span>
+            </div>
+            <div className="flex items-center justify-between text-xs">
+              <span className="text-prism-muted2">{t("sub_member_since")}</span>
+              <span className="font-mono text-white">{fmtDate(memberSince)}</span>
+            </div>
+          </div>
+
+          {/* Manage button */}
+          <PrismGhostBtn
+            className="mt-4 w-full"
+            onClick={() => { if (!portalLoading) openPortal(); }}
+            disabled={portalLoading}
+          >
+            <CreditCard className="h-3.5 w-3.5" />
+            {portalLoading ? t("sub_loading") : t("sub_manage")}
+          </PrismGhostBtn>
+
+          {/* Cancel flow */}
+          {!isCanceling && (
+            cancelConfirm ? (
+              <div className="mt-3 rounded-xl border border-prism-loss/20 bg-prism-loss/5 p-4">
+                <div className="flex items-start gap-2">
+                  <AlertTriangle className="h-4 w-4 shrink-0 text-prism-loss mt-0.5" />
+                  <div className="flex-1">
+                    <div className="text-sm font-semibold text-white">{t("sub_cancel_confirm")}</div>
+                    <div className="mt-1 text-xs text-prism-muted">{t("sub_cancel_hint")}</div>
+                  </div>
+                </div>
+                <div className="mt-3 flex gap-2">
+                  <PrismGhostBtn
+                    className="flex-1"
+                    onClick={() => { if (!cancelLoading) setCancelConfirm(false); }}
+                    disabled={cancelLoading}
+                  >
+                    {t("sub_cancel_back")}
+                  </PrismGhostBtn>
+                  <PrismDangerBtn
+                    className="flex-1"
+                    onClick={() => { if (!cancelLoading) cancelSub(); }}
+                    disabled={cancelLoading}
+                  >
+                    {cancelLoading ? t("sub_cancel_loading") : t("sub_cancel_yes")}
+                  </PrismDangerBtn>
+                </div>
+              </div>
+            ) : (
+              <button
+                type="button"
+                onClick={() => setCancelConfirm(true)}
+                className="mt-2 w-full py-2 text-center text-xs font-semibold text-prism-muted hover:text-prism-loss transition-colors"
+              >
+                {t("sub_cancel")}
+              </button>
+            )
+          )}
+        </div>
+      ) : (
+        <div className="rounded-2xl border border-dashed border-prism-line bg-white/[0.02] p-8 text-center">
+          <div className="inline-flex h-12 w-12 items-center justify-center rounded-2xl bg-prism-accentDim text-prism-accent mb-3">
+            <CreditCard className="h-6 w-6" />
+          </div>
+          <div className="text-sm text-prism-muted">{t("sub_none")}</div>
+        </div>
+      )}
+    </PrismModal>
   );
 }
