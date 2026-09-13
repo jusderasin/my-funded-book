@@ -1,5 +1,5 @@
 "use client";
-import React, { useState } from "react";
+import React from "react";
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import {
@@ -12,8 +12,6 @@ import {
   ClipboardList,
   Settings,
   X,
-  ChevronDown,
-  ChevronRight,
   Building2,
   History,
   Trophy,
@@ -32,7 +30,7 @@ import {
  *   onClose : Function — callback pour fermer (clic backdrop, X, item)
  */
 
-const MAIN_ITEMS = [
+const NAV_ITEMS = [
   { icon: LayoutDashboard, label: "Dashboard",  href: "/dashboard" },
   { icon: BookOpen,        label: "Journal",    href: "/journal" },
   { icon: List,            label: "Trade Logs", href: "/trade-logs" },
@@ -41,9 +39,6 @@ const MAIN_ITEMS = [
   { icon: Sparkles,        label: "PRISM AI",   href: "/report" },
   { icon: ClipboardList,   label: "Playbook",   href: "/playbook" },
   { icon: Settings,        label: "Réglages",   href: "/settings" },
-];
-
-const MORE_ITEMS = [
   { icon: Building2,       label: "Comptes",     href: "/accounts" },
   { icon: History,         label: "Backtest",    href: "/backtest" },
   { icon: Trophy,          label: "Classement",  href: "/leaderboard" },
@@ -53,7 +48,6 @@ const MORE_ITEMS = [
 
 export default function Sidebar({ open = false, onClose }) {
   const pathname = usePathname();
-  const [moreOpen, setMoreOpen] = useState(false);
 
   const isActive = (href) =>
     pathname === href || (pathname && pathname.startsWith(href + "/"));
@@ -95,7 +89,13 @@ export default function Sidebar({ open = false, onClose }) {
         }`}
       >
         {/* Header sidebar : logo + close mobile */}
-        <div className="flex h-16 items-center justify-between px-5 border-b border-prism-line">
+        <div
+          className="flex h-16 items-center justify-between border-b border-prism-line px-5"
+          style={{
+            height: "calc(4rem + env(safe-area-inset-top))",
+            paddingTop: "env(safe-area-inset-top)",
+          }}
+        >
           <Link
             href="/dashboard"
             onClick={onClose}
@@ -115,36 +115,12 @@ export default function Sidebar({ open = false, onClose }) {
 
         {/* Nav */}
         <nav
-          className="p-3 space-y-0.5 overflow-y-auto no-scrollbar"
-          style={{ maxHeight: "calc(100vh - 64px)" }}
+          className="space-y-0.5 overflow-y-auto p-3 no-scrollbar"
+          style={{ maxHeight: "calc(100dvh - 4rem - env(safe-area-inset-top))" }}
         >
-          {MAIN_ITEMS.map((item) => (
+          {NAV_ITEMS.map((item) => (
             <NavItem key={item.href} item={item} onClick={onClose} />
           ))}
-
-          <div className="pt-3 pb-1 px-3">
-            <div className="border-t border-prism-line" />
-          </div>
-
-          <button
-            onClick={() => setMoreOpen((v) => !v)}
-            className="w-full flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium text-prism-muted hover:bg-white/5 hover:text-white transition-colors"
-          >
-            {moreOpen ? (
-              <ChevronDown className="h-4 w-4" />
-            ) : (
-              <ChevronRight className="h-4 w-4" />
-            )}
-            <span>Plus</span>
-          </button>
-
-          {moreOpen && (
-            <div className="space-y-0.5 pl-1">
-              {MORE_ITEMS.map((item) => (
-                <NavItem key={item.href} item={item} onClick={onClose} />
-              ))}
-            </div>
-          )}
         </nav>
       </aside>
     </>
