@@ -11,9 +11,9 @@ const DEFAULT_THEME = "nova";
 const THEMES = [
   {
     id: "nova",
-    labelFr: "TradeX Nova",
-    labelEn: "TradeX Nova",
-    tokens: { ink: "#0a0e27", panel: "#1a1f3a", panel2: "#212748", line: "#2a3050", muted: "#8892b0" },
+    labelFr: "MyTrade Blue",
+    labelEn: "MyTrade Blue",
+    tokens: { ink: "#000000", panel: "#0b0b0e", panel2: "#15151a", line: "rgba(255,255,255,.08)", muted: "#a1a1aa" },
   },
   {
     id: "dark",
@@ -98,7 +98,7 @@ export function ThemePicker({ profile, saveProfile, lang }) {
                 style={{ background: th.tokens.panel, borderColor: th.tokens.line }}
               >
                 <div className="flex items-center gap-1.5">
-                  <span className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--accent, #00d301)" }} />
+                  <span className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--accent, #3b82f6)" }} />
                   <span className="h-1 flex-1 rounded-full" style={{ background: th.tokens.panel2 }} />
                   <span className="h-1 w-3 rounded-full" style={{ background: th.tokens.line }} />
                 </div>
