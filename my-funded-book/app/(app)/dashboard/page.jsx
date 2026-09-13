@@ -5,7 +5,6 @@ import { useBook } from "@/components/BookProvider";
 import { Modal, GhostBtn } from "@/components/ui";
 import { Area, Bars, Calendar } from "@/components/charts";
 import { fmtMoney, frDate } from "@/lib/format";
-import RiskBanner from "@/components/RiskBanner";
 import { LogTradeModal } from "@/components/modals";
 import KpiCustomizer from "@/components/KpiCustomizer";
 import { KPI_CATALOG, DEFAULT_KPI_IDS, MIN_KPIS, MAX_KPIS } from "@/lib/kpiCatalog";
@@ -103,8 +102,6 @@ export default function DashboardPage() {
 
   return (
     <div className="min-h-full bg-black text-white p-4 sm:p-6 lg:p-8">
-      <RiskBanner />
-
       {/* Bouton Personnaliser */}
       <div className="mb-4 flex justify-end">
         <button

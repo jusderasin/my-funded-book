@@ -16,9 +16,7 @@ import {
   ChevronRight,
   Building2,
   History,
-  Award,
   Trophy,
-  ClipboardCheck,
   ScrollText,
   DollarSign,
 } from "lucide-react";
@@ -48,9 +46,7 @@ const MAIN_ITEMS = [
 const MORE_ITEMS = [
   { icon: Building2,       label: "Comptes",     href: "/accounts" },
   { icon: History,         label: "Backtest",    href: "/backtest" },
-  { icon: Award,           label: "Badges",      href: "/badges" },
   { icon: Trophy,          label: "Classement",  href: "/leaderboard" },
-  { icon: ClipboardCheck,  label: "Review",      href: "/review" },
   { icon: ScrollText,      label: "Certificats", href: "/certificates" },
   { icon: DollarSign,      label: "Dépenses",    href: "/expenses" },
 ];

@@ -173,6 +173,7 @@ export function LogTradeModal({ editing, onClose }) {
   const [shotUrl, setShotUrl] = useState(editing ? editing.screenshot_url || null : null);
   const [shotUrl2, setShotUrl2] = useState(editing ? editing.screenshot_url_2 || null : null);
   const [uploading, setUploading] = useState(false);
+  const [advanced, setAdvanced] = useState(false);
   const [tagInput, setTagInput] = useState("");
   const set = (k, v) => setF((s) => ({ ...s, [k]: v }));
   const toggleEmotion = (k) => set("emotion", f.emotion === k ? null : k);
@@ -358,6 +359,16 @@ export function LogTradeModal({ editing, onClose }) {
         </select>
       </PrismField>
 
+      <button
+        type="button"
+        onClick={() => setAdvanced((v) => !v)}
+        className="mb-1 flex w-full items-center justify-between rounded-xl border border-prism-line bg-white/[0.02] px-3.5 py-3 text-left text-xs font-semibold text-prism-muted transition hover:border-prism-accent/40 hover:text-white"
+      >
+        <span>{lang === "en" ? "Add journal details" : "Ajouter des détails au journal"}</span>
+        <span className="text-prism-accent">{advanced ? "−" : "+"}</span>
+      </button>
+
+      {advanced && <>
       <PrismField label={lang === "en" ? "Emotion at entry" : "Émotion à l'entrée"}>
         <div className="flex flex-wrap gap-1.5">
           {EMOTIONS.map((em) => (
@@ -440,6 +451,7 @@ export function LogTradeModal({ editing, onClose }) {
           <PrismChip active={!f.plan} danger onClick={() => set("plan", false)}>{t("m_no")}</PrismChip>
         </div>
       </PrismField>
+      </>}
     </PrismModal>
   );
 }
