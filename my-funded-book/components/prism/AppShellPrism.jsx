@@ -47,11 +47,12 @@ export default function AppShellPrism({ user, children }) {
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,#151515_0%,#050505_42%,#000_72%)]" />
         <div className="relative w-full max-w-xl px-8 text-center">
           <div className="mx-auto h-px w-24 bg-zinc-700" />
-          <p className="mt-6 font-mono text-[10px] font-semibold tracking-[0.48em] text-zinc-500">MYTRADEBOOK</p>
-          <h1 className="mt-5 text-4xl font-black tracking-[0.12em] text-white sm:text-6xl">BIENVENUE</h1>
-          <p className="mt-3 font-mono text-sm uppercase tracking-[0.32em] text-zinc-400">{profile?.name || "TRADER"}</p>
-          <div className="mx-auto mt-8 h-px w-40 overflow-hidden bg-zinc-800"><div className="h-full w-1/3 animate-pulse bg-zinc-400" /></div>
-          <p className="mt-4 font-mono text-[9px] uppercase tracking-[0.3em] text-zinc-600">Initialisation du journal</p>
+          <div className="relative mx-auto mt-6 h-2 w-2"><span className="absolute inset-0 animate-ping rounded-full bg-zinc-500 opacity-50" /><span className="absolute inset-0 rounded-full bg-zinc-300" /></div>
+          <p className="mt-4 font-mono text-[9px] font-medium tracking-[0.42em] text-zinc-600">MYTRADEBOOK</p>
+          <h1 className="mt-5 text-2xl font-medium tracking-[0.32em] text-zinc-100 sm:text-3xl">BIENVENUE</h1>
+          <p className="mt-4 font-mono text-xs uppercase tracking-[0.24em] text-zinc-400">{profile?.name || "TRADER"}</p>
+          <div className="mx-auto mt-7 h-px w-32 overflow-hidden bg-zinc-800"><div className="h-full w-1/3 animate-pulse bg-zinc-400" /></div>
+          <p className="mt-3 font-mono text-[8px] uppercase tracking-[0.25em] text-zinc-700">Connexion sécurisée</p>
         </div>
       </div>}
     </div>

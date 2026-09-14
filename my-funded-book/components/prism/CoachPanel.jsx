@@ -31,8 +31,8 @@ export default function CoachPanel() {
       const data = await response.json().catch(() => ({}));
       const reply = response.ok
         ? data.reply
-        : data.error === "ollama_unavailable"
-          ? "PRISM local est prêt, mais Ollama ou son modèle n’est pas encore lancé sur ce PC."
+        : data.error === "missing_groq_key"
+          ? "PRISM n'est pas encore configuré côté serveur."
           : "Je ne peux pas répondre pour le moment.";
       setMessages((current) => [...current, { role: "assistant", content: reply }]);
     } catch {

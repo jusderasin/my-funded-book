@@ -158,7 +158,7 @@ export default function ReportPage() {
       if (!r.ok) {
         const map = {
           no_trades: L === "en" ? "No trades over this period." : "Aucun trade sur cette période.",
-          ollama_unavailable: L === "en" ? "Local AI is not running." : "L'IA locale n'est pas lancée sur ce PC.",
+          missing_groq_key: L === "en" ? "The PRISM server key is not configured." : "La clé serveur de PRISM n'est pas encore configurée.",
           unauthenticated: L === "en" ? "Session expired." : "Session expirée, reconnecte-toi.",
         };
         setErr(map[data.error] || data.error || (L === "en" ? "Error" : "Erreur"));
