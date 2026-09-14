@@ -4,7 +4,8 @@ import { useState, useMemo } from "react";
 import { useBook } from "@/components/BookProvider";
 import { fmtMoney, frDate } from "@/lib/format";
 import { LogTradeModal } from "@/components/modals";
-import { Search, Grid3x3, List, Plus, ImageOff } from "lucide-react";
+import { ImportCsvModal } from "@/components/ImportCsvModal";
+import { Search, Grid3x3, List, Plus, ImageOff, Upload } from "lucide-react";
 
 /**
  * Trade Logs — grille de vignettes des screenshots de trades style TradeXNova.
@@ -21,6 +22,7 @@ export default function TradeLogsPage() {
   const [query, setQuery] = useState("");
   const [view, setView] = useState("grid"); // "grid" | "list"
   const [editing, setEditing] = useState(null);
+  const [importOpen, setImportOpen] = useState(false);
 
   const filtered = useMemo(() => {
     const q = query.trim().toLowerCase();
@@ -107,6 +109,15 @@ export default function TradeLogsPage() {
 
         <button
           type="button"
+          onClick={() => setImportOpen(true)}
+          className="inline-flex items-center gap-1.5 rounded-xl border border-prism-line2 px-3 py-2 text-xs font-semibold text-white transition-colors hover:border-prism-accent"
+        >
+          <Upload className="h-3.5 w-3.5" />
+          {L === "en" ? "Import CSV" : "Importer CSV"}
+        </button>
+
+        <button
+          type="button"
           onClick={() => setEditing("new")}
           className="inline-flex items-center gap-1.5 rounded-xl bg-white text-black px-3 py-2 text-xs font-semibold hover:bg-white/90 transition-colors"
         >
@@ -138,6 +149,7 @@ export default function TradeLogsPage() {
           onClose={() => setEditing(null)}
         />
       )}
+      {importOpen && <ImportCsvModal onClose={() => setImportOpen(false)} />}
     </div>
   );
 }

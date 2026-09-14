@@ -43,7 +43,7 @@ function splitTags(raw) {
   return raw.split(/[|,;/]/).map((x) => x.trim()).filter(Boolean);
 }
 
-function buildRow(rawRow, mapping, dateFormat, accountId, planDefault) {
+function buildRow(rawRow, mapping, dateFormat, accountId, planDefault, defaultSetup) {
   const get = (field) => {
     const idx = mapping[field];
     if (idx == null || idx === -1) return "";
@@ -72,7 +72,7 @@ function buildRow(rawRow, mapping, dateFormat, accountId, planDefault) {
     grade: get("grade") || "A+",
     r: parseNumber(get("r")) ?? 0,
     pnl: pnl ?? 0,
-    setup: get("setup") || null,
+    setup: get("setup") || defaultSetup || null,
     tags: splitTags(get("tags")),
     why: get("why") || null,
     plan: !!planDefault,
@@ -82,8 +82,12 @@ function buildRow(rawRow, mapping, dateFormat, accountId, planDefault) {
   return { row, errors, warnings };
 }
 
+function tradeFingerprint(trade) {
+  return [trade.date, String(trade.symbol || "").toUpperCase(), trade.dir, Number(trade.pnl || 0), trade.account_id || ""].join("|");
+}
+
 export function ImportCsvModal({ onClose }) {
-  const { importTrades, accounts, lang, notify } = useBook();
+  const { importTrades, accounts, playbooks, trades, lang, notify } = useBook();
   const L = lang === "en" ? "en" : "fr";
   const labels = FIELD_LABEL[L];
 
@@ -92,6 +96,7 @@ export function ImportCsvModal({ onClose }) {
   const [mapping, setMapping] = useState(null); // field -> header index (-1 = ignoré)
   const [dateFormat, setDateFormat] = useState("auto");
   const [accountId, setAccountId] = useState("");
+  const [defaultSetup, setDefaultSetup] = useState("");
   const [planDefault, setPlanDefault] = useState(true);
   const [importing, setImporting] = useState(false);
   const [parseError, setParseError] = useState("");
@@ -126,11 +131,27 @@ export function ImportCsvModal({ onClose }) {
 
   const built = useMemo(() => {
     if (!parsed || !mapping) return [];
-    return parsed.rows.map((rawRow) => buildRow(rawRow, mapping, dateFormat, accountId, planDefault));
-  }, [parsed, mapping, dateFormat, accountId, planDefault]);
+    return parsed.rows.map((rawRow) => buildRow(rawRow, mapping, dateFormat, accountId, planDefault, defaultSetup));
+  }, [parsed, mapping, dateFormat, accountId, planDefault, defaultSetup]);
 
-  const validRows = useMemo(() => built.filter((b) => b.errors.length === 0).map((b) => b.row), [built]);
-  const invalidCount = built.length - validRows.length;
+  const existingFingerprints = useMemo(() => new Set(trades.map(tradeFingerprint)), [trades]);
+  const { validRows, duplicateCount } = useMemo(() => {
+    const seen = new Set();
+    let duplicates = 0;
+    const rows = [];
+    built.forEach((item) => {
+      if (item.errors.length > 0) return;
+      const fingerprint = tradeFingerprint(item.row);
+      if (existingFingerprints.has(fingerprint) || seen.has(fingerprint)) {
+        duplicates += 1;
+        return;
+      }
+      seen.add(fingerprint);
+      rows.push(item.row);
+    });
+    return { validRows: rows, duplicateCount: duplicates };
+  }, [built, existingFingerprints]);
+  const invalidCount = built.filter((item) => item.errors.length > 0).length;
   const warningCount = built.filter((b) => b.warnings.length > 0).length;
 
   function setFieldMapping(field, idx) {
@@ -213,6 +234,12 @@ export function ImportCsvModal({ onClose }) {
                 ))}
               </select>
             </Field>
+            <Field label={L === "en" ? "Default strategy" : "Stratégie par défaut"}>
+              <select className={inputCls} value={defaultSetup} onChange={(e) => setDefaultSetup(e.target.value)}>
+                <option value="">{L === "en" ? "- keep CSV / none -" : "- garder le CSV / aucune -"}</option>
+                {playbooks.map((strategy) => <option key={strategy.id} value={strategy.name}>{strategy.name}</option>)}
+              </select>
+            </Field>
           </div>
 
           <Field label={L === "en" ? "Mark all as plan-followed?" : "Marquer tous comme plan respecté ?"}>
@@ -254,6 +281,7 @@ export function ImportCsvModal({ onClose }) {
                   <th className="px-2 py-1.5 text-left font-semibold">Dir</th>
                   <th className="px-2 py-1.5 text-right font-semibold">PnL</th>
                   <th className="px-2 py-1.5 text-right font-semibold">R</th>
+                  <th className="px-2 py-1.5 text-left font-semibold">{L === "en" ? "Strategy" : "Stratégie"}</th>
                   <th className="px-2 py-1.5 text-left font-semibold" />
                 </tr>
               </thead>
@@ -267,6 +295,7 @@ export function ImportCsvModal({ onClose }) {
                       {fmtMoney(b.row.pnl)}
                     </td>
                     <td className="px-2 py-1.5 text-right font-mono">{b.row.r}</td>
+                    <td className="max-w-28 truncate px-2 py-1.5">{b.row.setup || "-"}</td>
                     <td className="px-2 py-1.5">
                       {b.errors.length > 0 && <Pill tone="red">{L === "en" ? "skipped" : "ignorée"}</Pill>}
                       {b.errors.length === 0 && b.warnings.length > 0 && <Pill tone="yellow">{L === "en" ? "check dir" : "vérifier dir"}</Pill>}
@@ -293,6 +322,11 @@ export function ImportCsvModal({ onClose }) {
             {warningCount > 0 && (
               <span className="text-goldx">
                 {" · "}{warningCount} {L === "en" ? "with an unrecognized direction (defaulted to long)" : "avec direction non reconnue (long par défaut)"}
+              </span>
+            )}
+            {duplicateCount > 0 && (
+              <span className="text-goldx">
+                {" · "}{duplicateCount} {L === "en" ? "duplicate(s) skipped" : "doublon(s) ignoré(s)"}
               </span>
             )}
           </div>
