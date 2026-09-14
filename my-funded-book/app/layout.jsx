@@ -5,7 +5,7 @@ export const metadata = {
   title: "MyTradeBook — Journal de trading",
   description: "Le livre de comptes du trader financé — trades, evals, payouts, certificats et ROI.",
   manifest: "/manifest.json",
-  icons: { icon: "/icons/mytradebook-mark.svg", apple: "/icons/mytradebook-mark.svg" },
+  icons: { icon: "/icon", apple: "/apple-icon" },
   appleWebApp: {
     capable: true,
     statusBarStyle: "black-translucent",
@@ -30,7 +30,7 @@ export default function RootLayout({ children }) {
           href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600;700;800;900&family=JetBrains+Mono:wght@400;500;600;700;800&display=swap"
           rel="stylesheet"
         />
-        <link rel="apple-touch-icon" href="/icons/mytradebook-mark.svg" />
+        <link rel="apple-touch-icon" href="/apple-icon" />
       </head>
       <body className="bg-ink text-white antialiased">
         {children}

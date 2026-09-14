@@ -1,5 +1,5 @@
-const CACHE = "mfb-v3";
-const ASSETS = ["/", "/dashboard", "/manifest.json", "/icons/mytradebook-mark.svg"];
+const CACHE = "mfb-v4";
+const ASSETS = ["/", "/dashboard", "/manifest.json", "/icon", "/apple-icon"];
 
 self.addEventListener("install", (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(ASSETS)).catch(() => {}));

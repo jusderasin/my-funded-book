@@ -108,12 +108,12 @@ export default function LoginPage() {
   const inputCls = "w-full rounded-xl border border-line2 bg-panel2 px-3.5 py-3 text-[14px] text-white outline-none focus:border-accent";
 
   return (
-    <div className="min-h-screen bg-ink text-white">
+    <div className="login-signal min-h-screen bg-ink text-white">
       <style>{`
         .spot { position: relative; }
         .spot::before {
           content: ""; position: absolute; inset: 0; border-radius: inherit;
-          background: radial-gradient(220px circle at var(--mx,-200px) var(--my,-200px), rgba(0,211,1,0.10), transparent 62%);
+          background: radial-gradient(220px circle at var(--mx,-200px) var(--my,-200px), rgba(140,255,79,0.14), transparent 62%);
           opacity: 0; transition: opacity .25s ease; pointer-events: none;
         }
         .spot:hover::before { opacity: 1; }

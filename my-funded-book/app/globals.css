@@ -225,6 +225,19 @@ input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.7); }
 :root[data-theme="signal"] .shadow-prism-glow { box-shadow: 0 0 40px -8px rgba(140,255,79,.35); }
 :root[data-theme="signal"] .prism-primary { background:var(--prism-accent)!important; color:#061006!important; box-shadow:0 13px 28px -16px rgba(140,255,79,.7); }
 :root[data-theme="signal"] .prism-primary:hover { background:var(--prism-accent-soft)!important; }
+.login-signal {
+  --ink:#070a08;
+  --ink2:#050705;
+  --panel:#0d110e;
+  --panel2:#151b16;
+  --line:rgba(190,238,179,.12);
+  --line2:rgba(190,238,179,.2);
+  --muted:#9daa9a;
+  --muted2:#637062;
+  --accent:#8cff4f;
+  --loss:#ff6d6d;
+  background:radial-gradient(900px 500px at 10% -10%,rgba(140,255,79,.1),transparent 65%),#070a08;
+}
 .signal-interactive { transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease, background-color .2s ease; }
 :root[data-theme="signal"] .signal-interactive:hover { transform:translateY(-2px); border-color:rgba(140,255,79,.38); box-shadow:0 17px 36px -26px rgba(140,255,79,.32); }
 @media (prefers-reduced-motion: reduce) { .signal-interactive { transition:none; } :root[data-theme="signal"] .signal-interactive:hover { transform:none; } }
