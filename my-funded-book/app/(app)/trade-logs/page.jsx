@@ -5,7 +5,7 @@ import { useBook } from "@/components/BookProvider";
 import { fmtMoney, frDate } from "@/lib/format";
 import { LogTradeModal } from "@/components/modals";
 import { ImportCsvModal } from "@/components/ImportCsvModal";
-import { Search, Grid3x3, List, Plus, ImageOff, Upload } from "lucide-react";
+import { Search, Grid3x3, List, Plus, ImageOff, Upload, Trash2 } from "lucide-react";
 
 /**
  * Trade Logs — grille de vignettes des screenshots de trades style TradeXNova.
@@ -16,7 +16,7 @@ import { Search, Grid3x3, List, Plus, ImageOff, Upload } from "lucide-react";
  * affiche tous les trades, avec ou sans capture.
  */
 export default function TradeLogsPage() {
-  const { trades, lang } = useBook();
+  const { trades, lang, deleteTrade } = useBook();
   const L = lang === "en" ? "en" : "fr";
 
   const [query, setQuery] = useState("");
@@ -48,6 +48,11 @@ export default function TradeLogsPage() {
   }, [trades, query]);
 
   const totalCount = trades.length;
+  const removeTrade = async (trade) => {
+    const label = `${trade.symbol || "Trade"} · ${frDate(trade.date)}`;
+    if (!window.confirm(L === "en" ? `Delete ${label}?` : `Supprimer ${label} ?`)) return;
+    await deleteTrade(trade.id);
+  };
 
   return (
     <div className="min-h-full bg-black text-white p-4 sm:p-6 lg:p-8">
@@ -132,13 +137,13 @@ export default function TradeLogsPage() {
       ) : view === "grid" ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((tr) => (
-            <TradeCard key={tr.id} tr={tr} onClick={() => setEditing(tr)} />
+            <TradeCard key={tr.id} tr={tr} onClick={() => setEditing(tr)} onDelete={() => removeTrade(tr)} />
           ))}
         </div>
       ) : (
         <div className="flex flex-col gap-2">
           {filtered.map((tr) => (
-            <TradeRow key={tr.id} tr={tr} onClick={() => setEditing(tr)} />
+            <TradeRow key={tr.id} tr={tr} onClick={() => setEditing(tr)} onDelete={() => removeTrade(tr)} />
           ))}
         </div>
       )}
@@ -158,18 +163,17 @@ export default function TradeLogsPage() {
 /*  Card grille (vignette screenshot avec overlay P&L)                 */
 /* ------------------------------------------------------------------ */
 
-function TradeCard({ tr, onClick }) {
+function TradeCard({ tr, onClick, onDelete }) {
   const win = tr.pnl >= 0;
   const url = tr.screenshot_url || tr.screenshot_url_2;
 
   return (
-    <button
-      type="button"
-      onClick={onClick}
+    <div
       className={`group relative flex flex-col text-left rounded-2xl border border-prism-line bg-prism-panel overflow-hidden hover:border-prism-line2 transition-all border-t-[3px] ${
         win ? "border-t-prism-win" : "border-t-prism-loss"
       }`}
     >
+      <button type="button" onClick={onClick} className="block text-left">
       {/* Screenshot */}
       <div className="relative aspect-[16/10] bg-black overflow-hidden">
         {url ? (
@@ -218,7 +222,9 @@ function TradeCard({ tr, onClick }) {
           )}
         </div>
       </div>
-    </button>
+      </button>
+      <button type="button" onClick={onDelete} className="absolute right-2 top-2 inline-flex h-8 w-8 items-center justify-center rounded-lg border border-white/10 bg-black/70 text-white/70 opacity-0 transition hover:border-red-400/50 hover:bg-red-500/20 hover:text-red-300 focus:opacity-100 group-hover:opacity-100" aria-label="Supprimer ce trade" title="Supprimer ce trade"><Trash2 className="h-3.5 w-3.5" /></button>
+    </div>
   );
 }
 
@@ -226,17 +232,16 @@ function TradeCard({ tr, onClick }) {
 /*  Row liste (vignette petite à gauche + méta)                        */
 /* ------------------------------------------------------------------ */
 
-function TradeRow({ tr, onClick }) {
+function TradeRow({ tr, onClick, onDelete }) {
   const win = tr.pnl >= 0;
   const url = tr.screenshot_url || tr.screenshot_url_2;
   return (
-    <button
-      type="button"
-      onClick={onClick}
+    <div
       className={`flex items-center gap-4 text-left rounded-2xl border border-prism-line bg-prism-panel px-4 py-3 hover:border-prism-line2 hover:bg-white/[0.02] transition-all border-l-[3px] ${
         win ? "border-l-prism-win" : "border-l-prism-loss"
       }`}
     >
+      <button type="button" onClick={onClick} className="flex min-w-0 flex-1 items-center gap-4 text-left">
       <div className="h-14 w-24 shrink-0 rounded-xl overflow-hidden border border-prism-line bg-black">
         {url ? (
           <img
@@ -282,7 +287,9 @@ function TradeRow({ tr, onClick }) {
           {(win ? "+" : "") + fmtMoney(tr.pnl)}
         </div>
       </div>
-    </button>
+      </button>
+      <button type="button" onClick={onDelete} className="inline-flex h-9 w-9 shrink-0 items-center justify-center rounded-lg text-prism-muted hover:bg-red-500/10 hover:text-red-300" aria-label="Supprimer ce trade" title="Supprimer ce trade"><Trash2 className="h-4 w-4" /></button>
+    </div>
   );
 }
 
