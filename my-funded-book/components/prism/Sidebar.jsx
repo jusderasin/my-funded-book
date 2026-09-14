@@ -3,6 +3,7 @@
 import Link from "next/link";
 import { usePathname } from "next/navigation";
 import { BarChart3, Building2, Calendar, ClipboardList, DollarSign, History, LayoutDashboard, List, ScrollText, Settings, Sparkles, Trophy, X } from "lucide-react";
+import BrandMark from "@/components/BrandMark";
 
 const NAV_ITEMS = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
@@ -27,7 +28,7 @@ export default function Sidebar({ open = false, onClose }) {
     {open && <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden" onClick={onClose} aria-hidden="true" />}
     <aside className={`fixed top-0 left-0 z-50 h-screen w-64 border-r border-prism-line bg-black transition-transform duration-200 lg:translate-x-0 ${open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
       <div className="flex h-16 items-center justify-between border-b border-prism-line px-5" style={{ height: "calc(4rem + env(safe-area-inset-top))", paddingTop: "env(safe-area-inset-top)" }}>
-        <Link href="/dashboard" onClick={onClose} className="flex items-center gap-2 text-lg font-semibold tracking-tight text-white"><span className="flex h-7 w-7 items-center justify-center rounded-lg bg-prism-accent text-xs font-black text-white shadow-prism-glow">M</span><span>MyTrade<span className="text-prism-accent">Book</span></span></Link>
+        <Link href="/dashboard" onClick={onClose}><BrandMark /></Link>
         <button onClick={onClose} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-prism-muted hover:text-white lg:hidden" aria-label="Fermer le menu"><X className="h-5 w-5" /></button>
       </div>
       <nav className="space-y-0.5 overflow-y-auto p-3 no-scrollbar" style={{ maxHeight: "calc(100dvh - 4rem - env(safe-area-inset-top))" }}>
