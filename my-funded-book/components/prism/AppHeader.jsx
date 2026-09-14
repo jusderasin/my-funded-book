@@ -1,7 +1,7 @@
 "use client";
 import React, { useState, useRef, useEffect } from "react";
 import Link from "next/link";
-import { Menu, Bell, UserCircle, LogOut } from "lucide-react";
+import { Menu, Bell, UserCircle, LogOut, Plus } from "lucide-react";
 
 /**
  * PRISM AppHeader — barre du haut style TradeXNova.
@@ -17,7 +17,7 @@ import { Menu, Bell, UserCircle, LogOut } from "lucide-react";
  *   user        : { email: String } — user courant
  *   onMenuClick : Function — ouvre la sidebar sur mobile
  */
-export default function AppHeader({ user, onMenuClick }) {
+export default function AppHeader({ user, onMenuClick, onLogTrade }) {
   const [menuOpen, setMenuOpen] = useState(false);
   const menuRef = useRef(null);
 
@@ -60,8 +60,17 @@ export default function AppHeader({ user, onMenuClick }) {
         </div>
       </div>
 
-      {/* Right : notifications + avatar */}
+      {/* Right : accès rapide, notifications + avatar */}
       <div className="flex items-center gap-1.5">
+        <button
+          onClick={onLogTrade}
+          className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-prism-accent px-3 text-xs font-bold text-black transition hover:brightness-110 active:scale-[0.98]"
+          aria-label="Logger rapidement un trade"
+          type="button"
+        >
+          <Plus className="h-4 w-4" />
+          <span className="hidden sm:inline">Log trade</span>
+        </button>
         <button
           className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-prism-muted hover:text-white hover:bg-white/5 transition-colors"
           aria-label="Notifications"

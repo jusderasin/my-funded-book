@@ -3,6 +3,7 @@ import React, { useEffect, useState } from "react";
 import Sidebar from "./Sidebar";
 import AppHeader from "./AppHeader";
 import { useBook } from "@/components/BookProvider";
+import { LogTradeModal } from "@/components/modals";
 
 /**
  * PRISM AppShell — layout global pour toutes les pages (app)/*.
@@ -17,6 +18,7 @@ import { useBook } from "@/components/BookProvider";
  */
 export default function AppShellPrism({ user, children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
+  const [quickLogOpen, setQuickLogOpen] = useState(false);
   const { profile } = useBook();
   const [splash, setSplash] = useState(true);
   const [splashOut, setSplashOut] = useState(false);
@@ -37,12 +39,14 @@ export default function AppShellPrism({ user, children }) {
         <AppHeader
           user={user}
           onMenuClick={() => setSidebarOpen(true)}
+          onLogTrade={() => setQuickLogOpen(true)}
         />
         <main className="relative flex-1">
           <div className="pointer-events-none absolute inset-x-0 top-0 h-56 app-dot-grid opacity-40" />
           {children}
         </main>
       </div>
+      {quickLogOpen && <LogTradeModal onClose={() => setQuickLogOpen(false)} />}
       {splash && <div className={`fixed inset-0 z-[120] flex items-center justify-center overflow-hidden bg-black transition-opacity duration-500 ${splashOut ? "opacity-0" : "opacity-100"}`}>
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,#151515_0%,#050505_42%,#000_72%)]" />
         <div className="relative w-full max-w-xl px-8 text-center">
