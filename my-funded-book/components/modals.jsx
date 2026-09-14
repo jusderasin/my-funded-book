@@ -22,12 +22,15 @@ const firmOptions = Object.keys(FIRMS);
 // Valeurs de R suggérées à la sélection d'une sortie — modifiables ensuite à la main.
 const OUTCOME_DEFAULT_R = { TP: 2, SL: -1, BE: 0 };
 
-const MENTAL_STATES = [
-  { key: "calm", fr: "Calme", en: "Calm", dot: "bg-emerald-400" },
-  { key: "focused", fr: "Concentré", en: "Focused", dot: "bg-blue-400" },
-  { key: "fear", fr: "Sous pression", en: "Under pressure", dot: "bg-amber-400" },
-  { key: "fomo", fr: "Impulsif", en: "Impulsive", dot: "bg-rose-400" },
+const PSYCHO_CHECKS = [
+  { key: "calm", fr: "Je suis calme, je ne me précipite pas", en: "I am calm, not rushed" },
+  { key: "no_chase", fr: "Je ne cherche pas à me refaire", en: "I am not chasing a loss" },
+  { key: "rested", fr: "J'ai suffisamment dormi", en: "I slept enough" },
+  { key: "plan", fr: "J'ai un plan clair pour ce trade", en: "I have a plan for this trade" },
+  { key: "risk", fr: "J'accepte pleinement ce risque", en: "I can afford to lose this risk" },
 ];
+
+const DEFAULT_PSYCHOLOGY = { emotional: 4, focus: 4, confidence: 4, checks: [] };
 
 // Presets par prop firm : type de trailing DD et offset du lock ($).
 const FIRM_TRAILING_DEFAULTS = {
@@ -170,9 +173,9 @@ export function LogTradeModal({ editing, onClose }) {
     accounts[0]?.id ||
     "";
   const [f, setF] = useState(
-    editing ? { ...editing, strategy_checks: Array.isArray(editing.strategy_checks) ? editing.strategy_checks : [] } : {
+    editing ? { ...editing, strategy_checks: Array.isArray(editing.strategy_checks) ? editing.strategy_checks : [], psychology: { ...DEFAULT_PSYCHOLOGY, ...(editing.psychology || {}) } } : {
       symbol: "MNQ", date: todayISO(), dir: "long", session: "NY AM", grade: "A+",
-      r: "", pnl: "", setup: "", strategy_checks: [], tags: [], emotion: null, why: "", plan: true, account_id: defaultAccountId, outcome: "",
+      r: "", pnl: "", setup: "", strategy_checks: [], tags: [], emotion: null, psychology: DEFAULT_PSYCHOLOGY, why: "", plan: true, account_id: defaultAccountId, outcome: "",
     }
   );
   const [file, setFile] = useState(null);
@@ -183,7 +186,6 @@ export function LogTradeModal({ editing, onClose }) {
   const [advanced, setAdvanced] = useState(false);
   const [tagInput, setTagInput] = useState("");
   const set = (k, v) => setF((s) => ({ ...s, [k]: v }));
-  const toggleEmotion = (k) => set("emotion", f.emotion === k ? null : k);
   const selectedStrategy = playbooks.find((strategy) => strategy.name === f.setup);
   const strategyRules = Array.isArray(selectedStrategy?.rules) ? selectedStrategy.rules : [];
   const selectedChecks = Array.isArray(f.strategy_checks) ? f.strategy_checks : [];
@@ -233,6 +235,7 @@ export function LogTradeModal({ editing, onClose }) {
       symbol: (f.symbol || "MNQ").toUpperCase(), date: f.date, dir: f.dir, session: f.session,
       grade: f.grade, r: Number(f.r) || 0, pnl: Number(f.pnl) || 0, setup: f.setup || null,
       strategy_checks: selectedChecks, tags: f.tags, emotion: f.emotion || null, why: f.why || null, plan: !!f.plan,
+      psychology: { ...DEFAULT_PSYCHOLOGY, ...(f.psychology || {}) },
       screenshot_url: screenshot_url || null,
       screenshot_url_2: screenshot_url_2 || null,
       account_id: f.account_id || null,
@@ -401,21 +404,23 @@ export function LogTradeModal({ editing, onClose }) {
       </button>
 
       {advanced && <>
-      <PrismField label={lang === "en" ? "Mental state at entry" : "État mental à l'entrée"}>
-        <div className="flex flex-wrap gap-1.5">
-          {MENTAL_STATES.map((state) => (
-            <PrismChip
-              key={state.key}
-              active={f.emotion === state.key}
-              danger={state.key === "fomo"}
-              onClick={() => toggleEmotion(state.key)}
-            >
-              <span className={`mr-1.5 inline-block h-1.5 w-1.5 rounded-full ${state.dot}`} />
-              {lang === "en" ? state.en : state.fr}
-            </PrismChip>
-          ))}
+      <section className="mb-4 rounded-xl border border-prism-line bg-[#09101f] p-3.5 sm:p-4">
+        <div className="mb-4">
+          <p className="text-sm font-bold text-white">{lang === "en" ? "Psychology before entry" : "Psycho avant l'entrée"}</p>
+          <p className="mt-1 text-[11px] leading-relaxed text-prism-muted">{lang === "en" ? "Nothing is scored here. Fill it in honestly to spot your patterns." : "Rien n'est noté ici. Réponds honnêtement pour repérer tes schémas."}</p>
         </div>
-      </PrismField>
+        <div className="space-y-3.5">
+          {[{ key: "emotional", fr: "État émotionnel", en: "Emotional state", hintFr: "1 = agité, 5 = stable", hintEn: "1 = rattled, 5 = steady" }, { key: "focus", fr: "Niveau de focus", en: "Focus level", hintFr: "1 = dispersé, 5 = très net", hintEn: "1 = scattered, 5 = sharp" }, { key: "confidence", fr: "Confiance", en: "Confidence", hintFr: "1 = incertain, 5 = certain", hintEn: "1 = unsure, 5 = certain" }].map((metric) => {
+            const value = Number(f.psychology?.[metric.key] || 0);
+            return <div key={metric.key} className="flex items-center justify-between gap-3"><div><p className="text-xs font-semibold text-white">{lang === "en" ? metric.en : metric.fr}</p><p className="mt-0.5 text-[10px] text-prism-muted2">{lang === "en" ? metric.hintEn : metric.hintFr}</p></div><div className="flex gap-1.5">{[1, 2, 3, 4, 5].map((n) => <button key={n} type="button" aria-label={`${metric.key} ${n}/5`} onClick={() => set("psychology", { ...DEFAULT_PSYCHOLOGY, ...(f.psychology || {}), [metric.key]: n })} className={`h-4 w-4 rounded-full transition ${n <= value ? "bg-prism-accent shadow-[0_0_10px_rgba(59,130,246,.8)]" : "bg-white/10 hover:bg-white/20"}`} />)}</div></div>;
+          })}
+        </div>
+        <div className="my-4 h-px bg-prism-line" />
+        <div className="space-y-2.5">{PSYCHO_CHECKS.map((item) => {
+          const checked = (f.psychology?.checks || []).includes(item.key);
+          return <button key={item.key} type="button" onClick={() => set("psychology", { ...DEFAULT_PSYCHOLOGY, ...(f.psychology || {}), checks: checked ? (f.psychology?.checks || []).filter((key) => key !== item.key) : [...(f.psychology?.checks || []), item.key] })} className="flex w-full items-center gap-3 text-left text-xs text-prism-muted hover:text-white"><span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${checked ? "border-prism-accent bg-prism-accent text-black shadow-[0_0_10px_rgba(59,130,246,.65)]" : "border-prism-muted2 bg-black/20"}`}>{checked && <Check className="h-3.5 w-3.5 stroke-[3]" />}</span>{lang === "en" ? item.en : item.fr}</button>;
+        })}</div>
+      </section>
 
       <PrismField label={t("m_tags")}>
         {f.tags.length > 0 && (

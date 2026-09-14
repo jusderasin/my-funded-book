@@ -85,6 +85,23 @@ export function BookProvider({ user, children }) {
     loadAll();
   }, [loadAll]);
 
+  // Les données vivent dans Supabase, jamais dans le téléphone ou le PC.
+  // On les rafraîchit au retour dans l'app et pendant qu'elle reste ouverte
+  // afin que deux appareils connectés au même compte restent cohérents.
+  useEffect(() => {
+    const refreshWhenVisible = () => {
+      if (document.visibilityState === "visible") loadAll();
+    };
+    const timer = window.setInterval(refreshWhenVisible, 30000);
+    window.addEventListener("focus", refreshWhenVisible);
+    document.addEventListener("visibilitychange", refreshWhenVisible);
+    return () => {
+      window.clearInterval(timer);
+      window.removeEventListener("focus", refreshWhenVisible);
+      document.removeEventListener("visibilitychange", refreshWhenVisible);
+    };
+  }, [loadAll]);
+
   // --- CRUD génériques ---
   const insert = useCallback(
     async (table, row, setter, list) => {
