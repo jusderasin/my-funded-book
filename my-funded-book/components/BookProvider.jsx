@@ -12,9 +12,9 @@ export const useBook = () => useContext(BookCtx);
 // Si la colonne est vide, on garde le fallback défini dans tailwind.config.js / globals.css.
 function applyProfileVars(p) {
   if (typeof document === "undefined" || !p) return;
-  // Signal est le défaut. Les anciens profils "nova" basculent vers Signal;
-  // le bleu reste disponible comme choix explicite sous l'id "blue".
-  const theme = !p.theme || p.theme === "nova" ? "signal" : p.theme;
+  // Signal est l'identité par défaut du produit. Tous les anciens thèmes
+  // basculent vers Signal; seul "blue" est désormais un choix explicite.
+  const theme = p.theme === "blue" ? "blue" : "signal";
   if (theme === "signal") {
     document.documentElement.style.setProperty("--accent", "#8cff4f");
     document.documentElement.style.setProperty("--loss", "#ff6d6d");

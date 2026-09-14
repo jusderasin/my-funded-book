@@ -48,7 +48,7 @@ const THEMES = [
 ];
 
 function normaliseTheme(themeId) {
-  return !themeId || themeId === "nova" ? DEFAULT_THEME : themeId;
+  return themeId === "blue" ? "blue" : DEFAULT_THEME;
 }
 
 function applyLive(themeId) {

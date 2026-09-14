@@ -101,7 +101,7 @@ export default function DashboardPage() {
       : "Aucun trade";
 
   return (
-    <div className="min-h-full bg-black text-white p-4 sm:p-6 lg:p-8">
+    <div className="min-h-full bg-prism-bg text-prism-text p-4 sm:p-6 lg:p-8">
       <div className="mb-4 flex items-end justify-between gap-3">
         <div>
           <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-prism-accent">
@@ -114,7 +114,7 @@ export default function DashboardPage() {
         <button
           type="button"
           onClick={() => setCustomizing(true)}
-          className="inline-flex items-center gap-2 rounded-xl border border-prism-line bg-prism-panel px-3 py-1.5 text-xs font-medium text-prism-muted hover:border-prism-line2 hover:text-white transition-colors"
+          className="signal-interactive inline-flex items-center gap-2 rounded-xl border border-prism-line bg-prism-panel px-3 py-1.5 text-xs font-medium text-prism-muted hover:border-prism-line2 hover:text-white transition-colors"
           title={L === "en" ? "Customize KPIs" : "Personnaliser les KPIs"}
         >
           <Settings2 className="h-3.5 w-3.5" />
@@ -215,8 +215,8 @@ export default function DashboardPage() {
           <SectionHeader>{t("daily_cum")}</SectionHeader>
           <Area
             values={s.cumSeries}
-            color="#3b82f6"
-            fill="#3b82f6"
+            color="var(--prism-accent)"
+            fill="var(--prism-accent)"
             labels={s.days.map(frDate)}
             fmt={(v) => (v >= 0 ? "+" : "") + fmtMoney(v)}
           />
@@ -369,8 +369,8 @@ export default function DashboardPage() {
           </div>
           <Area
             values={s.curve.map((c) => c.eq)}
-            color="#e8edf5"
-            fill="#8b95a8"
+            color="var(--prism-accent-soft)"
+            fill="var(--prism-accent)"
             labels={s.curve.map((c) => frDate(c.d))}
             fmt={fmtMoney}
           />
@@ -478,7 +478,7 @@ function KpiPrism({ label, value, tone, sub, className = "" }) {
       : "text-white";
 
   return (
-    <div className={`rounded-2xl border border-prism-line bg-prism-panel p-4 sm:p-5 ${className}`}>
+    <div className={`signal-interactive rounded-2xl border border-prism-line bg-prism-panel p-4 sm:p-5 ${className}`}>
       <div className="text-[10px] font-semibold uppercase tracking-widest text-prism-muted2 mb-2">
         {label}
       </div>

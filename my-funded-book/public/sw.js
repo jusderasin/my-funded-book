@@ -1,4 +1,4 @@
-const CACHE = "mfb-v4";
+const CACHE = "mfb-v5";
 const ASSETS = ["/", "/dashboard", "/manifest.json", "/icon", "/apple-icon"];
 
 self.addEventListener("install", (e) => {
