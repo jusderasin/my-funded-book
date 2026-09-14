@@ -9,12 +9,20 @@ const SUGGESTIONS = [
   "Quelle règle simple dois-je suivre demain ?",
 ];
 
-function MessageText({ children }) {
+function InlineText({ children }) {
   return String(children).split(/(\*\*[^*]+\*\*)/g).map((part, index) =>
     part.startsWith("**") && part.endsWith("**")
       ? <strong key={index} className="font-semibold text-white">{part.slice(2, -2)}</strong>
       : <span key={index}>{part}</span>
   );
+}
+
+function MessageText({ children }) {
+  return <div className="space-y-1.5">{String(children).split("\n").filter(Boolean).map((line, index) =>
+    line.startsWith("- ")
+      ? <div key={index} className="flex gap-2"><span className="text-accent">•</span><span><InlineText>{line.slice(2)}</InlineText></span></div>
+      : <p key={index}><InlineText>{line.replace(/^#{1,3}\s*/, "")}</InlineText></p>
+  )}</div>;
 }
 
 export default function CoachPanel() {
