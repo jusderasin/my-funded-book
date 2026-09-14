@@ -3,6 +3,7 @@
 import { useState } from "react";
 import { useBook } from "@/components/BookProvider";
 import { Brain, Sparkles, Copy, FileDown } from "lucide-react";
+import CoachPanel from "@/components/prism/CoachPanel";
 
 const PERIODS = [
   { v: "week", fr: "Semaine", en: "Week" },
@@ -157,7 +158,7 @@ export default function ReportPage() {
       if (!r.ok) {
         const map = {
           no_trades: L === "en" ? "No trades over this period." : "Aucun trade sur cette période.",
-          missing_groq_key: L === "en" ? "AI key not configured." : "Clé IA non configurée.",
+          ollama_unavailable: L === "en" ? "Local AI is not running." : "L'IA locale n'est pas lancée sur ce PC.",
           unauthenticated: L === "en" ? "Session expired." : "Session expirée, reconnecte-toi.",
         };
         setErr(map[data.error] || data.error || (L === "en" ? "Error" : "Erreur"));
@@ -234,6 +235,8 @@ export default function ReportPage() {
         </h2>
         <div className="mt-0.5 text-[12px] text-muted2">{L === "en" ? "Deep AI analysis of your trading over a period." : "Analyse IA approfondie de ton trading sur une période."}</div>
       </div>
+
+      <CoachPanel />
 
       <div className="mb-4 flex flex-wrap items-center gap-2 rounded-2xl border border-line bg-panel p-4">
         <div className="flex flex-wrap gap-1.5">

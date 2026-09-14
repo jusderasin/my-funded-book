@@ -2,7 +2,6 @@
 import React, { useEffect, useState } from "react";
 import Sidebar from "./Sidebar";
 import AppHeader from "./AppHeader";
-import CoachChat from "./CoachChat";
 import { useBook } from "@/components/BookProvider";
 
 /**
@@ -44,10 +43,16 @@ export default function AppShellPrism({ user, children }) {
           {children}
         </main>
       </div>
-      <CoachChat />
       {splash && <div className={`fixed inset-0 z-[120] flex items-center justify-center overflow-hidden bg-black transition-opacity duration-500 ${splashOut ? "opacity-0" : "opacity-100"}`}>
-        <div className="absolute inset-0 bg-[radial-gradient(circle_at_50%_42%,color-mix(in_srgb,var(--prism-accent)_20%,transparent),transparent_42%)]" />
-        <div className="relative text-center"><p className="animate-pulse font-mono text-[11px] font-bold tracking-[0.55em] text-prism-accent">MYTRADEBOOK</p><h1 className="mt-5 text-4xl font-black tracking-tight text-white sm:text-6xl">Bienvenue{profile?.name ? <>, <span className="text-prism-accent">{profile.name}</span></> : ""}</h1><p className="mt-3 text-xs uppercase tracking-[0.28em] text-prism-muted">Ton process. Tes chiffres. Ton avantage.</p><div className="mx-auto mt-8 h-px w-36 overflow-hidden bg-white/10"><div className="h-full w-1/2 animate-pulse bg-prism-accent" /></div></div>
+        <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,#151515_0%,#050505_42%,#000_72%)]" />
+        <div className="relative w-full max-w-xl px-8 text-center">
+          <div className="mx-auto h-px w-24 bg-zinc-700" />
+          <p className="mt-6 font-mono text-[10px] font-semibold tracking-[0.48em] text-zinc-500">MYTRADEBOOK</p>
+          <h1 className="mt-5 text-4xl font-black tracking-[0.12em] text-white sm:text-6xl">BIENVENUE</h1>
+          <p className="mt-3 font-mono text-sm uppercase tracking-[0.32em] text-zinc-400">{profile?.name || "TRADER"}</p>
+          <div className="mx-auto mt-8 h-px w-40 overflow-hidden bg-zinc-800"><div className="h-full w-1/3 animate-pulse bg-zinc-400" /></div>
+          <p className="mt-4 font-mono text-[9px] uppercase tracking-[0.3em] text-zinc-600">Initialisation du journal</p>
+        </div>
       </div>}
     </div>
   );

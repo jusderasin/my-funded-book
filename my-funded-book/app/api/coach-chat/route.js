@@ -9,14 +9,14 @@ export async function POST(request) {
   const supabase = await createServerSupabase();
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
-  if (!process.env.GROQ_API_KEY) return NextResponse.json({ error: "missing_groq_key" }, { status: 500 });
   const { data: trades } = await supabase.from("trades").select("pnl,r").eq("user_id", user.id).limit(100);
   const list = trades || [];
   const net = list.reduce((sum, trade) => sum + Number(trade.pnl || 0), 0);
   const totalR = list.reduce((sum, trade) => sum + Number(trade.r || 0), 0);
   const history = Array.isArray(body.history) ? body.history.slice(-8).map((item) => ({ role: item?.role === "assistant" ? "assistant" : "user", content: clean(item?.content) })).filter((item) => item.content) : [];
-  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", { method: "POST", headers: { "Content-Type": "application/json", Authorization: `Bearer ${process.env.GROQ_API_KEY}` }, body: JSON.stringify({ model: "openai/gpt-oss-120b", max_tokens: 700, temperature: 0.55, messages: [{ role: "system", content: `Tu es PRISM, un coach de trading. Reste bref, concret et n'offre jamais de conseil financier ni de signal. Journal actuel: ${list.length} trades, P&L ${net}$, ${totalR}R.` }, ...history, { role: "user", content: message }] }) });
+  const host = (process.env.OLLAMA_HOST || "http://127.0.0.1:11434").replace(/\/$/, "");
+  const response = await fetch(`${host}/api/chat`, { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ model: process.env.OLLAMA_MODEL || "qwen3:8b", stream: false, options: { temperature: 0.55, num_predict: 700 }, messages: [{ role: "system", content: `Tu es PRISM, un coach de trading. Reste bref, concret et n'offre jamais de conseil financier ni de signal. Journal actuel: ${list.length} trades, P&L ${net}$, ${totalR}R.` }, ...history, { role: "user", content: message }] }) });
   const data = await response.json().catch(() => ({}));
-  if (!response.ok) return NextResponse.json({ error: data?.error?.message || "coach_error" }, { status: 500 });
-  return NextResponse.json({ reply: data?.choices?.[0]?.message?.content || "Je n'ai pas pu r\u00e9pondre." });
+  if (!response.ok) return NextResponse.json({ error: "ollama_unavailable" }, { status: 503 });
+  return NextResponse.json({ reply: data?.message?.content || "Je n'ai pas pu répondre." });
 }

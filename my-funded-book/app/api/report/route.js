@@ -47,9 +47,6 @@ export async function POST(req) {
   const { data: { user } } = await supabase.auth.getUser();
   if (!user) return NextResponse.json({ error: "unauthenticated" }, { status: 401 });
 
-  const key = process.env.GROQ_API_KEY;
-  if (!key) return NextResponse.json({ error: "missing_groq_key" }, { status: 500 });
-
   const from = fromDate(period);
   let q = supabase.from("trades").select("*").eq("user_id", user.id).order("date");
   if (from) q = q.gte("date", from);
@@ -156,21 +153,22 @@ Rédige un rapport d'analyse COMPLET, PRO et PERSONNALISÉ en français pour ${n
 
 Règles : direct, honnête, chiffré. Tu parles à ${name}. N'invente aucune donnée. Si un PROFIL DÉCLARÉ est fourni, PRIORISE les 'Sujets à prioriser' déclarés dans tes recommandations et adresse EXPLICITEMENT chaque 'Difficulté déclarée' en la reliant aux chiffres (confirmée ? aggravée ? pas visible dans les données ?). Utilise du gras (**...**) pour les chiffres clés. Pas de tableaux markdown, uniquement des listes à puces.`;
 
-  const res = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+  const host = (process.env.OLLAMA_HOST || "http://127.0.0.1:11434").replace(/\/$/, "");
+  const res = await fetch(`${host}/api/chat`, {
     method: "POST",
-    headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
+    headers: { "Content-Type": "application/json" },
     body: JSON.stringify({
-      model: "openai/gpt-oss-120b",
+      model: process.env.OLLAMA_MODEL || "qwen3:8b",
       messages: [{ role: "user", content: prompt }],
-      max_tokens: 4000,
-      temperature: 0.7,
+      stream: false,
+      options: { num_predict: 4000, temperature: 0.7 },
     }),
   });
 
-  const data = await res.json();
-  if (!res.ok) return NextResponse.json({ error: data?.error?.message || "groq_error" }, { status: 500 });
+  const data = await res.json().catch(() => ({}));
+  if (!res.ok) return NextResponse.json({ error: "ollama_unavailable" }, { status: 503 });
 
-  const report = data.choices?.[0]?.message?.content || "";
+  const report = data?.message?.content || "";
   return NextResponse.json({
     ok: true, report, stats, period, n_trades: trades.length,
     bySession, bySetup, outcomes, cumulative,
