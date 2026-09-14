@@ -4,7 +4,7 @@ import { useState, useEffect } from "react";
 import { Layers, Check } from "lucide-react";
 import { PrimaryBtn } from "@/components/ui";
 
-const DEFAULT_THEME = "nova";
+const DEFAULT_THEME = "signal";
 
 // Palettes miroir de globals.css — utilisées uniquement pour le mini-preview
 // dans les cards du picker (le vrai thème est appliqué via data-theme).
@@ -16,10 +16,10 @@ const THEMES = [
     tokens: { ink: "#070a08", panel: "#0d110e", panel2: "#151b16", line: "rgba(190,238,179,.15)", muted: "#9daa9a", accent: "#8cff4f" },
   },
   {
-    id: "nova",
+    id: "blue",
     labelFr: "MyTrade Blue",
     labelEn: "MyTrade Blue",
-    tokens: { ink: "#000000", panel: "#0b0b0e", panel2: "#15151a", line: "rgba(255,255,255,.08)", muted: "#a1a1aa" },
+    tokens: { ink: "#000000", panel: "#0b0b0e", panel2: "#15151a", line: "rgba(255,255,255,.08)", muted: "#a1a1aa", accent: "#3b82f6" },
   },
   {
     id: "dark",
@@ -47,9 +47,17 @@ const THEMES = [
   },
 ];
 
+function normaliseTheme(themeId) {
+  return !themeId || themeId === "nova" ? DEFAULT_THEME : themeId;
+}
+
 function applyLive(themeId) {
   if (typeof document === "undefined") return;
-  if (themeId === "nova") {
+  if (themeId === "signal") {
+    document.documentElement.style.setProperty("--accent", "#8cff4f");
+    document.documentElement.style.setProperty("--loss", "#ff6d6d");
+  }
+  if (themeId === "blue") {
     document.documentElement.removeAttribute("data-theme");
   } else {
     document.documentElement.setAttribute("data-theme", themeId);
@@ -58,12 +66,12 @@ function applyLive(themeId) {
 
 export function ThemePicker({ profile, saveProfile, lang }) {
   const L = lang === "en" ? "en" : "fr";
-  const [current, setCurrent] = useState(profile?.theme || DEFAULT_THEME);
+  const [current, setCurrent] = useState(normaliseTheme(profile?.theme));
   const [saving, setSaving] = useState(false);
 
   // Sync si le profil change depuis un autre endroit
   useEffect(() => {
-    setCurrent(profile?.theme || DEFAULT_THEME);
+    setCurrent(normaliseTheme(profile?.theme));
   }, [profile?.theme]);
 
   // Preview live sur toute l'app
@@ -71,7 +79,7 @@ export function ThemePicker({ profile, saveProfile, lang }) {
     applyLive(current);
   }, [current]);
 
-  const dirty = current !== (profile?.theme || DEFAULT_THEME);
+  const dirty = current !== normaliseTheme(profile?.theme);
 
   async function save() {
     setSaving(true);

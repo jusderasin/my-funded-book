@@ -12,13 +12,18 @@ export const useBook = () => useContext(BookCtx);
 // Si la colonne est vide, on garde le fallback défini dans tailwind.config.js / globals.css.
 function applyProfileVars(p) {
   if (typeof document === "undefined" || !p) return;
-  // Accent gain / loss
-  if (p.accent_gain) document.documentElement.style.setProperty("--accent", p.accent_gain);
-  if (p.accent_loss) document.documentElement.style.setProperty("--loss", p.accent_loss);
-  // Thème global (bind aux data-theme dans globals.css)
-  // "nova" = défaut (identité TradeX Nova), pas d'attribut data-theme posé.
-  const theme = p.theme || "nova";
-  if (theme === "nova") {
+  // Signal est le défaut. Les anciens profils "nova" basculent vers Signal;
+  // le bleu reste disponible comme choix explicite sous l'id "blue".
+  const theme = !p.theme || p.theme === "nova" ? "signal" : p.theme;
+  if (theme === "signal") {
+    document.documentElement.style.setProperty("--accent", "#8cff4f");
+    document.documentElement.style.setProperty("--loss", "#ff6d6d");
+  } else {
+    if (p.accent_gain) document.documentElement.style.setProperty("--accent", p.accent_gain);
+    if (p.accent_loss) document.documentElement.style.setProperty("--loss", p.accent_loss);
+  }
+  // "blue" est le thème classique sans attribut data-theme.
+  if (theme === "blue") {
     document.documentElement.removeAttribute("data-theme");
   } else {
     document.documentElement.setAttribute("data-theme", theme);
