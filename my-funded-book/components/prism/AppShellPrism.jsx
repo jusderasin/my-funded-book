@@ -29,7 +29,7 @@ export default function AppShellPrism({ user, children }) {
   }, []);
 
   return (
-    <div className="min-h-[100dvh] bg-black text-white font-sans antialiased app-aurora">
+    <div className="min-h-[100dvh] bg-prism-bg text-prism-text font-sans antialiased app-aurora">
       <Sidebar
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
@@ -47,7 +47,7 @@ export default function AppShellPrism({ user, children }) {
         </main>
       </div>
       {quickLogOpen && <LogTradeModal onClose={() => setQuickLogOpen(false)} />}
-      {splash && <div className={`fixed inset-0 z-[120] flex items-center justify-center overflow-hidden bg-black transition-opacity duration-500 ${splashOut ? "opacity-0" : "opacity-100"}`}>
+      {splash && <div className={`fixed inset-0 z-[120] flex items-center justify-center overflow-hidden bg-prism-bg transition-opacity duration-500 ${splashOut ? "opacity-0" : "opacity-100"}`}>
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,#151515_0%,#050505_42%,#000_72%)]" />
         <div className="relative w-full max-w-xl px-8 text-center">
           <div className="mx-auto h-px w-24 bg-zinc-700" />

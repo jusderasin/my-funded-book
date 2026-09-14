@@ -10,6 +10,12 @@ const DEFAULT_THEME = "nova";
 // dans les cards du picker (le vrai thème est appliqué via data-theme).
 const THEMES = [
   {
+    id: "signal",
+    labelFr: "Signal Lime",
+    labelEn: "Signal Lime",
+    tokens: { ink: "#070a08", panel: "#0d110e", panel2: "#151b16", line: "rgba(190,238,179,.15)", muted: "#9daa9a", accent: "#8cff4f" },
+  },
+  {
     id: "nova",
     labelFr: "MyTrade Blue",
     labelEn: "MyTrade Blue",
@@ -79,7 +85,7 @@ export function ThemePicker({ profile, saveProfile, lang }) {
         <Layers size={13} /> {L === "en" ? "Theme" : "Thème"}
       </div>
 
-      <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
         {THEMES.map((th) => {
           const active = current === th.id;
           const label = L === "en" ? th.labelEn : th.labelFr;
@@ -98,7 +104,7 @@ export function ThemePicker({ profile, saveProfile, lang }) {
                 style={{ background: th.tokens.panel, borderColor: th.tokens.line }}
               >
                 <div className="flex items-center gap-1.5">
-                  <span className="h-1.5 w-1.5 rounded-full" style={{ background: "var(--accent, #3b82f6)" }} />
+                  <span className="h-1.5 w-1.5 rounded-full" style={{ background: th.tokens.accent || "var(--accent, #3b82f6)" }} />
                   <span className="h-1 flex-1 rounded-full" style={{ background: th.tokens.panel2 }} />
                   <span className="h-1 w-3 rounded-full" style={{ background: th.tokens.line }} />
                 </div>

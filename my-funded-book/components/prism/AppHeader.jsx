@@ -38,7 +38,7 @@ export default function AppHeader({ user, onMenuClick, onLogTrade }) {
 
   return (
     <header
-      className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-prism-line bg-black/80 px-4 backdrop-blur-md sm:px-6"
+      className="sticky top-0 z-30 flex h-16 items-center justify-between border-b border-prism-line bg-prism-bg/80 px-4 backdrop-blur-md sm:px-6"
       style={{ height: "calc(4rem + env(safe-area-inset-top))", paddingTop: "env(safe-area-inset-top)" }}
     >
       {/* Left : hamburger (mobile) + welcome */}
@@ -64,7 +64,7 @@ export default function AppHeader({ user, onMenuClick, onLogTrade }) {
       <div className="flex items-center gap-1.5">
         <button
           onClick={onLogTrade}
-          className="inline-flex h-9 items-center gap-1.5 rounded-lg bg-prism-accent px-3 text-xs font-bold text-black transition hover:brightness-110 active:scale-[0.98]"
+          className="signal-interactive inline-flex h-9 items-center gap-1.5 rounded-lg bg-prism-accent px-3 text-xs font-bold text-black transition hover:brightness-110 active:scale-[0.98]"
           aria-label="Logger rapidement un trade"
           type="button"
         >

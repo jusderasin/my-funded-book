@@ -8,6 +8,7 @@ const DEFAULT_GAIN = "#3b82f6";
 const DEFAULT_LOSS = "#ef4444";
 
 const PALETTES = [
+  { name: "Signal Lime", gain: "#8CFF4F", loss: "#FF6D6D" },
   { name: "MyTrade Blue", gain: "#3b82f6", loss: "#ef4444" },
   { name: "Cyan & Rose", gain: "#00E5FF", loss: "#FF4081" },
   { name: "Gold & Coral", gain: "#FFD700", loss: "#FF6B6B" },
@@ -39,7 +40,7 @@ export function AccentPicker({ profile, saveProfile, lang }) {
         <Palette size={13} /> {L === "en" ? "Accent Colors" : "Couleurs d'accentuation"}
       </div>
 
-      <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-4">
+      <div className="mb-4 grid grid-cols-2 gap-2 sm:grid-cols-3">
         {PALETTES.map((p) => {
           const active = gain === p.gain && loss === p.loss;
           return (

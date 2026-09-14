@@ -27,6 +27,49 @@
   --muted2: #71717a;
   --accent: #3b82f6;
   --loss:   #ef4444;
+  --prism-bg: #000000;
+  --prism-surface: #050505;
+  --prism-panel: #0a0a0a;
+  --prism-panel2: #141414;
+  --prism-line: rgba(255, 255, 255, 0.08);
+  --prism-line2: rgba(255, 255, 255, 0.12);
+  --prism-text: #ffffff;
+  --prism-muted: #a1a1aa;
+  --prism-muted2: #71717a;
+  --prism-accent: #3b82f6;
+  --prism-accent-soft: #60a5fa;
+  --prism-accent-dim: rgba(59, 130, 246, 0.12);
+  --prism-win: #22c55e;
+  --prism-loss: #ef4444;
+}
+
+/* Signal — identité graphite et vert électrique de MyTradeBook. */
+:root[data-theme="signal"] {
+  color-scheme: dark;
+  --ink: #070a08;
+  --ink2: #050705;
+  --panel: #0d110e;
+  --panel2: #151b16;
+  --line: rgba(190, 238, 179, 0.12);
+  --line2: rgba(190, 238, 179, 0.2);
+  --muted: #9daa9a;
+  --muted2: #637062;
+  --accent: #8cff4f;
+  --loss: #ff6767;
+  --prism-bg: #070a08;
+  --prism-surface: #0a0e0b;
+  --prism-panel: #0d110e;
+  --prism-panel2: #151b16;
+  --prism-line: rgba(190, 238, 179, 0.12);
+  --prism-line2: rgba(190, 238, 179, 0.2);
+  --prism-text: #f1f7ee;
+  --prism-muted: #9daa9a;
+  --prism-muted2: #637062;
+  --prism-accent: #8cff4f;
+  --prism-accent-soft: #c7ff9f;
+  --prism-accent-dim: rgba(140, 255, 79, 0.13);
+  --prism-win: #8cff4f;
+  --prism-loss: #ff6d6d;
 }
 
 /* Classique — ancien thème par défaut, conservé pour ceux qui le préfèrent */
@@ -165,6 +208,26 @@ input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.7); }
   background-size: 18px 18px;
   mask-image: linear-gradient(to bottom, rgba(0,0,0,.28), transparent 78%);
 }
+
+/* Signal polish stays scoped to the selected theme, leaving every other theme intact. */
+:root[data-theme="signal"] .app-aurora {
+  background: radial-gradient(850px 380px at 50% -180px, rgba(140,255,79,.15), transparent 68%), #070a08;
+}
+:root[data-theme="signal"] .app-dot-grid { background-image: radial-gradient(rgba(190,238,179,.12) .7px, transparent .7px); }
+:root[data-theme="signal"] .bg-prism-panel,
+:root[data-theme="signal"] .bg-panel {
+  box-shadow: inset 0 1px 0 rgba(225,255,217,.035), 0 16px 40px -32px rgba(0,0,0,.9);
+}
+:root[data-theme="signal"] .bg-prism-panel:hover,
+:root[data-theme="signal"] .bg-panel:hover {
+  box-shadow: inset 0 1px 0 rgba(225,255,217,.06), 0 20px 44px -30px rgba(140,255,79,.14);
+}
+:root[data-theme="signal"] .shadow-prism-glow { box-shadow: 0 0 40px -8px rgba(140,255,79,.35); }
+:root[data-theme="signal"] .prism-primary { background:var(--prism-accent)!important; color:#061006!important; box-shadow:0 13px 28px -16px rgba(140,255,79,.7); }
+:root[data-theme="signal"] .prism-primary:hover { background:var(--prism-accent-soft)!important; }
+.signal-interactive { transition: transform .2s ease, border-color .2s ease, box-shadow .2s ease, background-color .2s ease; }
+:root[data-theme="signal"] .signal-interactive:hover { transform:translateY(-2px); border-color:rgba(140,255,79,.38); box-shadow:0 17px 36px -26px rgba(140,255,79,.32); }
+@media (prefers-reduced-motion: reduce) { .signal-interactive { transition:none; } :root[data-theme="signal"] .signal-interactive:hover { transform:none; } }
 
 /* Micro-interactions for public marketing surfaces.  These use transforms
    only, keeping the landing page light and accessible. */

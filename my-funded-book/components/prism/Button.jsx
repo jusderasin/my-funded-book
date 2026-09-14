@@ -37,7 +37,7 @@ export default function Button({
   const sizeCls = sizeClasses[size] || sizeClasses.md;
 
   const variantClasses = {
-    primary: "bg-white text-black hover:bg-white/90 active:bg-white/80 shadow-prism-card",
+    primary: "prism-primary bg-white text-black hover:bg-white/90 active:bg-white/80 shadow-prism-card",
     ghost:   "bg-transparent text-white border border-prism-line hover:bg-white/[0.03] hover:border-prism-line2",
     icon:    "bg-prism-panel border border-prism-line hover:border-prism-line2 text-prism-muted hover:text-white",
   };
