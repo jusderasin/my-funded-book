@@ -509,6 +509,9 @@ export function AccountModal({ editing, onClose }) {
           daily_loss_limit: editing.daily_loss_limit == null ? "" : editing.daily_loss_limit,
           max_drawdown: editing.max_drawdown == null ? "" : editing.max_drawdown,
           profit_target: editing.profit_target == null ? "" : editing.profit_target,
+          payout_min: editing.payout_min == null ? "" : editing.payout_min,
+          payout_cycle_days: editing.payout_cycle_days == null ? "" : editing.payout_cycle_days,
+          min_trading_days: editing.min_trading_days == null ? "" : editing.min_trading_days,
           trailing_type:
             editing.trailing_type ||
             (editing.trailing_drawdown === false ? "static" : "intraday"),
@@ -518,6 +521,7 @@ export function AccountModal({ editing, onClose }) {
       : {
           firm: "MFF", size: 50000, cost: 0, type: "eval", status: "active", date: todayISO(), note: "",
           daily_loss_limit: "", max_drawdown: "", profit_target: "",
+          payout_min: "", payout_cycle_days: "", min_trading_days: "",
           trailing_type: FIRM_TRAILING_DEFAULTS.MFF.type,
           trailing_lock_offset: FIRM_TRAILING_DEFAULTS.MFF.lock,
         }
@@ -550,6 +554,9 @@ export function AccountModal({ editing, onClose }) {
       daily_loss_limit: numOrNull(f.daily_loss_limit),
       max_drawdown: numOrNull(f.max_drawdown),
       profit_target: numOrNull(f.profit_target),
+      payout_min: numOrNull(f.payout_min),
+      payout_cycle_days: numOrNull(f.payout_cycle_days),
+      min_trading_days: numOrNull(f.min_trading_days),
       trailing_type: f.trailing_type || "intraday",
       trailing_lock_offset: isStatic ? 0 : (numOrNull(f.trailing_lock_offset) ?? 0),
       trailing_drawdown: f.trailing_type !== "static",
@@ -642,6 +649,21 @@ export function AccountModal({ editing, onClose }) {
         </PrismField>
       )}
 
+      <PrismSectionLabel>
+        {L === "en" ? "Payout rules (funded, optional)" : "Règles de payout (funded, optionnel)"}
+      </PrismSectionLabel>
+      <div className="grid grid-cols-3 gap-3">
+        <PrismField label="Minimum ($)">
+          <input type="number" className={PRISM_INPUT} value={f.payout_min} onChange={(e) => set("payout_min", e.target.value)} placeholder="500" />
+        </PrismField>
+        <PrismField label={L === "en" ? "Cycle (days)" : "Cycle (jours)"}>
+          <input type="number" className={PRISM_INPUT} value={f.payout_cycle_days} onChange={(e) => set("payout_cycle_days", e.target.value)} placeholder="14" />
+        </PrismField>
+        <PrismField label={L === "en" ? "Trading days" : "Jours tradés"}>
+          <input type="number" className={PRISM_INPUT} value={f.min_trading_days} onChange={(e) => set("min_trading_days", e.target.value)} placeholder="5" />
+        </PrismField>
+      </div>
+
       <PrismField label={t("m_date")}>
         <input type="date" className={PRISM_INPUT} value={f.date} onChange={(e) => set("date", e.target.value)} />
       </PrismField>
@@ -658,8 +680,8 @@ export function AccountModal({ editing, onClose }) {
 /* ================================================================== */
 
 export function CertModal({ onClose }) {
-  const { addCert, notify, t } = useBook();
-  const [f, setF] = useState({ firm: "MFF", amount: "", type: "eval_passed", date: todayISO(), note: "" });
+  const { addCert, notify, t, accounts } = useBook();
+  const [f, setF] = useState({ firm: "MFF", account_id: "", amount: "", type: "eval_passed", date: todayISO(), note: "" });
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const set = (k, v) => setF((s) => ({ ...s, [k]: v }));
@@ -711,6 +733,22 @@ export function CertModal({ onClose }) {
           </select>
         </PrismField>
       </div>
+
+      <PrismField label={f.type === "payout" ? "Compte funded concerné" : "Compte concerné (optionnel)"} hint={f.type === "payout" ? "Le payout sera compté uniquement sur ce compte." : undefined}>
+        <select
+          className={PRISM_SELECT}
+          value={f.account_id}
+          onChange={(e) => {
+            const account = accounts.find((a) => a.id === e.target.value);
+            setF((s) => ({ ...s, account_id: e.target.value, firm: account?.firm || s.firm }));
+          }}
+        >
+          <option value="">{f.type === "payout" ? "Choisir un compte" : "Aucun compte spécifique"}</option>
+          {accounts.filter((a) => f.type !== "payout" || a.type === "funded" || a.status === "funded" || a.status === "passed").map((a) => (
+            <option key={a.id} value={a.id}>{a.firm} · ${Number(a.size || 0).toLocaleString()} · {a.status}</option>
+          ))}
+        </select>
+      </PrismField>
 
       <PrismField label={t("m_date")}>
         <input type="date" className={PRISM_INPUT} value={f.date} onChange={(e) => set("date", e.target.value)} />

@@ -37,6 +37,7 @@ export default function CertificatesPage() {
         <div className="flex flex-col gap-2">
           {certificates.map((c) => {
             const isP = c.type === "payout";
+            const account = c.account_id ? accounts.find((a) => a.id === c.account_id) : null;
             return (
               <div key={c.id} className="flex items-center gap-3.5 rounded-xl border border-line bg-panel px-4 py-3.5">
                 <div className="min-w-0 flex-1">
@@ -44,7 +45,9 @@ export default function CertificatesPage() {
                     <span className="inline-flex items-center gap-1.5"><FirmDot color={firmColor(c.firm)} />{c.firm}</span>
                     <Pill tone={isP ? "cyan" : "green"}>{isP ? t("crt_payout") : t("crt_eval_pass")}</Pill>
                   </div>
-                  <div className="mt-0.5 font-mono text-[11px] text-muted2">{frDate(c.date)}{c.note ? " · " + c.note : ""}</div>
+                  <div className="mt-0.5 font-mono text-[11px] text-muted2">
+                    {frDate(c.date)}{account ? " · " + account.firm + " " + fmtK(account.size) : ""}{c.note ? " · " + c.note : ""}
+                  </div>
                 </div>
                 {c.file_url && (
                   /\.pdf($|\?)/i.test(c.file_url) ? (

@@ -125,7 +125,7 @@ export function accountHealth(account, allTrades, certificates = [], L = "fr") {
 
   // ----- Payouts (historique via certificates type=payout, matché par firm) -----
   const payouts = (certificates || [])
-    .filter((c) => c.type === "payout" && c.firm === account.firm)
+    .filter((c) => c.type === "payout" && (c.account_id === account.id || (!c.account_id && c.firm === account.firm)))
     .slice()
     .sort((a, b) => (a.date < b.date ? 1 : -1)); // plus récent d'abord
   const payoutTotal = payouts.reduce((s, c) => s + (Number(c.amount) || 0), 0);

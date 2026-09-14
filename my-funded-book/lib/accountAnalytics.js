@@ -287,7 +287,7 @@ export function computePayoutIntel(account, certificates, health, trajectory) {
   if (!health.isFunded) return null;
 
   const payouts = (certificates || [])
-    .filter((c) => c.type === "payout" && c.firm === account.firm)
+    .filter((c) => c.type === "payout" && (c.account_id === account.id || (!c.account_id && c.firm === account.firm)))
     .slice()
     .sort((a, b) => (a.date < b.date ? -1 : 1)); // ancien → récent
 
