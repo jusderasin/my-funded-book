@@ -160,7 +160,7 @@ Règles : direct, honnête, chiffré. Tu parles à ${name}. N'invente aucune don
     method: "POST",
     headers: { "Content-Type": "application/json", Authorization: `Bearer ${key}` },
     body: JSON.stringify({
-      model: "openai/gpt-oss-20b",
+      model: "openai/gpt-oss-120b",
       messages: [{ role: "system", content: "Tu t'appelles PRISM, le coach intégré de MyTradeBook." }, { role: "user", content: prompt }],
       max_tokens: 4000,
       temperature: 0.7,
