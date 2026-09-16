@@ -5,6 +5,7 @@ import AppHeader from "./AppHeader";
 import { useBook } from "@/components/BookProvider";
 import { LogTradeModal } from "@/components/modals";
 import { NavCustomizer } from "@/components/NavCustomizer";
+import { Tutorial } from "@/components/Tutorial";
 
 function resolveNav(stored) {
   const byHref = Object.fromEntries(NAV_ITEMS.map((item) => [item.href, item]));
@@ -40,6 +41,7 @@ export default function AppShellPrism({ user, children }) {
   const [quickLogOpen, setQuickLogOpen] = useState(false);
   const { profile, saveProfile, t, lang } = useBook();
   const [showNavCustomizer, setShowNavCustomizer] = useState(false);
+  const [showTutorial, setShowTutorial] = useState(false);
   const orderedNav = useMemo(() => resolveNav(profile?.nav_layout), [profile?.nav_layout]);
   const [splash, setSplash] = useState(true);
   const [splashOut, setSplashOut] = useState(false);
@@ -47,6 +49,12 @@ export default function AppShellPrism({ user, children }) {
     const out = setTimeout(() => setSplashOut(true), 1150);
     const done = setTimeout(() => setSplash(false), 1650);
     return () => { clearTimeout(out); clearTimeout(done); };
+  }, []);
+
+  useEffect(() => {
+    const replayTutorial = () => setShowTutorial(true);
+    window.addEventListener("mtb-replay-tutorial", replayTutorial);
+    return () => window.removeEventListener("mtb-replay-tutorial", replayTutorial);
   }, []);
 
   useEffect(() => {
@@ -75,6 +83,12 @@ export default function AppShellPrism({ user, children }) {
         </main>
       </div>
       {quickLogOpen && <LogTradeModal onClose={() => setQuickLogOpen(false)} />}
+      <Tutorial
+        open={showTutorial}
+        lang={lang}
+        onClose={() => setShowTutorial(false)}
+        onFinish={() => { if (!profile?.tutorial_seen) saveProfile({ tutorial_seen: true }); }}
+      />
       {showNavCustomizer && (
         <NavCustomizer
           nav={NAV_ITEMS}
