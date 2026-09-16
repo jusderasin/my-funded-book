@@ -3,6 +3,7 @@ import React, { useState, useRef, useEffect, useMemo } from "react";
 import Link from "next/link";
 import { Menu, Bell, BellRing, Brain, CheckCheck, ClipboardCheck, UserCircle, LogOut, Plus, X } from "lucide-react";
 import { useBook } from "@/components/BookProvider";
+import { accountHealth } from "@/lib/accountHealth";
 
 /**
  * PRISM AppHeader — barre du haut style TradeXNova.
@@ -24,21 +25,36 @@ export default function AppHeader({ user, onMenuClick, onLogTrade }) {
   const [alertsSeen, setAlertsSeen] = useState(false);
   const menuRef = useRef(null);
   const alertsRef = useRef(null);
-  const { trades, lang } = useBook();
+  const { trades, lang, accounts, certificates } = useBook();
 
   const notifications = useMemo(() => {
     const L = lang === "en" ? "en" : "fr";
     const latest = trades?.[0];
+    const accountNotifications = (accounts || []).flatMap((account) => {
+      const health = accountHealth(account, trades, certificates, L);
+      const accountLabel = `${account.firm || "Compte"} · $${Number(account.size || 0).toLocaleString("fr-FR")}`;
+      const href = `/accounts/${account.id}`;
+      const isFunded = account.type === "funded" || account.status === "funded" || account.status === "passed";
+      const items = [];
+      if (!isFunded && health.targetReached && !health.breached) {
+        items.push({ id: `validated-${account.id}`, icon: CheckCheck, tone: "accent", href, title: L === "en" ? "Evaluation target reached" : "Objectif d'évaluation atteint", text: L === "en" ? `${accountLabel} is ready to move to funded.` : `${accountLabel} est prêt à passer en funded.` });
+      }
+      if (isFunded && health.payoutEligible) {
+        items.push({ id: `payout-${account.id}`, icon: BellRing, tone: "accent", href, title: L === "en" ? "Payout available" : "Payout disponible", text: L === "en" ? `${accountLabel} meets the recorded withdrawal rules.` : `${accountLabel} respecte les règles de retrait enregistrées.` });
+      }
+      health.alerts.forEach((alert, index) => items.push({ id: `risk-${account.id}-${index}`, icon: BellRing, tone: alert.level === "danger" ? "danger" : "amber", href, title: accountLabel, text: alert.msg }));
+      return items;
+    });
     if (!latest) {
-      return [{ id: "first-trade", icon: ClipboardCheck, tone: "accent", action: "log", title: L === "en" ? "Your journal is ready" : "Ton journal est prêt", text: L === "en" ? "Log your first trade to activate your performance insights." : "Log ton premier trade pour activer tes analyses de performance." }];
+      return [...accountNotifications, { id: "first-trade", icon: ClipboardCheck, tone: "accent", action: "log", title: L === "en" ? "Your journal is ready" : "Ton journal est prêt", text: L === "en" ? "Log your first trade to activate your performance insights." : "Log ton premier trade pour activer tes analyses de performance." }].slice(0, 5);
     }
     const psychology = latest.psychology;
     const hasMindset = [psychology?.emotional, psychology?.focus, psychology?.confidence].some(Boolean) || latest.emotion;
     if (!hasMindset) {
-      return [{ id: `psych-${latest.id}`, icon: Brain, tone: "amber", href: "/trade-logs", title: L === "en" ? "Mindset check-in missing" : "Check-in Psycho à compléter", text: L === "en" ? "Add emotional state, focus and confidence to your latest trade." : "Ajoute ton état émotionnel, ton focus et ta confiance à ton dernier trade." }];
+      return [...accountNotifications, { id: `psych-${latest.id}`, icon: Brain, tone: "amber", href: "/trade-logs", title: L === "en" ? "Mindset check-in missing" : "Check-in Psycho à compléter", text: L === "en" ? "Add emotional state, focus and confidence to your latest trade." : "Ajoute ton état émotionnel, ton focus et ta confiance à ton dernier trade." }].slice(0, 5);
     }
-    return [{ id: `ready-${latest.id}`, icon: CheckCheck, tone: "accent", href: "/calendar", title: L === "en" ? "Journal up to date" : "Journal à jour", text: L === "en" ? "Your latest trade and mindset check-in are recorded." : "Ton dernier trade et ton check-in Psycho sont bien enregistrés." }];
-  }, [trades, lang]);
+    return [...accountNotifications, { id: `ready-${latest.id}`, icon: CheckCheck, tone: "accent", href: "/calendar", title: L === "en" ? "Journal up to date" : "Journal à jour", text: L === "en" ? "Your latest trade and mindset check-in are recorded." : "Ton dernier trade et ton check-in Psycho sont bien enregistrés." }].slice(0, 5);
+  }, [trades, accounts, certificates, lang]);
 
   // Fermer le dropdown au clic extérieur
   useEffect(() => {
@@ -102,7 +118,7 @@ export default function AppHeader({ user, onMenuClick, onLogTrade }) {
         </button>
         {alertsOpen && <div className="absolute right-0 mt-2 w-[min(340px,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-prism-line bg-prism-panel shadow-2xl z-40">
           <div className="flex items-center justify-between border-b border-prism-line px-4 py-3"><div><p className="text-sm font-bold text-white">{lang === "en" ? "Notifications" : "Notifications"}</p><p className="mt-0.5 text-[10px] text-prism-muted2">{lang === "en" ? "Your trading journal, at a glance" : "Ton journal de trading, en un regard"}</p></div><button onClick={() => setAlertsOpen(false)} className="rounded-lg p-1 text-prism-muted hover:bg-white/5 hover:text-white" aria-label="Fermer les notifications"><X className="h-4 w-4" /></button></div>
-          <div className="p-2">{notifications.map((notification) => { const Icon = notification.icon; const content = <div className="flex gap-3 rounded-xl p-3 transition-colors hover:bg-white/[0.04]"><span className={`mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${notification.tone === "amber" ? "bg-amber-400/10 text-amber-300" : "bg-prism-accentDim text-prism-accent"}`}><Icon className="h-4 w-4" /></span><span><span className="block text-[12px] font-bold text-white">{notification.title}</span><span className="mt-1 block text-[11px] leading-4 text-prism-muted">{notification.text}</span></span></div>; return notification.action === "log" ? <button key={notification.id} onClick={() => { setAlertsOpen(false); onLogTrade(); }} className="w-full text-left">{content}</button> : <Link key={notification.id} href={notification.href} onClick={() => setAlertsOpen(false)}>{content}</Link>; })}</div>
+          <div className="p-2">{notifications.map((notification) => { const Icon = notification.icon; const toneClass = notification.tone === "danger" ? "bg-red-400/10 text-red-300" : notification.tone === "amber" ? "bg-amber-400/10 text-amber-300" : "bg-prism-accentDim text-prism-accent"; const content = <div className="flex gap-3 rounded-xl p-3 transition-colors hover:bg-white/[0.04]"><span className={`mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${toneClass}`}><Icon className="h-4 w-4" /></span><span><span className="block text-[12px] font-bold text-white">{notification.title}</span><span className="mt-1 block text-[11px] leading-4 text-prism-muted">{notification.text}</span></span></div>; return notification.action === "log" ? <button key={notification.id} onClick={() => { setAlertsOpen(false); onLogTrade(); }} className="w-full text-left">{content}</button> : <Link key={notification.id} href={notification.href} onClick={() => setAlertsOpen(false)}>{content}</Link>; })}</div>
           <div className="border-t border-prism-line px-4 py-2.5 text-[10px] text-prism-muted2">{lang === "en" ? "Alerts update automatically with your journal." : "Les alertes se mettent à jour automatiquement avec ton journal."}</div>
         </div>}
         </div>
