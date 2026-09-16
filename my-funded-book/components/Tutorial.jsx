@@ -1,6 +1,6 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useState } from "react";
 import {
   Sparkles, LayoutGrid, Table2, ListChecks, FlaskConical, Medal, PenLine,
   BookOpen, Grid3x3, Award, Receipt, Rocket, X, ChevronLeft, ChevronRight,
@@ -58,6 +58,9 @@ const SLIDES = [
 export function Tutorial({ open, onClose, onFinish, lang }) {
   const [step, setStep] = useState(0);
   const L = lang === "en" ? "en" : "fr";
+  useEffect(() => {
+    if (open) setStep(0);
+  }, [open]);
   if (!open) return null;
 
   const s = SLIDES[step];
