@@ -1,7 +1,8 @@
 "use client";
-import React, { useState, useRef, useEffect } from "react";
+import React, { useState, useRef, useEffect, useMemo } from "react";
 import Link from "next/link";
-import { Menu, Bell, UserCircle, LogOut, Plus } from "lucide-react";
+import { Menu, Bell, BellRing, Brain, CheckCheck, ClipboardCheck, UserCircle, LogOut, Plus, X } from "lucide-react";
+import { useBook } from "@/components/BookProvider";
 
 /**
  * PRISM AppHeader — barre du haut style TradeXNova.
@@ -19,14 +20,31 @@ import { Menu, Bell, UserCircle, LogOut, Plus } from "lucide-react";
  */
 export default function AppHeader({ user, onMenuClick, onLogTrade }) {
   const [menuOpen, setMenuOpen] = useState(false);
+  const [alertsOpen, setAlertsOpen] = useState(false);
+  const [alertsSeen, setAlertsSeen] = useState(false);
   const menuRef = useRef(null);
+  const alertsRef = useRef(null);
+  const { trades, lang } = useBook();
+
+  const notifications = useMemo(() => {
+    const L = lang === "en" ? "en" : "fr";
+    const latest = trades?.[0];
+    if (!latest) {
+      return [{ id: "first-trade", icon: ClipboardCheck, tone: "accent", action: "log", title: L === "en" ? "Your journal is ready" : "Ton journal est prêt", text: L === "en" ? "Log your first trade to activate your performance insights." : "Log ton premier trade pour activer tes analyses de performance." }];
+    }
+    const psychology = latest.psychology;
+    const hasMindset = [psychology?.emotional, psychology?.focus, psychology?.confidence].some(Boolean) || latest.emotion;
+    if (!hasMindset) {
+      return [{ id: `psych-${latest.id}`, icon: Brain, tone: "amber", href: "/trade-logs", title: L === "en" ? "Mindset check-in missing" : "Check-in Psycho à compléter", text: L === "en" ? "Add emotional state, focus and confidence to your latest trade." : "Ajoute ton état émotionnel, ton focus et ta confiance à ton dernier trade." }];
+    }
+    return [{ id: `ready-${latest.id}`, icon: CheckCheck, tone: "accent", href: "/calendar", title: L === "en" ? "Journal up to date" : "Journal à jour", text: L === "en" ? "Your latest trade and mindset check-in are recorded." : "Ton dernier trade et ton check-in Psycho sont bien enregistrés." }];
+  }, [trades, lang]);
 
   // Fermer le dropdown au clic extérieur
   useEffect(() => {
     const onClickOutside = (e) => {
-      if (menuRef.current && !menuRef.current.contains(e.target)) {
-        setMenuOpen(false);
-      }
+      if (menuRef.current && !menuRef.current.contains(e.target)) setMenuOpen(false);
+      if (alertsRef.current && !alertsRef.current.contains(e.target)) setAlertsOpen(false);
     };
     document.addEventListener("mousedown", onClickOutside);
     return () => document.removeEventListener("mousedown", onClickOutside);
@@ -71,13 +89,23 @@ export default function AppHeader({ user, onMenuClick, onLogTrade }) {
           <Plus className="h-4 w-4" />
           <span className="hidden sm:inline">Log trade</span>
         </button>
+        <div className="relative" ref={alertsRef}>
         <button
-          className="inline-flex h-9 w-9 items-center justify-center rounded-lg text-prism-muted hover:text-white hover:bg-white/5 transition-colors"
+          onClick={() => { setAlertsOpen((open) => !open); setAlertsSeen(true); }}
+          className="relative inline-flex h-9 w-9 items-center justify-center rounded-lg text-prism-muted hover:text-white hover:bg-white/5 transition-colors"
           aria-label="Notifications"
+          aria-expanded={alertsOpen}
           type="button"
         >
-          <Bell className="h-5 w-5" />
+          {alertsOpen ? <BellRing className="h-5 w-5 text-prism-accent" /> : <Bell className="h-5 w-5" />}
+          {!alertsSeen && <span className="absolute right-1.5 top-1.5 h-1.5 w-1.5 rounded-full bg-prism-accent shadow-[0_0_8px_var(--prism-accent)]" />}
         </button>
+        {alertsOpen && <div className="absolute right-0 mt-2 w-[min(340px,calc(100vw-2rem))] overflow-hidden rounded-2xl border border-prism-line bg-prism-panel shadow-2xl z-40">
+          <div className="flex items-center justify-between border-b border-prism-line px-4 py-3"><div><p className="text-sm font-bold text-white">{lang === "en" ? "Notifications" : "Notifications"}</p><p className="mt-0.5 text-[10px] text-prism-muted2">{lang === "en" ? "Your trading journal, at a glance" : "Ton journal de trading, en un regard"}</p></div><button onClick={() => setAlertsOpen(false)} className="rounded-lg p-1 text-prism-muted hover:bg-white/5 hover:text-white" aria-label="Fermer les notifications"><X className="h-4 w-4" /></button></div>
+          <div className="p-2">{notifications.map((notification) => { const Icon = notification.icon; const content = <div className="flex gap-3 rounded-xl p-3 transition-colors hover:bg-white/[0.04]"><span className={`mt-0.5 inline-flex h-8 w-8 shrink-0 items-center justify-center rounded-lg ${notification.tone === "amber" ? "bg-amber-400/10 text-amber-300" : "bg-prism-accentDim text-prism-accent"}`}><Icon className="h-4 w-4" /></span><span><span className="block text-[12px] font-bold text-white">{notification.title}</span><span className="mt-1 block text-[11px] leading-4 text-prism-muted">{notification.text}</span></span></div>; return notification.action === "log" ? <button key={notification.id} onClick={() => { setAlertsOpen(false); onLogTrade(); }} className="w-full text-left">{content}</button> : <Link key={notification.id} href={notification.href} onClick={() => setAlertsOpen(false)}>{content}</Link>; })}</div>
+          <div className="border-t border-prism-line px-4 py-2.5 text-[10px] text-prism-muted2">{lang === "en" ? "Alerts update automatically with your journal." : "Les alertes se mettent à jour automatiquement avec ton journal."}</div>
+        </div>}
+        </div>
 
         <div className="relative" ref={menuRef}>
           <button
