@@ -5,7 +5,7 @@ import { useBook } from "@/components/BookProvider";
 import { fmtMoney, frDate } from "@/lib/format";
 import { LogTradeModal } from "@/components/modals";
 import { ImportCsvModal } from "@/components/ImportCsvModal";
-import { Search, Grid3x3, List, Plus, ImageOff, Upload, Trash2 } from "lucide-react";
+import { Search, Grid3x3, List, Plus, ImageOff, Upload, Trash2, Crosshair, ScanLine } from "lucide-react";
 
 /**
  * Trade Logs — grille de vignettes des screenshots de trades style TradeXNova.
@@ -55,22 +55,33 @@ export default function TradeLogsPage() {
   };
 
   return (
-    <div className="min-h-full bg-black text-white p-4 sm:p-6 lg:p-8">
+    <div className="trade-command min-h-full bg-prism-bg text-white p-4 sm:p-6 lg:p-8">
+      <div className="trade-command-grid" aria-hidden="true" />
       {/* Header */}
-      <div className="mb-6 flex flex-wrap items-center justify-between gap-3">
-        <div>
-          <h1 className="text-2xl font-bold text-white tracking-tight">Trade Logs</h1>
-          <p className="mt-1 text-sm text-prism-muted">
-            {L === "en"
-              ? `${filtered.length} of ${totalCount} trades`
-              : `${filtered.length} sur ${totalCount} trades`}
+      <div className="trade-command-header mb-5 flex flex-col justify-between gap-5 border-b border-prism-line pb-5 lg:flex-row lg:items-end">
+        <div className="relative z-10">
+          <div className="mb-3 flex items-center gap-2 text-[10px] font-bold uppercase tracking-[0.23em] text-prism-accent">
+            <ScanLine className="h-3.5 w-3.5" />
+            {L === "en" ? "Execution archive" : "Archive d'exécution"}
+          </div>
+          <h1 className="text-3xl font-semibold tracking-[-0.055em] text-white sm:text-4xl">
+            {L === "en" ? "Every trade tells the truth." : "Chaque trade raconte la vérité."}
+          </h1>
+          <p className="mt-2 text-sm text-prism-muted">
+            {L === "en" ? `${filtered.length} visible · ${totalCount} recorded` : `${filtered.length} affiché${filtered.length > 1 ? "s" : ""} · ${totalCount} trade${totalCount > 1 ? "s" : ""} enregistré${totalCount > 1 ? "s" : ""}`}
           </p>
+        </div>
+        <div className="relative z-10 flex items-center gap-2">
+          <div className="trade-quality-pill"><Crosshair className="h-3.5 w-3.5" /> {totalCount ? (L === "en" ? "Journal active" : "Journal actif") : (L === "en" ? "Capture your first setup" : "Capture ton premier setup")}</div>
+          <button type="button" onClick={() => setEditing("new")} className="trade-primary-action">
+            <Plus className="h-4 w-4" /> {L === "en" ? "Log trade" : "Logger un trade"}
+          </button>
         </div>
       </div>
 
       {/* Toolbar : search + view toggle */}
-      <div className="mb-5 flex flex-wrap items-center gap-3">
-        <div className="relative flex-1 min-w-[240px] max-w-md">
+      <div className="trade-toolbar mb-5 flex flex-wrap items-center gap-3 rounded-2xl border border-prism-line bg-prism-panel/80 p-3 backdrop-blur">
+        <div className="relative min-w-[240px] flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-prism-muted2 pointer-events-none" />
           <input
             type="text"
@@ -81,11 +92,11 @@ export default function TradeLogsPage() {
                 ? "Search by symbol, setup, tag…"
                 : "Rechercher par symbol, setup, tag…"
             }
-            className="w-full rounded-xl border border-prism-line bg-black/40 pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-prism-muted2 focus:border-prism-accent focus:outline-none transition-colors"
+            className="w-full rounded-xl border border-prism-line bg-black/30 pl-10 pr-4 py-2.5 text-sm text-white placeholder:text-prism-muted2 focus:border-prism-accent focus:outline-none transition-colors"
           />
         </div>
 
-        <div className="inline-flex rounded-xl border border-prism-line bg-transparent p-0.5">
+        <div className="inline-flex rounded-xl border border-prism-line bg-black/20 p-0.5">
           <button
             type="button"
             onClick={() => setView("grid")}
@@ -115,25 +126,17 @@ export default function TradeLogsPage() {
         <button
           type="button"
           onClick={() => setImportOpen(true)}
-          className="inline-flex items-center gap-1.5 rounded-xl border border-prism-line2 px-3 py-2 text-xs font-semibold text-white transition-colors hover:border-prism-accent"
+          className="signal-interactive inline-flex items-center gap-1.5 rounded-xl border border-prism-line2 px-3 py-2 text-xs font-semibold text-white transition-colors hover:border-prism-accent"
         >
           <Upload className="h-3.5 w-3.5" />
           {L === "en" ? "Import CSV" : "Importer CSV"}
         </button>
 
-        <button
-          type="button"
-          onClick={() => setEditing("new")}
-          className="inline-flex items-center gap-1.5 rounded-xl bg-white text-black px-3 py-2 text-xs font-semibold hover:bg-white/90 transition-colors"
-        >
-          <Plus className="h-3.5 w-3.5" />
-          {L === "en" ? "Log trade" : "Logger un trade"}
-        </button>
       </div>
 
       {/* Content */}
       {filtered.length === 0 ? (
-        <EmptyLogs L={L} hasQuery={!!query.trim()} totalCount={totalCount} />
+        <EmptyLogs L={L} hasQuery={!!query.trim()} totalCount={totalCount} onAdd={() => setEditing("new")} />
       ) : view === "grid" ? (
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
           {filtered.map((tr) => (
@@ -169,7 +172,7 @@ function TradeCard({ tr, onClick, onDelete }) {
 
   return (
     <div
-      className={`group relative flex flex-col text-left rounded-2xl border border-prism-line bg-prism-panel overflow-hidden hover:border-prism-line2 transition-all border-t-[3px] ${
+      className={`trade-tile group relative flex flex-col text-left rounded-2xl border border-prism-line bg-prism-panel overflow-hidden hover:border-prism-line2 transition-all border-t-[3px] ${
         win ? "border-t-prism-win" : "border-t-prism-loss"
       }`}
     >
@@ -237,7 +240,7 @@ function TradeRow({ tr, onClick, onDelete }) {
   const url = tr.screenshot_url || tr.screenshot_url_2;
   return (
     <div
-      className={`flex items-center gap-4 text-left rounded-2xl border border-prism-line bg-prism-panel px-4 py-3 hover:border-prism-line2 hover:bg-white/[0.02] transition-all border-l-[3px] ${
+      className={`trade-row signal-interactive flex items-center gap-4 text-left rounded-2xl border border-prism-line bg-prism-panel px-4 py-3 hover:border-prism-line2 hover:bg-white/[0.02] transition-all border-l-[3px] ${
         win ? "border-l-prism-win" : "border-l-prism-loss"
       }`}
     >
@@ -297,9 +300,9 @@ function TradeRow({ tr, onClick, onDelete }) {
 /*  Empty state                                                        */
 /* ------------------------------------------------------------------ */
 
-function EmptyLogs({ L, hasQuery, totalCount }) {
+function EmptyLogs({ L, hasQuery, totalCount, onAdd }) {
   return (
-    <div className="rounded-2xl border border-dashed border-prism-line bg-prism-panel p-16 text-center">
+    <div className="trade-empty rounded-2xl border border-dashed border-prism-line bg-prism-panel p-16 text-center">
       <ImageOff className="mx-auto h-10 w-10 text-prism-muted2 mb-4" />
       <div className="text-lg font-semibold text-white mb-1">
         {hasQuery
@@ -323,6 +326,11 @@ function EmptyLogs({ L, hasQuery, totalCount }) {
           ? "Log your first trade to see it here."
           : "Log ton premier trade pour le voir ici."}
       </div>
+      {!hasQuery && totalCount === 0 && (
+        <button type="button" onClick={onAdd} className="trade-empty-action mt-6">
+          <Plus className="h-4 w-4" /> {L === "en" ? "Log my first trade" : "Logger mon premier trade"}
+        </button>
+      )}
     </div>
   );
 }
