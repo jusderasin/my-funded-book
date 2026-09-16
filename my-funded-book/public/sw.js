@@ -1,4 +1,4 @@
-const CACHE = "mfb-v5";
+const CACHE = "mfb-v6";
 const ASSETS = ["/", "/dashboard", "/manifest.json", "/icon", "/apple-icon"];
 
 self.addEventListener("install", (e) => {
@@ -25,4 +25,25 @@ self.addEventListener("fetch", (e) => {
       })
       .catch(() => caches.match(request))
   );
+});
+
+self.addEventListener("push", (event) => {
+  const data = event.data ? event.data.json() : {};
+  event.waitUntil(self.registration.showNotification(data.title || "MyTradeBook", {
+    body: data.body || "Une alerte de ton journal est disponible.",
+    icon: "/icon",
+    badge: "/icon",
+    tag: data.tag || "mytradebook-alert",
+    renotify: Boolean(data.renotify),
+    data: { url: data.url || "/dashboard" },
+  }));
+});
+
+self.addEventListener("notificationclick", (event) => {
+  event.notification.close();
+  const url = new URL(event.notification.data?.url || "/dashboard", self.location.origin).href;
+  event.waitUntil(clients.matchAll({ type: "window", includeUncontrolled: true }).then((windows) => {
+    const matching = windows.find((windowClient) => windowClient.url === url);
+    return matching ? matching.focus() : clients.openWindow(url);
+  }));
 });

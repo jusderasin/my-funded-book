@@ -5,6 +5,7 @@ import Link from "next/link";
 import { useBook } from "@/components/BookProvider";
 import { AccentPicker } from "@/components/AccentPicker";
 import { ThemePicker } from "@/components/ThemePicker";
+import { PushNotifications } from "@/components/PushNotifications";
 import { createClient } from "@/lib/supabase/client";
 import { Field, inputCls, Chip, PrimaryBtn, GhostBtn } from "@/components/ui";
 import { User, CreditCard, Lock, Eye, SlidersHorizontal } from "lucide-react";
@@ -243,6 +244,8 @@ export default function SettingsPage() {
           <ThemePicker profile={profile} saveProfile={saveProfile} lang={lang} />
 
           <AccentPicker profile={profile} saveProfile={saveProfile} lang={lang} notify={notify} />
+
+          <PushNotifications profile={profile} saveProfile={saveProfile} lang={lang} notify={notify} />
 
           <div className={cardCls}>
             <div className="flex items-center justify-between gap-3">
