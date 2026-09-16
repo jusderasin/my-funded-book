@@ -30,7 +30,11 @@ export function AccentPicker({ profile, saveProfile, lang }) {
 
   async function save() {
     setSaving(true);
-    await saveProfile({ accent_gain: gain, accent_loss: loss });
+    const saved = await saveProfile({ accent_gain: gain, accent_loss: loss });
+    if (!saved) {
+      setGain(profile?.accent_gain || DEFAULT_GAIN);
+      setLoss(profile?.accent_loss || DEFAULT_LOSS);
+    }
     setSaving(false);
   }
 

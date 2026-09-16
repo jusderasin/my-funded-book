@@ -8,10 +8,43 @@ import { translate } from "@/lib/i18n";
 const BookCtx = createContext(null);
 export const useBook = () => useContext(BookCtx);
 
+const SUPPORTED_THEMES = new Set(["signal", "blue", "dark", "oled", "darker", "cyberpunk"]);
+const THEME_FALLBACKS = {
+  signal: { accent: "#8cff4f", loss: "#ff6d6d" },
+  blue: { accent: "#3b82f6", loss: "#ef4444" },
+  dark: { accent: "#3b82f6", loss: "#ef4444" },
+  oled: { accent: "#3b82f6", loss: "#ef4444" },
+  darker: { accent: "#3b82f6", loss: "#ef4444" },
+  cyberpunk: { accent: "#a78bfa", loss: "#fb7185" },
+};
+
+function hexToRgba(hex, alpha) {
+  const value = String(hex || "").replace("#", "");
+  if (!/^[0-9a-f]{6}$/i.test(value)) return `rgba(59, 130, 246, ${alpha})`;
+  const integer = Number.parseInt(value, 16);
+  return `rgba(${(integer >> 16) & 255}, ${(integer >> 8) & 255}, ${integer & 255}, ${alpha})`;
+}
+
 // Applique les couleurs perso du profil sur :root (CSS vars) + le thème global.
 // Si la colonne est vide, on garde le fallback défini dans tailwind.config.js / globals.css.
 function applyProfileVars(p) {
   if (typeof document === "undefined" || !p) return;
+  const selectedTheme = SUPPORTED_THEMES.has(p.theme) ? p.theme : "signal";
+  const fallback = THEME_FALLBACKS[selectedTheme];
+  const accent = p.accent_gain || fallback.accent;
+  const loss = p.accent_loss || fallback.loss;
+  const root = document.documentElement;
+
+  root.style.setProperty("--accent", accent);
+  root.style.setProperty("--loss", loss);
+  root.style.setProperty("--prism-accent", accent);
+  root.style.setProperty("--prism-accent-soft", accent);
+  root.style.setProperty("--prism-accent-dim", hexToRgba(accent, 0.13));
+  root.style.setProperty("--prism-win", accent);
+  root.style.setProperty("--prism-loss", loss);
+  if (selectedTheme === "blue") root.removeAttribute("data-theme");
+  else root.setAttribute("data-theme", selectedTheme);
+  return;
   // Signal est l'identité par défaut du produit. Tous les anciens thèmes
   // basculent vers Signal; seul "blue" est désormais un choix explicite.
   const theme = p.theme === "blue" ? "blue" : "signal";
@@ -186,10 +219,14 @@ export function BookProvider({ user, children }) {
         .eq("id", user.id)
         .select()
         .single();
-      if (error) return notify(error.message, true);
+      if (error) {
+        notify(error.message, true);
+        return false;
+      }
       setProfile(data);
       applyProfileVars(data);
       notify("Réglages sauvegardés ✓");
+      return data;
     },
     // review (upsert par semaine)
     saveReview: async (weekOf, fields) => {

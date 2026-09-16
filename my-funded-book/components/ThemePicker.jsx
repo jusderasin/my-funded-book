@@ -5,6 +5,7 @@ import { Layers, Check } from "lucide-react";
 import { PrimaryBtn } from "@/components/ui";
 
 const DEFAULT_THEME = "signal";
+const SUPPORTED_THEME_IDS = new Set(["signal", "blue", "dark", "oled", "darker", "cyberpunk"]);
 
 // Palettes miroir de globals.css — utilisées uniquement pour le mini-preview
 // dans les cards du picker (le vrai thème est appliqué via data-theme).
@@ -48,15 +49,11 @@ const THEMES = [
 ];
 
 function normaliseTheme(themeId) {
-  return themeId === "blue" ? "blue" : DEFAULT_THEME;
+  return SUPPORTED_THEME_IDS.has(themeId) ? themeId : DEFAULT_THEME;
 }
 
 function applyLive(themeId) {
   if (typeof document === "undefined") return;
-  if (themeId === "signal") {
-    document.documentElement.style.setProperty("--accent", "#8cff4f");
-    document.documentElement.style.setProperty("--loss", "#ff6d6d");
-  }
   if (themeId === "blue") {
     document.documentElement.removeAttribute("data-theme");
   } else {
@@ -83,7 +80,8 @@ export function ThemePicker({ profile, saveProfile, lang }) {
 
   async function save() {
     setSaving(true);
-    await saveProfile({ theme: current });
+    const saved = await saveProfile({ theme: current });
+    if (!saved) setCurrent(normaliseTheme(profile?.theme));
     setSaving(false);
   }
 
