@@ -10,7 +10,7 @@ import KpiCustomizer from "@/components/KpiCustomizer";
 import { KPI_CATALOG, DEFAULT_KPI_IDS, MIN_KPIS, MAX_KPIS } from "@/lib/kpiCatalog";
 import { emotionScore, psychBucket } from "@/lib/constants";
 import { Gauge as PrismGauge, Card } from "@/components/prism";
-import { Settings2, Flame, Sparkles } from "lucide-react";
+import { Activity, ArrowUpRight, Flame, Sparkles, Target, Settings2 } from "lucide-react";
 
 const KPI_STORAGE_KEY = "mfb.dashboard.kpis";
 
@@ -101,25 +101,39 @@ export default function DashboardPage() {
       : "Aucun trade";
 
   return (
-    <div className="min-h-full bg-prism-bg text-prism-text p-4 sm:p-6 lg:p-8">
-      <div className="mb-4 flex items-end justify-between gap-3">
-        <div>
-          <p className="text-[11px] font-semibold uppercase tracking-[0.18em] text-prism-accent">
-            {L === "en" ? "Trading journal" : "Journal de trading"}
-          </p>
-          <h1 className="mt-1 text-xl font-semibold tracking-tight text-white sm:text-2xl">
-            {L === "en" ? "Performance overview" : "Vue d'ensemble"}
+    <div className="dashboard-command min-h-full bg-prism-bg text-prism-text p-4 sm:p-6 lg:p-8">
+      <div className="dashboard-aurora" aria-hidden="true" />
+      <div className="dashboard-grid" aria-hidden="true" />
+      <div className="dashboard-top mb-5 flex flex-col justify-between gap-5 xl:flex-row xl:items-end">
+        <div className="relative z-10">
+          <div className="mb-3 flex items-center gap-2">
+            <span className="dashboard-live-dot" />
+            <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-prism-accent">
+              {L === "en" ? "Live trading command center" : "Centre de contrôle en direct"}
+            </span>
+          </div>
+          <h1 className="max-w-xl text-3xl font-semibold tracking-[-0.055em] text-white sm:text-4xl">
+            {L === "en" ? "Build the process. Earn the edge." : "Construis ton process. Gagne ton edge."}
           </h1>
+          <p className="mt-2 max-w-2xl text-sm leading-6 text-prism-muted">
+            {L === "en" ? "Every number here is a decision you can improve." : "Chaque chiffre ici est une décision que tu peux améliorer."}
+          </p>
         </div>
+        <div className="relative z-10 flex flex-wrap items-center gap-2">
+          <div className="dashboard-status-pill">
+            <Activity className="h-3.5 w-3.5" />
+            <span>{trades.length ? `${trades.length} ${L === "en" ? "trades analysed" : "trades analysés"}` : L === "en" ? "Ready for your first trade" : "Prêt pour ton premier trade"}</span>
+          </div>
         <button
           type="button"
           onClick={() => setCustomizing(true)}
-          className="signal-interactive inline-flex items-center gap-2 rounded-xl border border-prism-line bg-prism-panel px-3 py-1.5 text-xs font-medium text-prism-muted hover:border-prism-line2 hover:text-white transition-colors"
+          className="signal-interactive inline-flex items-center gap-2 rounded-xl border border-prism-line bg-prism-panel px-3.5 py-2 text-xs font-semibold text-prism-muted hover:border-prism-line2 hover:text-white transition-colors"
           title={L === "en" ? "Customize KPIs" : "Personnaliser les KPIs"}
         >
           <Settings2 className="h-3.5 w-3.5" />
           <span>{L === "en" ? "Personnaliser" : "Personnaliser"}</span>
         </button>
+        </div>
       </div>
 
       {/* KPIs grid */}
@@ -142,7 +156,7 @@ export default function DashboardPage() {
       </div>
 
       {/* Streak bandeau */}
-      <Card padding="p-4" className="mb-4">
+      <Card padding="p-4" className="dashboard-streak mb-4">
         <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
           <span className="inline-flex items-center gap-2 text-prism-muted">
             <Flame className="h-4 w-4 text-prism-accent" />
@@ -165,9 +179,10 @@ export default function DashboardPage() {
       </Card>
 
       {/* Row : PRISM Score + Charts */}
-      <div className="mb-4 grid gap-4 lg:grid-cols-[380px_1fr]">
+      <div className="mb-4 grid gap-4 lg:grid-cols-[390px_1fr]">
         {/* PRISM Score card */}
-        <Card padding="p-6">
+        <Card padding="p-6" className="dashboard-score-card overflow-hidden">
+          <div className="dashboard-score-orbit" aria-hidden="true" />
           <SectionHeader icon={<Sparkles className="h-4 w-4" />}>
             {L === "en" ? "PRISM Score" : "Score PRISM"}
           </SectionHeader>
@@ -211,7 +226,8 @@ export default function DashboardPage() {
         </Card>
 
         {/* Charts card : Cumul + Bars */}
-        <Card padding="p-6">
+        <Card padding="p-6" className="dashboard-chart-card overflow-hidden">
+          <div className="dashboard-chart-light" aria-hidden="true" />
           <SectionHeader>{t("daily_cum")}</SectionHeader>
           <Area
             values={s.cumSeries}
@@ -228,7 +244,7 @@ export default function DashboardPage() {
       {/* Row : Recent trades + Calendar */}
       <div className="mb-4 grid gap-4 lg:grid-cols-2">
         {/* Recent trades */}
-        <Card padding="p-6">
+        <Card padding="p-6" className="dashboard-recent-card">
           <SectionHeader>{t("recent_trades")}</SectionHeader>
           {recent.length === 0 ? (
             <p className="py-8 text-center text-xs text-prism-muted2">{t("no_trades")}</p>
@@ -267,7 +283,7 @@ export default function DashboardPage() {
         </Card>
 
         {/* Calendar dual mode */}
-        <Card padding="p-6">
+        <Card padding="p-6" className="dashboard-calendar-card">
           <div className="mb-4 flex items-center justify-between">
             <div className="flex gap-1.5">
               <button
@@ -354,7 +370,7 @@ export default function DashboardPage() {
 
       {/* Row : Account balance + Drawdown */}
       <div className="grid gap-4 md:grid-cols-2">
-        <Card padding="p-6">
+        <Card padding="p-6" className="dashboard-equity-card">
           <div className="mb-4 flex items-center justify-between">
             <div className="text-[10px] font-semibold uppercase tracking-widest text-prism-muted2">
               {t("account_balance")}
@@ -376,7 +392,7 @@ export default function DashboardPage() {
           />
         </Card>
 
-        <Card padding="p-6">
+        <Card padding="p-6" className="dashboard-dd-card">
           <div className="mb-4 flex items-center justify-between">
             <div className="text-[10px] font-semibold uppercase tracking-widest text-prism-muted2">
               {t("drawdown")}
@@ -478,15 +494,21 @@ function KpiPrism({ label, value, tone, sub, className = "" }) {
       : "text-white";
 
   return (
-    <div className={`signal-interactive rounded-2xl border border-prism-line bg-prism-panel p-4 sm:p-5 ${className}`}>
-      <div className="text-[10px] font-semibold uppercase tracking-widest text-prism-muted2 mb-2">
-        {label}
+    <div className={`dashboard-kpi signal-interactive relative overflow-hidden rounded-2xl border border-prism-line bg-prism-panel p-4 sm:p-5 ${className}`}>
+      <div className="dashboard-kpi-ray" aria-hidden="true" />
+      <div className="relative z-10 flex items-start justify-between gap-3">
+        <div className="text-[10px] font-semibold uppercase tracking-widest text-prism-muted2">
+          {label}
+        </div>
+        <div className="dashboard-kpi-icon">
+          {tone === "positive" || tone === "up" || tone === "good" ? <ArrowUpRight className="h-3.5 w-3.5" /> : <Target className="h-3.5 w-3.5" />}
+        </div>
       </div>
-      <div className={`text-2xl sm:text-3xl font-bold tracking-tight tabular-nums ${toneClass}`}>
+      <div className={`relative z-10 mt-2 text-2xl font-bold tracking-tight tabular-nums sm:text-3xl ${toneClass}`}>
         {value}
       </div>
       {sub && (
-        <div className="mt-1 text-[11px] text-prism-muted2">{sub}</div>
+        <div className="relative z-10 mt-1 text-[11px] text-prism-muted2">{sub}</div>
       )}
     </div>
   );
@@ -496,7 +518,7 @@ function KpiPrism({ label, value, tone, sub, className = "" }) {
 function SectionHeader({ children, icon, className = "" }) {
   return (
     <h3
-      className={`mb-4 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-widest text-prism-muted2 ${className}`}
+      className={`relative z-10 mb-4 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-widest text-prism-muted2 ${className}`}
     >
       {icon && <span className="text-prism-accent">{icon}</span>}
       {children}
