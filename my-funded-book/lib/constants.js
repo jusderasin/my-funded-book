@@ -53,6 +53,18 @@ export const emotionScore = (k) => {
   return em ? em.score : null;
 };
 
+// Score mental d'un trade, sur 100. Le nouveau check-in Psycho (1 à 5)
+// est prioritaire : on moyenne état émotionnel, focus et confiance.
+// Les anciennes entrées utilisant uniquement `emotion` restent compatibles.
+export const tradeMentalScore = (trade) => {
+  const psychology = trade?.psychology;
+  const values = [psychology?.emotional, psychology?.focus, psychology?.confidence]
+    .map(Number)
+    .filter((value) => Number.isFinite(value) && value >= 1 && value <= 5);
+  if (values.length) return (values.reduce((sum, value) => sum + value, 0) / values.length) * 20;
+  return emotionScore(trade?.emotion);
+};
+
 // Spectre d'état mental (façon "Mental State Spectrum") — 4 paliers.
 export const PSYCH_SPECTRUM = [
   { id: "low",     min: 0,  max: 35,  color: "var(--loss, #ff3b5c)", fr: "Faible",  en: "Low" },

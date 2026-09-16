@@ -8,7 +8,7 @@ import { fmtMoney, frDate } from "@/lib/format";
 import { LogTradeModal } from "@/components/modals";
 import KpiCustomizer from "@/components/KpiCustomizer";
 import { KPI_CATALOG, DEFAULT_KPI_IDS, MIN_KPIS, MAX_KPIS } from "@/lib/kpiCatalog";
-import { emotionScore, psychBucket } from "@/lib/constants";
+import { psychBucket, tradeMentalScore } from "@/lib/constants";
 import { Gauge as PrismGauge, Card } from "@/components/prism";
 import { Activity, ArrowUpRight, Flame, Sparkles, Target, Settings2, X } from "lucide-react";
 
@@ -78,7 +78,7 @@ export default function DashboardPage() {
   // --- Vue "Psych" du calendrier : état mental moyen par jour, dérivé du champ emotion ---
   const psychSums = {};
   trades.forEach((tr) => {
-    const sc = emotionScore(tr.emotion);
+    const sc = tradeMentalScore(tr);
     if (sc == null) return;
     if (!psychSums[tr.date]) psychSums[tr.date] = { sum: 0, n: 0 };
     psychSums[tr.date].sum += sc;
@@ -343,8 +343,8 @@ export default function DashboardPage() {
               {psychAvg == null ? (
                 <div className="text-center text-xs text-prism-muted2">
                   {L === "en"
-                    ? "No emotion logged yet — set one when logging a trade."
-                    : "Aucune émotion renseignée pour l'instant — logge-la à la saisie d'un trade."}
+                    ? "No mindset check-in logged yet — complete the Psycho section when logging a trade."
+                    : "Aucun check-in Psycho renseigné pour l'instant — complète la section Psycho à la saisie d'un trade."}
                 </div>
               ) : (
                 <div className="flex flex-wrap items-center justify-between gap-3">
@@ -380,6 +380,11 @@ export default function DashboardPage() {
                   </div>
                 </div>
               )}
+              <p className="mt-3 text-[10px] leading-4 text-prism-muted2">
+                {L === "en"
+                  ? "Mental score = average of emotional state, focus and confidence (each 1–5), converted to /100. Checkboxes stay visible in the trade but do not inflate the score."
+                  : "Score mental = moyenne de l'état émotionnel, du focus et de la confiance (chacun noté de 1 à 5), convertie sur 100. Les cases cochées restent visibles dans le trade, mais ne gonflent pas le score."}
+              </p>
             </div>
           )}
         </Card>
