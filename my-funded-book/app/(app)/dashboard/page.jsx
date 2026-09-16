@@ -10,7 +10,7 @@ import KpiCustomizer from "@/components/KpiCustomizer";
 import { KPI_CATALOG, DEFAULT_KPI_IDS, MIN_KPIS, MAX_KPIS } from "@/lib/kpiCatalog";
 import { emotionScore, psychBucket } from "@/lib/constants";
 import { Gauge as PrismGauge, Card } from "@/components/prism";
-import { Activity, ArrowUpRight, Flame, Sparkles, Target, Settings2 } from "lucide-react";
+import { Activity, ArrowUpRight, Flame, Sparkles, Target, Settings2, X } from "lucide-react";
 
 const KPI_STORAGE_KEY = "mfb.dashboard.kpis";
 
@@ -27,6 +27,7 @@ export default function DashboardPage() {
   const [kpiIds, setKpiIds] = useState(DEFAULT_KPI_IDS);
   const [customizing, setCustomizing] = useState(false);
   const [calMode, setCalMode] = useState("pnl"); // "pnl" | "psych"
+  const [showIntro, setShowIntro] = useState(false);
 
   useEffect(() => {
     try {
@@ -40,6 +41,19 @@ export default function DashboardPage() {
       }
     } catch {}
   }, []);
+
+  useEffect(() => {
+    try {
+      setShowIntro(localStorage.getItem("mfb.dashboard.intro.dismissed") !== "1");
+    } catch {
+      setShowIntro(true);
+    }
+  }, []);
+
+  const dismissIntro = () => {
+    setShowIntro(false);
+    try { localStorage.setItem("mfb.dashboard.intro.dismissed", "1"); } catch {}
+  };
 
   const saveKpis = (ids) => {
     setKpiIds(ids);
@@ -104,7 +118,7 @@ export default function DashboardPage() {
     <div className="dashboard-command min-h-full bg-prism-bg text-prism-text p-4 sm:p-6 lg:p-8">
       <div className="dashboard-aurora" aria-hidden="true" />
       <div className="dashboard-grid" aria-hidden="true" />
-      <div className="dashboard-top mb-5 flex flex-col justify-between gap-5 xl:flex-row xl:items-end">
+      {showIntro && <div className="dashboard-top mb-5 flex flex-col justify-between gap-5 xl:flex-row xl:items-end">
         <div className="relative z-10">
           <div className="mb-3 flex items-center gap-2">
             <span className="dashboard-live-dot" />
@@ -118,6 +132,9 @@ export default function DashboardPage() {
           <p className="mt-2 max-w-2xl text-sm leading-6 text-prism-muted">
             {L === "en" ? "Every number here is a decision you can improve." : "Chaque chiffre ici est une décision que tu peux améliorer."}
           </p>
+          <button type="button" onClick={dismissIntro} className="dashboard-dismiss" aria-label={L === "en" ? "Hide welcome message" : "Masquer le message de bienvenue"}>
+            <X className="h-4 w-4" />
+          </button>
         </div>
         <div className="relative z-10 flex flex-wrap items-center gap-2">
           <div className="dashboard-status-pill">
@@ -134,7 +151,7 @@ export default function DashboardPage() {
           <span>{L === "en" ? "Personnaliser" : "Personnaliser"}</span>
         </button>
         </div>
-      </div>
+      </div>}
 
       {/* KPIs grid */}
       <div className={`mb-4 ${gridCls}`}>

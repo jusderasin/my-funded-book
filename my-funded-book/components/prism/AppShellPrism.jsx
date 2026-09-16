@@ -1,9 +1,28 @@
 "use client";
-import React, { useEffect, useState } from "react";
-import Sidebar from "./Sidebar";
+import React, { useEffect, useMemo, useState } from "react";
+import Sidebar, { NAV_ITEMS } from "./Sidebar";
 import AppHeader from "./AppHeader";
 import { useBook } from "@/components/BookProvider";
 import { LogTradeModal } from "@/components/modals";
+import { NavCustomizer } from "@/components/NavCustomizer";
+
+function resolveNav(stored) {
+  const byHref = Object.fromEntries(NAV_ITEMS.map((item) => [item.href, item]));
+  const known = new Set();
+  const resolved = [];
+  if (Array.isArray(stored)) {
+    stored.forEach((entry) => {
+      const item = byHref[entry?.id];
+      if (!item || known.has(item.href)) return;
+      known.add(item.href);
+      resolved.push({ ...item, hidden: Boolean(entry?.hidden) });
+    });
+  }
+  NAV_ITEMS.forEach((item) => {
+    if (!known.has(item.href)) resolved.push({ ...item, hidden: false });
+  });
+  return resolved;
+}
 
 /**
  * PRISM AppShell — layout global pour toutes les pages (app)/*.
@@ -19,7 +38,9 @@ import { LogTradeModal } from "@/components/modals";
 export default function AppShellPrism({ user, children }) {
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [quickLogOpen, setQuickLogOpen] = useState(false);
-  const { profile } = useBook();
+  const { profile, saveProfile, t, lang } = useBook();
+  const [showNavCustomizer, setShowNavCustomizer] = useState(false);
+  const orderedNav = useMemo(() => resolveNav(profile?.nav_layout), [profile?.nav_layout]);
   const [splash, setSplash] = useState(true);
   const [splashOut, setSplashOut] = useState(false);
   useEffect(() => {
@@ -28,11 +49,18 @@ export default function AppShellPrism({ user, children }) {
     return () => { clearTimeout(out); clearTimeout(done); };
   }, []);
 
+  useEffect(() => {
+    const openCustomizer = () => setShowNavCustomizer(true);
+    window.addEventListener("mtb-open-nav-customizer", openCustomizer);
+    return () => window.removeEventListener("mtb-open-nav-customizer", openCustomizer);
+  }, []);
+
   return (
     <div className="min-h-[100dvh] bg-prism-bg text-prism-text font-sans antialiased app-aurora">
       <Sidebar
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
+        items={orderedNav}
       />
       {/* La marge gauche compense la sidebar fixed sur desktop (lg+) uniquement */}
       <div className="flex min-h-[100dvh] flex-col lg:pl-64">
@@ -47,6 +75,19 @@ export default function AppShellPrism({ user, children }) {
         </main>
       </div>
       {quickLogOpen && <LogTradeModal onClose={() => setQuickLogOpen(false)} />}
+      {showNavCustomizer && (
+        <NavCustomizer
+          nav={NAV_ITEMS}
+          layout={orderedNav}
+          t={t}
+          lang={lang}
+          onClose={() => setShowNavCustomizer(false)}
+          onSave={async (nav_layout) => {
+            await saveProfile({ nav_layout });
+            setShowNavCustomizer(false);
+          }}
+        />
+      )}
       {splash && <div className={`fixed inset-0 z-[120] flex items-center justify-center overflow-hidden bg-prism-bg transition-opacity duration-500 ${splashOut ? "opacity-0" : "opacity-100"}`}>
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,#151515_0%,#050505_42%,#000_72%)]" />
         <div className="relative w-full max-w-xl px-8 text-center">

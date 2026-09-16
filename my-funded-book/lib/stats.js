@@ -40,7 +40,7 @@ export function computeStats(trades, startingBalance = 600000) {
 
   // Edge score (6 axes normalisés 0-100)
   const clamp = (x) => Math.max(0, Math.min(100, x));
-  const axes = {
+  const rawAxes = {
     "Win %": clamp(wr),
     "Profit factor": clamp((pf / 3) * 100),
     "Avg win/loss": clamp((wl / 3) * 100),
@@ -48,7 +48,10 @@ export function computeStats(trades, startingBalance = 600000) {
     "Max drawdown": clamp(100 - (maxDD / (gp || 1)) * 100),
     Consistency: clamp(dayWr),
   };
-  const edge = Object.values(axes).reduce((a, b) => a + b, 0) / 6;
+  const axes = tr.length
+    ? rawAxes
+    : Object.fromEntries(Object.keys(rawAxes).map((key) => [key, 0]));
+  const edge = tr.length ? Object.values(axes).reduce((a, b) => a + b, 0) / 6 : 0;
 
   // Streak de trades "plan respecté" en partant du plus récent
   const chrono = tr.slice().sort((a, b) => (b.date || "").localeCompare(a.date || ""));

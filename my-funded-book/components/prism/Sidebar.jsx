@@ -5,7 +5,7 @@ import { usePathname } from "next/navigation";
 import { BarChart3, Building2, Calendar, ClipboardList, DollarSign, History, LayoutDashboard, List, ScrollText, Settings, Sparkles, Trophy, X } from "lucide-react";
 import BrandMark from "@/components/BrandMark";
 
-const NAV_ITEMS = [
+export const NAV_ITEMS = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
   { icon: List, label: "Trade Logs", href: "/trade-logs" },
   { icon: BarChart3, label: "Analytics", href: "/breakdown" },
@@ -20,7 +20,7 @@ const NAV_ITEMS = [
   { icon: Settings, label: "R\u00e9glages", href: "/settings" },
 ];
 
-export default function Sidebar({ open = false, onClose }) {
+export default function Sidebar({ open = false, onClose, items = NAV_ITEMS }) {
   const pathname = usePathname();
   const isActive = (href) => pathname === href || pathname?.startsWith(`${href}/`);
 
@@ -32,7 +32,7 @@ export default function Sidebar({ open = false, onClose }) {
         <button onClick={onClose} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-prism-muted hover:text-white lg:hidden" aria-label="Fermer le menu"><X className="h-5 w-5" /></button>
       </div>
       <nav className="space-y-0.5 overflow-y-auto p-3 no-scrollbar" style={{ maxHeight: "calc(100dvh - 4rem - env(safe-area-inset-top))" }}>
-        {NAV_ITEMS.map((item) => {
+        {items.filter((item) => !item.hidden).map((item) => {
           const Icon = item.icon;
           const active = isActive(item.href);
           return <Link key={item.href} href={item.href} onClick={onClose} className={`signal-interactive flex items-center gap-3 rounded-xl px-3 py-2.5 text-sm font-medium transition-colors ${active ? "bg-prism-accentDim text-prism-accent" : "text-prism-muted hover:bg-white/5 hover:text-white"}`}><Icon className="h-4 w-4 shrink-0" /><span className="truncate">{item.label}</span></Link>;
