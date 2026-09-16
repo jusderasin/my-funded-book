@@ -65,7 +65,10 @@ function PrismModal({ title, onClose, footer, children, maxWidth = "max-w-2xl" }
       <div
         className={`relative z-10 flex h-[100dvh] max-h-[100dvh] w-full ${maxWidth} flex-col rounded-none border border-prism-line bg-prism-panel shadow-2xl sm:h-auto sm:max-h-[92vh] sm:rounded-2xl`}
       >
-        <div className="flex items-center justify-between border-b border-prism-line px-4 py-4 shrink-0 sm:px-6">
+        <div
+          className="flex items-center justify-between border-b border-prism-line px-4 py-4 shrink-0 sm:px-6"
+          style={{ paddingTop: "max(1rem, env(safe-area-inset-top))" }}
+        >
           <h2 className="text-lg font-semibold text-white tracking-tight">{title}</h2>
           <button
             type="button"
@@ -78,7 +81,10 @@ function PrismModal({ title, onClose, footer, children, maxWidth = "max-w-2xl" }
         </div>
         <div className="flex-1 overflow-y-auto px-4 py-5 sm:px-6">{children}</div>
         {footer && (
-          <div className="flex gap-2 border-t border-prism-line px-4 py-4 shrink-0 sm:px-6">
+          <div
+            className="flex gap-2 border-t border-prism-line px-4 py-4 shrink-0 sm:px-6"
+            style={{ paddingBottom: "max(1rem, env(safe-area-inset-bottom))" }}
+          >
             {footer}
           </div>
         )}
