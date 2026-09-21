@@ -410,7 +410,7 @@ export function LogTradeModal({ editing, onClose }) {
       </button>
 
       {advanced && <>
-      <section className="mb-4 rounded-xl border border-prism-line bg-[#09101f] p-3.5 sm:p-4">
+      <section className="mb-4 rounded-xl border border-prism-line2 bg-prism-panel2/60 p-3.5 sm:p-4">
         <div className="mb-4">
           <p className="text-sm font-bold text-white">{lang === "en" ? "Psychology before entry" : "Psycho avant l'entrée"}</p>
           <p className="mt-1 text-[11px] leading-relaxed text-prism-muted">{lang === "en" ? "Nothing is scored here. Fill it in honestly to spot your patterns." : "Rien n'est noté ici. Réponds honnêtement pour repérer tes schémas."}</p>
@@ -418,13 +418,13 @@ export function LogTradeModal({ editing, onClose }) {
         <div className="space-y-3.5">
           {[{ key: "emotional", fr: "État émotionnel", en: "Emotional state", hintFr: "1 = agité, 5 = stable", hintEn: "1 = rattled, 5 = steady" }, { key: "focus", fr: "Niveau de focus", en: "Focus level", hintFr: "1 = dispersé, 5 = très net", hintEn: "1 = scattered, 5 = sharp" }, { key: "confidence", fr: "Confiance", en: "Confidence", hintFr: "1 = incertain, 5 = certain", hintEn: "1 = unsure, 5 = certain" }].map((metric) => {
             const value = Number(f.psychology?.[metric.key] || 0);
-            return <div key={metric.key} className="flex items-center justify-between gap-3"><div><p className="text-xs font-semibold text-white">{lang === "en" ? metric.en : metric.fr}</p><p className="mt-0.5 text-[10px] text-prism-muted2">{lang === "en" ? metric.hintEn : metric.hintFr}</p></div><div className="flex gap-1.5">{[1, 2, 3, 4, 5].map((n) => <button key={n} type="button" aria-label={`${metric.key} ${n}/5`} onClick={() => set("psychology", { ...DEFAULT_PSYCHOLOGY, ...(f.psychology || {}), [metric.key]: n })} className={`h-4 w-4 rounded-full transition ${n <= value ? "bg-prism-accent shadow-[0_0_10px_rgba(59,130,246,.8)]" : "bg-white/10 hover:bg-white/20"}`} />)}</div></div>;
+            return <div key={metric.key} className="flex items-center justify-between gap-3"><div><p className="text-xs font-semibold text-white">{lang === "en" ? metric.en : metric.fr}</p><p className="mt-0.5 text-[10px] text-prism-muted2">{lang === "en" ? metric.hintEn : metric.hintFr}</p></div><div className="flex gap-1.5">{[1, 2, 3, 4, 5].map((n) => <button key={n} type="button" aria-label={`${metric.key} ${n}/5`} onClick={() => set("psychology", { ...DEFAULT_PSYCHOLOGY, ...(f.psychology || {}), [metric.key]: n })} className={`h-4 w-4 rounded-full transition ${n <= value ? "bg-prism-accent ring-2 ring-prism-accent/20" : "bg-white/10 hover:bg-white/20"}`} />)}</div></div>;
           })}
         </div>
         <div className="my-4 h-px bg-prism-line" />
         <div className="space-y-2.5">{PSYCHO_CHECKS.map((item) => {
           const checked = (f.psychology?.checks || []).includes(item.key);
-          return <button key={item.key} type="button" onClick={() => set("psychology", { ...DEFAULT_PSYCHOLOGY, ...(f.psychology || {}), checks: checked ? (f.psychology?.checks || []).filter((key) => key !== item.key) : [...(f.psychology?.checks || []), item.key] })} className="flex w-full items-center gap-3 text-left text-xs text-prism-muted hover:text-white"><span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${checked ? "border-prism-accent bg-prism-accent text-black shadow-[0_0_10px_rgba(59,130,246,.65)]" : "border-prism-muted2 bg-black/20"}`}>{checked && <Check className="h-3.5 w-3.5 stroke-[3]" />}</span>{lang === "en" ? item.en : item.fr}</button>;
+          return <button key={item.key} type="button" onClick={() => set("psychology", { ...DEFAULT_PSYCHOLOGY, ...(f.psychology || {}), checks: checked ? (f.psychology?.checks || []).filter((key) => key !== item.key) : [...(f.psychology?.checks || []), item.key] })} className="flex w-full items-center gap-3 text-left text-xs text-prism-muted hover:text-white"><span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${checked ? "border-prism-accent bg-prism-accent text-black ring-2 ring-prism-accent/20" : "border-prism-muted2 bg-black/20"}`}>{checked && <Check className="h-3.5 w-3.5 stroke-[3]" />}</span>{lang === "en" ? item.en : item.fr}</button>;
         })}</div>
       </section>
 
