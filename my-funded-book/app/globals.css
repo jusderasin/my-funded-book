@@ -419,3 +419,26 @@ input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.7); }
 :root[data-theme="signal"] .journal-pulse { background:var(--prism-panel); }
 :root[data-theme="signal"] .journal-edge { border-radius:8px; border-color:var(--prism-line); background:#0b0b0b; }
 :root[data-theme="signal"] .trade-log-modal { box-shadow:0 30px 90px rgba(0,0,0,.8); }
+
+/* Trading workspace proportions: information grid before decoration. */
+:root[data-theme="signal"] .dashboard-command { max-width:none; padding-top:20px; }
+:root[data-theme="signal"] .dashboard-command > .dashboard-top { min-height:0; padding:0 0 16px; }
+:root[data-theme="signal"] .dashboard-command h1 { font-size:1.5rem; letter-spacing:-.04em; }
+:root[data-theme="signal"] .dashboard-kpi { min-height:104px; padding:14px 16px; background:#101010; }
+:root[data-theme="signal"] .dashboard-kpi-icon { width:23px; height:23px; border-color:rgba(167,139,250,.38); background:transparent; color:#a78bfa; }
+:root[data-theme="signal"] .dashboard-kpi > div:nth-child(2) { margin-top:8px; font-size:1.65rem; }
+:root[data-theme="signal"] .dashboard-streak { border-radius:8px; background:#0d0d0d; }
+:root[data-theme="signal"] .dashboard-score-card,
+:root[data-theme="signal"] .dashboard-chart-card,
+:root[data-theme="signal"] .dashboard-models-card,
+:root[data-theme="signal"] .dashboard-recent-card,
+:root[data-theme="signal"] .dashboard-calendar-card,
+:root[data-theme="signal"] .dashboard-equity-card,
+:root[data-theme="signal"] .dashboard-dd-card { border-radius:8px; background:#101010; }
+:root[data-theme="signal"] .dashboard-models-card { min-height:360px; }
+:root[data-theme="signal"] .dashboard-score-card { padding:18px; }
+:root[data-theme="signal"] .dashboard-score-card .space-y-3 { display:none; }
+:root[data-theme="signal"] .dashboard-chart-card { padding:18px; }
+:root[data-theme="signal"] .dashboard-chart-card .mt-6 { margin-top:20px; }
+:root[data-theme="signal"] .dashboard-calendar-card .grid > div { border-radius:3px; }
+@media (max-width:1279px) { :root[data-theme="signal"] .dashboard-models-card { min-height:0; } }

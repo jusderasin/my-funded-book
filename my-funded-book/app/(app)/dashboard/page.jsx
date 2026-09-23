@@ -1,6 +1,6 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useMemo } from "react";
 import { useBook } from "@/components/BookProvider";
 import { Modal, GhostBtn } from "@/components/ui";
 import { Area, Bars, Calendar } from "@/components/charts";
@@ -74,6 +74,17 @@ export default function DashboardPage() {
   trades.forEach((tr) => { tradesByDay[tr.date] = (tradesByDay[tr.date] || 0) + 1; });
   const recent = trades.slice(0, 8);
   const dayTrades = dayKey ? trades.filter((tr) => tr.date === dayKey) : [];
+  const models = useMemo(() => {
+    const groups = new Map();
+    trades.forEach((trade) => {
+      const name = trade.setup || "Freestyle trading";
+      const group = groups.get(name) || { name, trades: 0, wins: 0, pnl: 0, losses: 0 };
+      group.trades += 1; group.pnl += Number(trade.pnl || 0);
+      if (Number(trade.pnl || 0) >= 0) group.wins += 1; else group.losses += 1;
+      groups.set(name, group);
+    });
+    return [...groups.values()].sort((a, b) => b.pnl - a.pnl).slice(0, 4);
+  }, [trades]);
 
   // --- Vue "Psych" du calendrier : état mental moyen par jour, dérivé du champ emotion ---
   const psychSums = {};
@@ -219,7 +230,7 @@ export default function DashboardPage() {
       </Card>
 
       {/* Row : PRISM Score + Charts */}
-      <div className="mb-4 grid gap-4 lg:grid-cols-[390px_1fr]">
+      <div className="mb-4 grid gap-4 xl:grid-cols-[280px_1.25fr_.9fr]">
         {/* PRISM Score card */}
         <Card padding="p-6" className="dashboard-score-card overflow-hidden">
           <div className="dashboard-score-orbit" aria-hidden="true" />
@@ -278,6 +289,20 @@ export default function DashboardPage() {
           />
           <SectionHeader className="mt-6">{t("net_daily")}</SectionHeader>
           <Bars byDay={s.byDay} days={s.days} labels={s.days.map(frDate)} />
+        </Card>
+
+        <Card padding="p-0" className="dashboard-models-card overflow-hidden">
+          <div className="flex items-center justify-between border-b border-prism-line px-4 py-4">
+            <SectionHeader className="mb-0">Models</SectionHeader>
+            <span className="rounded-md border border-prism-line px-2 py-1 text-[10px] font-semibold text-prism-muted">{models.length}</span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full min-w-[360px] text-left">
+              <thead className="border-b border-prism-line bg-white/[0.015] text-[9px] uppercase tracking-widest text-prism-muted2"><tr><th className="px-4 py-3 font-semibold">Model</th><th className="px-3 py-3 text-right font-semibold">Trades</th><th className="px-3 py-3 text-right font-semibold">Win rate</th><th className="px-4 py-3 text-right font-semibold">P&L</th></tr></thead>
+              <tbody>{models.length ? models.map((model, index) => <tr key={model.name} className="border-b border-prism-line last:border-0"><td className="px-4 py-4 text-xs font-semibold text-white"><span className="mr-2 font-mono text-prism-muted2">#{index + 1}</span>{model.name}</td><td className="px-3 py-4 text-right font-mono text-xs text-prism-muted">{model.trades}</td><td className="px-3 py-4 text-right font-mono text-xs text-prism-muted">{((model.wins / model.trades) * 100).toFixed(0)}%</td><td className={`px-4 py-4 text-right font-mono text-xs font-bold ${model.pnl >= 0 ? "text-prism-win" : "text-prism-loss"}`}>{model.pnl >= 0 ? "+" : ""}{fmtMoney(model.pnl)}</td></tr>) : <tr><td colSpan="4" className="px-4 py-14 text-center text-xs text-prism-muted2">Ajoute un trade pour créer ton premier modèle.</td></tr>}</tbody>
+            </table>
+          </div>
+          <div className="border-t border-dashed border-prism-line px-4 py-3 text-center text-xs font-semibold text-prism-muted">+ Ajouter un modèle</div>
         </Card>
       </div>
 
