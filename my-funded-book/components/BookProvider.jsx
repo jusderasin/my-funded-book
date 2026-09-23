@@ -10,7 +10,7 @@ export const useBook = () => useContext(BookCtx);
 
 const SUPPORTED_THEMES = new Set(["signal", "blue", "dark", "oled", "darker", "cyberpunk"]);
 const THEME_FALLBACKS = {
-  signal: { accent: "#a78bfa", loss: "#ff6b81" },
+  signal: { accent: "#f4f4f5", loss: "#ff647c" },
   blue: { accent: "#3b82f6", loss: "#ef4444" },
   dark: { accent: "#3b82f6", loss: "#ef4444" },
   oled: { accent: "#3b82f6", loss: "#ef4444" },
@@ -34,15 +34,16 @@ function applyProfileVars(p) {
   // Le thème Terminal Violet est une direction visuelle complète : il ne doit
   // pas être recoloré par les anciens accents verts enregistrés dans le profil.
   const accent = selectedTheme === "signal" ? fallback.accent : (p.accent_gain || fallback.accent);
+  const prismAccent = selectedTheme === "signal" ? "#a78bfa" : accent;
   const loss = selectedTheme === "signal" ? fallback.loss : (p.accent_loss || fallback.loss);
   const root = document.documentElement;
 
   root.style.setProperty("--accent", accent);
   root.style.setProperty("--loss", loss);
-  root.style.setProperty("--prism-accent", accent);
-  root.style.setProperty("--prism-accent-soft", accent);
-  root.style.setProperty("--prism-accent-dim", hexToRgba(accent, 0.13));
-  root.style.setProperty("--prism-win", accent);
+  root.style.setProperty("--prism-accent", prismAccent);
+  root.style.setProperty("--prism-accent-soft", prismAccent);
+  root.style.setProperty("--prism-accent-dim", hexToRgba(prismAccent, 0.13));
+  root.style.setProperty("--prism-win", selectedTheme === "signal" ? "#4ade80" : accent);
   root.style.setProperty("--prism-loss", loss);
   if (selectedTheme === "blue") root.removeAttribute("data-theme");
   else root.setAttribute("data-theme", selectedTheme);

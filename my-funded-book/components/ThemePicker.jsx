@@ -12,9 +12,9 @@ const SUPPORTED_THEME_IDS = new Set(["signal", "blue", "dark", "oled", "darker",
 const THEMES = [
   {
     id: "signal",
-    labelFr: "Terminal Violet",
-    labelEn: "Terminal Violet",
-    tokens: { ink: "#08080b", panel: "#101014", panel2: "#18171e", line: "rgba(214,196,255,.15)", muted: "#aaa5b5", accent: "#a78bfa" },
+    labelFr: "Terminal Noir",
+    labelEn: "Black Terminal",
+    tokens: { ink: "#070707", panel: "#101010", panel2: "#151515", line: "rgba(255,255,255,.10)", muted: "#96969d", accent: "#a78bfa" },
   },
   {
     id: "blue",

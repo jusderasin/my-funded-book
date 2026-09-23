@@ -50,7 +50,7 @@
   --prism-loss: #ef4444;
 }
 
-/* Terminal Violet - graphite profond, accent violet, inspiration terminal premium. */
+/* Terminal Noir - interface mate et compacte, avec violet utilisé seulement comme repère. */
 :root[data-theme="signal"] {
   color-scheme: dark;
   --ink: #08080b;
@@ -59,24 +59,24 @@
   --panel2: #18171e;
   --line: rgba(214, 196, 255, 0.12);
   --line2: rgba(214, 196, 255, 0.20);
-  --muted: #aaa5b5;
-  --muted2: #716d7b;
-  --accent: #a78bfa;
-  --loss: #ff6b81;
-  --prism-bg: #08080b;
-  --prism-surface: #0b0a0e;
-  --prism-panel: #101014;
-  --prism-panel2: #18171e;
-  --prism-line: rgba(214, 196, 255, 0.12);
-  --prism-line2: rgba(214, 196, 255, 0.20);
-  --prism-text: #f5f3ff;
-  --prism-muted: #aaa5b5;
-  --prism-muted2: #716d7b;
+  --muted: #99999f;
+  --muted2: #606066;
+  --accent: #f4f4f5;
+  --loss: #ff647c;
+  --prism-bg: #070707;
+  --prism-surface: #0a0a0a;
+  --prism-panel: #101010;
+  --prism-panel2: #151515;
+  --prism-line: rgba(255, 255, 255, 0.09);
+  --prism-line2: rgba(255, 255, 255, 0.16);
+  --prism-text: #f5f5f5;
+  --prism-muted: #99999f;
+  --prism-muted2: #606066;
   --prism-accent: #a78bfa;
   --prism-accent-soft: #c4b5fd;
-  --prism-accent-dim: rgba(167, 139, 250, 0.14);
-  --prism-win: #55d99a;
-  --prism-loss: #ff6b81;
+  --prism-accent-dim: rgba(167, 139, 250, 0.10);
+  --prism-win: #4ade80;
+  --prism-loss: #ff647c;
 }
 
 /* Classique — ancien thème par défaut, conservé pour ceux qui le préfèrent */
@@ -379,3 +379,43 @@ input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.7); }
 .trade-command { background:radial-gradient(680px 330px at 85% 0%,color-mix(in srgb,var(--prism-accent) 16%,transparent),transparent 66%),var(--prism-bg); }.trade-command-grid { background-image:linear-gradient(90deg,color-mix(in srgb,var(--prism-accent) 8%,transparent) 1px,transparent 1px),linear-gradient(color-mix(in srgb,var(--prism-accent) 8%,transparent) 1px,transparent 1px); }.trade-command-header:after { background:var(--prism-accent); box-shadow:0 0 18px var(--prism-accent); }.trade-quality-pill { border-color:color-mix(in srgb,var(--prism-accent) 28%,transparent); color:var(--prism-accent-soft); background:var(--prism-accent-dim); }.trade-primary-action,.trade-empty-action { color:#100d18; background:var(--prism-accent); box-shadow:0 11px 26px -15px color-mix(in srgb,var(--prism-accent) 80%,transparent); }.trade-primary-action:hover,.trade-empty-action:hover { box-shadow:0 15px 31px -15px var(--prism-accent); }.trade-tile:hover { box-shadow:inset 0 1px 0 rgba(255,255,255,.05),0 25px 45px -31px color-mix(in srgb,var(--prism-accent) 48%,transparent); }.trade-tile:before { background:linear-gradient(125deg,color-mix(in srgb,var(--prism-accent) 16%,transparent),transparent 28%,transparent 70%,rgba(255,255,255,.03)); }.trade-empty { background:radial-gradient(380px 200px at 50% 35%,color-mix(in srgb,var(--prism-accent) 12%,transparent),transparent 70%),var(--prism-panel); }
 .trade-log-modal { box-shadow:0 30px 100px -30px color-mix(in srgb,var(--prism-accent) 42%,transparent),0 32px 80px rgba(0,0,0,.82); }.trade-log-modal:before { content:""; pointer-events:none; position:absolute; inset:0; border-radius:inherit; background:linear-gradient(135deg,color-mix(in srgb,var(--prism-accent) 8%,transparent),transparent 30%); }
 @media (max-width:640px) { .journal-pulse { grid-template-columns:1fr; }.journal-edge { min-height:0; }.journal-grid { background-size:30px 30px; } }
+
+/* Black Terminal reset: quiet surfaces, functional contrast, no neon lighting. */
+:root[data-theme="signal"] .dashboard-command,
+:root[data-theme="signal"] .trade-command,
+:root[data-theme="signal"] .journal-command { background:var(--prism-bg); }
+:root[data-theme="signal"] .dashboard-aurora,
+:root[data-theme="signal"] .dashboard-chart-light,
+:root[data-theme="signal"] .trade-command-grid,
+:root[data-theme="signal"] .journal-grid { display:none; }
+:root[data-theme="signal"] .dashboard-top,
+:root[data-theme="signal"] .journal-header { border-color:var(--prism-line); }
+:root[data-theme="signal"] .dashboard-top:after,
+:root[data-theme="signal"] .trade-command-header:after,
+:root[data-theme="signal"] .journal-header:after,
+:root[data-theme="signal"] .journal-metric:after { background:#a78bfa; box-shadow:none; }
+:root[data-theme="signal"] .dashboard-kpi,
+:root[data-theme="signal"] .journal-metric,
+:root[data-theme="signal"] .trade-tile,
+:root[data-theme="signal"] .trade-toolbar,
+:root[data-theme="signal"] .journal-pulse { border-radius:10px; box-shadow:none; }
+:root[data-theme="signal"] .dashboard-kpi:hover,
+:root[data-theme="signal"] .journal-metric:hover,
+:root[data-theme="signal"] .trade-tile:hover { transform:none; border-color:rgba(255,255,255,.2); box-shadow:none; }
+:root[data-theme="signal"] .dashboard-kpi:after { background:#a78bfa; box-shadow:none; }
+:root[data-theme="signal"] .dashboard-kpi-ray,
+:root[data-theme="signal"] .journal-pulse:before { display:none; }
+:root[data-theme="signal"] .dashboard-status-pill,
+:root[data-theme="signal"] .trade-quality-pill,
+:root[data-theme="signal"] .journal-live { border-color:var(--prism-line); color:var(--prism-muted); background:transparent; }
+:root[data-theme="signal"] .dashboard-live-dot,
+:root[data-theme="signal"] .journal-live span { background:#a78bfa; box-shadow:none; }
+:root[data-theme="signal"] .trade-primary-action,
+:root[data-theme="signal"] .trade-empty-action { color:#090909; background:#f4f4f5; border-radius:7px; box-shadow:none; }
+:root[data-theme="signal"] .trade-primary-action:hover,
+:root[data-theme="signal"] .trade-empty-action:hover { transform:none; filter:none; box-shadow:none; background:#ffffff; }
+:root[data-theme="signal"] .trade-tile:before,
+:root[data-theme="signal"] .trade-log-modal:before { display:none; }
+:root[data-theme="signal"] .journal-pulse { background:var(--prism-panel); }
+:root[data-theme="signal"] .journal-edge { border-radius:8px; border-color:var(--prism-line); background:#0b0b0b; }
+:root[data-theme="signal"] .trade-log-modal { box-shadow:0 30px 90px rgba(0,0,0,.8); }
