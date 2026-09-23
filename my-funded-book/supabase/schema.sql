@@ -35,6 +35,15 @@ create table if not exists public.accounts (
   status text not null default 'active',          -- active | passed | funded | failed | paid
   date date not null default current_date,
   note text,
+  daily_loss_limit numeric,
+  max_drawdown numeric,
+  profit_target numeric,
+  trailing_drawdown boolean default true,
+  trailing_type text default 'intraday',
+  trailing_lock_offset numeric default 0,
+  payout_min numeric,
+  payout_cycle_days integer,
+  min_trading_days integer,
   created_at timestamptz not null default now()
 );
 
@@ -53,6 +62,7 @@ create table if not exists public.trades (
   tags text[] default '{}',
   why text,
   plan boolean not null default true,
+  account_id uuid references public.accounts(id) on delete set null,
   screenshot_url text,
   strategy_checks text[] default '{}',
   created_at timestamptz not null default now()
@@ -68,6 +78,19 @@ create table if not exists public.reviews (
   focus text,
   updated_at timestamptz not null default now(),
   unique (user_id, week_of)
+);
+
+-- ---------- DAILY REVIEWS (rituel de fin de session) ----------
+create table if not exists public.daily_reviews (
+  id uuid primary key default gen_random_uuid(),
+  user_id uuid not null default auth.uid() references auth.users(id) on delete cascade,
+  date date not null default current_date,
+  mindset text,
+  respected_plan boolean,
+  lesson text,
+  intention text,
+  updated_at timestamptz not null default now(),
+  unique (user_id, date)
 );
 
 -- ---------- PLAYBOOKS (setups) ----------
@@ -112,6 +135,7 @@ alter table public.subscriptions enable row level security;
 alter table public.accounts      enable row level security;
 alter table public.trades        enable row level security;
 alter table public.reviews       enable row level security;
+alter table public.daily_reviews enable row level security;
 alter table public.playbooks     enable row level security;
 alter table public.certificates  enable row level security;
 alter table public.expenses      enable row level security;
@@ -130,6 +154,8 @@ create policy "accounts_all_own" on public.accounts
 create policy "trades_all_own" on public.trades
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "reviews_all_own" on public.reviews
+  for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
+create policy "daily_reviews_all_own" on public.daily_reviews
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
 create policy "playbooks_all_own" on public.playbooks
   for all using (auth.uid() = user_id) with check (auth.uid() = user_id);
@@ -164,6 +190,7 @@ create trigger on_auth_user_created
 
 -- ---- Index utiles ----
 create index if not exists idx_trades_user_date on public.trades(user_id, date);
+create index if not exists idx_daily_reviews_user_date on public.daily_reviews(user_id, date);
 create index if not exists idx_accounts_user on public.accounts(user_id);
 create index if not exists idx_certs_user on public.certificates(user_id);
 create index if not exists idx_expenses_user on public.expenses(user_id);

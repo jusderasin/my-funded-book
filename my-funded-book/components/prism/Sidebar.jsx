@@ -7,6 +7,7 @@ import BrandMark from "@/components/BrandMark";
 
 export const NAV_ITEMS = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
+  { icon: ClipboardList, label: "Journal", href: "/journal" },
   { icon: List, label: "Trade Logs", href: "/trade-logs" },
   { icon: BarChart3, label: "Analytics", href: "/breakdown" },
   { icon: Calendar, label: "Calendar", href: "/calendar" },

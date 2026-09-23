@@ -10,7 +10,7 @@ export const useBook = () => useContext(BookCtx);
 
 const SUPPORTED_THEMES = new Set(["signal", "blue", "dark", "oled", "darker", "cyberpunk"]);
 const THEME_FALLBACKS = {
-  signal: { accent: "#8cff4f", loss: "#ff6d6d" },
+  signal: { accent: "#a78bfa", loss: "#ff6b81" },
   blue: { accent: "#3b82f6", loss: "#ef4444" },
   dark: { accent: "#3b82f6", loss: "#ef4444" },
   oled: { accent: "#3b82f6", loss: "#ef4444" },
@@ -31,8 +31,10 @@ function applyProfileVars(p) {
   if (typeof document === "undefined" || !p) return;
   const selectedTheme = SUPPORTED_THEMES.has(p.theme) ? p.theme : "signal";
   const fallback = THEME_FALLBACKS[selectedTheme];
-  const accent = p.accent_gain || fallback.accent;
-  const loss = p.accent_loss || fallback.loss;
+  // Le thème Terminal Violet est une direction visuelle complète : il ne doit
+  // pas être recoloré par les anciens accents verts enregistrés dans le profil.
+  const accent = selectedTheme === "signal" ? fallback.accent : (p.accent_gain || fallback.accent);
+  const loss = selectedTheme === "signal" ? fallback.loss : (p.accent_loss || fallback.loss);
   const root = document.documentElement;
 
   root.style.setProperty("--accent", accent);
@@ -70,10 +72,14 @@ export function BookProvider({ user, children }) {
   const [profile, setProfile] = useState({ name: "trader", pin: "1234", starting_balance: 0 });
   const [trades, setTrades] = useState([]);
   const [accounts, setAccounts] = useState([]);
+  // Un seul contexte de trading à la fois : les métriques et le journal ne
+  // peuvent donc jamais agréger par erreur deux comptes prop firm différents.
+  const [activeAccountId, setActiveAccountIdState] = useState(null);
   const [certificates, setCertificates] = useState([]);
   const [expenses, setExpenses] = useState([]);
   const [playbooks, setPlaybooks] = useState([]);
   const [reviews, setReviews] = useState([]);
+  const [dailyReviews, setDailyReviews] = useState([]);
   const [subscription, setSubscription] = useState(null);
   const [toast, setToast] = useState(null);
 
@@ -86,6 +92,34 @@ export function BookProvider({ user, children }) {
     if (saved) setLangState(saved);
   }, []);
 
+  useEffect(() => {
+    try {
+      const saved = localStorage.getItem("mfb.activeAccountId");
+      if (saved) setActiveAccountIdState(saved);
+    } catch {}
+  }, []);
+
+  const setActiveAccountId = useCallback((id) => {
+    const next = id || null;
+    setActiveAccountIdState(next);
+    try {
+      if (next) localStorage.setItem("mfb.activeAccountId", next);
+      else localStorage.removeItem("mfb.activeAccountId");
+    } catch {}
+  }, []);
+
+  useEffect(() => {
+    if (!accounts.length) {
+      if (activeAccountId) setActiveAccountId(null);
+      return;
+    }
+    if (activeAccountId && accounts.some((account) => account.id === activeAccountId)) return;
+    const preferred = accounts.find((account) => account.type === "funded" && account.status === "active")
+      || accounts.find((account) => account.status === "active")
+      || accounts[0];
+    setActiveAccountId(preferred.id);
+  }, [accounts, activeAccountId, setActiveAccountId]);
+
   const setLang = useCallback((l) => {
     setLangState(l);
     if (typeof window !== "undefined") localStorage.setItem("lang", l);
@@ -95,7 +129,7 @@ export function BookProvider({ user, children }) {
 
   const loadAll = useCallback(async () => {
     setLoading(true);
-    const [p, t, a, c, e, pb, rv, s] = await Promise.all([
+    const [p, t, a, c, e, pb, rv, dr, s] = await Promise.all([
       supabase.from("profiles").select("*").eq("id", user.id).single(),
       supabase.from("trades").select("*").order("date", { ascending: false }),
       supabase.from("accounts").select("*").order("date", { ascending: false }),
@@ -103,6 +137,7 @@ export function BookProvider({ user, children }) {
       supabase.from("expenses").select("*").order("date", { ascending: false }),
       supabase.from("playbooks").select("*").order("created_at", { ascending: true }),
       supabase.from("reviews").select("*").order("week_of", { ascending: false }),
+      supabase.from("daily_reviews").select("*").order("date", { ascending: false }),
       supabase.from("subscriptions").select("*").eq("user_id", user.id).maybeSingle(),
     ]);
     if (p.data) {
@@ -115,6 +150,7 @@ export function BookProvider({ user, children }) {
     setExpenses(e.data || []);
     setPlaybooks(pb.data || []);
     setReviews(rv.data || []);
+    setDailyReviews(dr.data || []);
     setSubscription(s.data || null);
     setLoading(false);
   }, [supabase, user.id]);
@@ -242,6 +278,13 @@ export function BookProvider({ user, children }) {
       });
       notify("Review sauvegardée ✓");
     },
+    saveDailyReview: async (date, fields) => {
+      const { data, error } = await supabase.from("daily_reviews").upsert({ date, ...fields, updated_at: new Date().toISOString() }, { onConflict: "user_id,date" }).select().single();
+      if (error) return notify(error.message, true);
+      setDailyReviews((prev) => [data, ...prev.filter((item) => item.date !== date)]);
+      notify("Revue du jour sauvegardée");
+      return data;
+    },
     notify,
     reload: loadAll,
   };
@@ -249,6 +292,24 @@ export function BookProvider({ user, children }) {
   const stats = useMemo(
     () => computeStats(trades, Number(profile.starting_balance) || 0),
     [trades, profile.starting_balance]
+  );
+
+  const activeAccount = useMemo(
+    () => accounts.find((account) => account.id === activeAccountId) || null,
+    [accounts, activeAccountId]
+  );
+  const scopedTrades = useMemo(
+    () => (activeAccount ? trades.filter((trade) => trade.account_id === activeAccount.id) : trades)
+      .slice()
+      .sort((a, b) => {
+        const dateOrder = String(b.date || "").localeCompare(String(a.date || ""));
+        return dateOrder || String(b.created_at || "").localeCompare(String(a.created_at || ""));
+      }),
+    [trades, activeAccount]
+  );
+  const scopedStats = useMemo(
+    () => computeStats(scopedTrades, Number(activeAccount?.size) || Number(profile.starting_balance) || 0),
+    [scopedTrades, activeAccount, profile.starting_balance]
   );
 
   // Trades toujours triés par DATE du trade (récent en haut), puis par date d'ajout.
@@ -271,10 +332,16 @@ export function BookProvider({ user, children }) {
     profile,
     trades: sortedTrades,
     accounts,
+    activeAccount,
+    activeAccountId,
+    setActiveAccountId,
+    scopedTrades,
+    scopedStats,
     certificates,
     expenses,
     playbooks,
     reviews,
+    dailyReviews,
     subscription,
     stats,
     toast,

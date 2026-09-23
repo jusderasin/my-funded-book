@@ -15,7 +15,7 @@ import { Activity, ArrowUpRight, Flame, Sparkles, Target, Settings2, X } from "l
 const KPI_STORAGE_KEY = "mfb.dashboard.kpis";
 
 export default function DashboardPage() {
-  const { stats: s, profile, trades, t, lang } = useBook();
+  const { scopedStats: s, scopedTrades: trades, accounts, activeAccount, activeAccountId, setActiveAccountId, t, lang } = useBook();
   const L = lang === "en" ? "en" : "fr";
   const [cal, setCal] = useState(() => {
     const last = s.days[s.days.length - 1] || new Date().toISOString().slice(0, 10);
@@ -152,6 +152,29 @@ export default function DashboardPage() {
         </button>
         </div>
       </div>}
+
+      {accounts.length > 0 && (
+        <div className="relative z-10 mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-prism-line bg-prism-panel p-3 sm:px-4">
+          <div>
+            <div className="text-[10px] font-semibold uppercase tracking-widest text-prism-muted2">{L === "en" ? "Dashboard workspace" : "Espace dashboard"}</div>
+            <div className="mt-1 text-sm font-semibold text-white">
+              {activeAccount ? `${activeAccount.firm} · ${activeAccount.type === "funded" || activeAccount.status === "funded" ? "Funded" : "Challenge"} · ${activeAccount.size?.toLocaleString?.() || activeAccount.size}$` : (L === "en" ? "All accounts" : "Tous les comptes")}
+            </div>
+          </div>
+          <select
+            value={activeAccountId || ""}
+            onChange={(event) => setActiveAccountId(event.target.value)}
+            className="rounded-xl border border-prism-line2 bg-black/30 px-3 py-2 text-sm font-semibold text-white outline-none focus:border-prism-accent"
+            aria-label={L === "en" ? "Select dashboard account" : "Sélectionner le compte du dashboard"}
+          >
+            {accounts.map((account) => (
+              <option key={account.id} value={account.id}>
+                {account.firm} · {account.type === "funded" || account.status === "funded" ? "Funded" : "Challenge"} · {account.size}$ {account.note ? `· ${account.note}` : ""}
+              </option>
+            ))}
+          </select>
+        </div>
+      )}
 
       {/* KPIs grid */}
       <div className={`mb-4 ${gridCls}`}>
@@ -403,7 +426,7 @@ export default function DashboardPage() {
           </div>
           <div className="mb-2 text-xs text-prism-muted2">
             {t("starting_balance_lbl")}{" "}
-            <span className="font-mono text-white tabular-nums">{fmtMoney(profile.starting_balance)}</span>
+            <span className="font-mono text-white tabular-nums">{fmtMoney(s.startingBalance)}</span>
           </div>
           <Area
             values={s.curve.map((c) => c.eq)}

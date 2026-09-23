@@ -54,7 +54,7 @@ const PRISM_INPUT =
 const PRISM_SELECT =
   "w-full rounded-xl border border-prism-line bg-black/40 px-3 py-2.5 text-sm text-white focus:border-prism-accent focus:outline-none transition-colors appearance-none cursor-pointer";
 
-function PrismModal({ title, onClose, footer, children, maxWidth = "max-w-2xl" }) {
+function PrismModal({ title, onClose, footer, children, maxWidth = "max-w-2xl", className = "" }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4">
       <div
@@ -63,7 +63,7 @@ function PrismModal({ title, onClose, footer, children, maxWidth = "max-w-2xl" }
         aria-hidden="true"
       />
       <div
-        className={`relative z-10 flex h-[100dvh] max-h-[100dvh] w-full ${maxWidth} flex-col rounded-none border border-prism-line bg-prism-panel shadow-2xl sm:h-auto sm:max-h-[92vh] sm:rounded-2xl`}
+        className={`relative z-10 flex h-[100dvh] max-h-[100dvh] w-full ${maxWidth} flex-col rounded-none border border-prism-line bg-prism-panel shadow-2xl sm:h-auto sm:max-h-[92vh] sm:rounded-2xl ${className}`}
       >
         <div
           className="flex items-center justify-between border-b border-prism-line px-4 py-4 shrink-0 sm:px-6"
@@ -172,8 +172,9 @@ function PrismDangerBtn({ children, onClick, className = "", type = "button", di
 /* ================================================================== */
 
 export function LogTradeModal({ editing, onClose }) {
-  const { addTrade, updateTrade, playbooks, accounts, trades, notify, t, lang } = useBook();
+  const { addTrade, updateTrade, playbooks, accounts, activeAccountId, trades, notify, t, lang } = useBook();
   const defaultAccountId =
+    activeAccountId ||
     accounts.find((a) => a.type === "funded" && a.status === "active")?.id ||
     accounts.find((a) => a.status === "active")?.id ||
     accounts[0]?.id ||
@@ -256,6 +257,7 @@ export function LogTradeModal({ editing, onClose }) {
     <PrismModal
       title={editing ? t("m_edit_trade") : t("m_log_trade")}
       onClose={onClose}
+      className="trade-log-modal"
       footer={
         <>
           <PrismGhostBtn className="flex-1" onClick={onClose}>{t("m_cancel")}</PrismGhostBtn>

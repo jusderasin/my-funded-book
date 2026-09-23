@@ -16,7 +16,7 @@ import { Search, Grid3x3, List, Plus, ImageOff, Upload, Trash2, Crosshair, ScanL
  * affiche tous les trades, avec ou sans capture.
  */
 export default function TradeLogsPage() {
-  const { trades, lang, deleteTrade } = useBook();
+  const { scopedTrades: trades, accounts, activeAccountId, setActiveAccountId, lang, deleteTrade } = useBook();
   const L = lang === "en" ? "en" : "fr";
 
   const [query, setQuery] = useState("");
@@ -81,6 +81,18 @@ export default function TradeLogsPage() {
 
       {/* Toolbar : search + view toggle */}
       <div className="trade-toolbar mb-5 flex flex-wrap items-center gap-3 rounded-2xl border border-prism-line bg-prism-panel/80 p-3 backdrop-blur">
+        {accounts.length > 0 && (
+          <select
+            value={activeAccountId || ""}
+            onChange={(event) => setActiveAccountId(event.target.value)}
+            className="rounded-xl border border-prism-line bg-black/30 px-3 py-2.5 text-sm font-semibold text-white outline-none focus:border-prism-accent"
+            aria-label={L === "en" ? "Filter trades by account" : "Filtrer les trades par compte"}
+          >
+            {accounts.map((account) => (
+              <option key={account.id} value={account.id}>{account.firm} · {account.type === "funded" ? "Funded" : "Challenge"} · {account.size}$</option>
+            ))}
+          </select>
+        )}
         <div className="relative min-w-[240px] flex-1">
           <Search className="absolute left-3 top-1/2 -translate-y-1/2 h-4 w-4 text-prism-muted2 pointer-events-none" />
           <input
