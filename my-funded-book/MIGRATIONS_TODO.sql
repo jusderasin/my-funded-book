@@ -7,6 +7,11 @@
 alter table public.profiles
   add column if not exists leaderboard_opt_in boolean not null default false;
 
+-- PostgreSQL ne permet pas de modifier les colonnes RETURNS TABLE d'une
+-- fonction existante. La fonction est uniquement une vue de lecture utilisée
+-- par l'écran Classement : on peut donc la remplacer sans toucher aux trades.
+drop function if exists public.get_leaderboard(text);
+
 create or replace function public.get_leaderboard(p_period text default 'month')
 returns table (
   user_id uuid,
