@@ -248,9 +248,13 @@ export function LogTradeModal({ editing, onClose }) {
       account_id: f.account_id || null,
       outcome: f.outcome || null,
     };
-    if (editing) await updateTrade(editing.id, row);
-    else await addTrade(row);
-    onClose();
+    // Un break-even est toujours neutre : il ne doit jamais conserver un
+    // ancien P&L ou R saisi avant le choix du résultat.
+    if (row.outcome === "BE") { row.r = 0; row.pnl = 0; }
+    const result = editing ? await updateTrade(editing.id, row) : await addTrade(row);
+    // Ne ferme pas le formulaire sur une erreur Supabase : l'utilisateur
+    // peut corriger et réessayer au lieu de croire que le bouton est inactif.
+    if (result) onClose();
   }
 
   return (

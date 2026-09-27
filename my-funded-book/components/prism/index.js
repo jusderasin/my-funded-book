@@ -8,3 +8,4 @@ export { default as Button } from "./Button";
 export { default as Sidebar } from "./Sidebar";
 export { default as AppHeader } from "./AppHeader";
 export { default as AppShellPrism } from "./AppShellPrism";
+export { SectionLabel, Segmented, Badge, ProgressBar, EmptyState as TerminalEmptyState, Modal as TerminalModal } from "./TerminalPrimitives";

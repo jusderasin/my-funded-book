@@ -91,7 +91,7 @@ export function Field({ label, children }) {
 }
 
 export const inputCls =
-  "w-full rounded-xl border border-line2 bg-panel2 px-3 py-2.5 text-[14px] text-white outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/15";
+  "h-10 w-full rounded-md border border-line bg-panel2 px-3 text-[14px] text-prism-text outline-none transition focus:border-accent focus:ring-2 focus:ring-accent/15";
 
 export function Chip({ active, danger, children, ...props }) {
   return (
@@ -132,7 +132,7 @@ export function SegTabs({ tabs, active, onChange }) {
 export function PrimaryBtn({ children, className = "", ...props }) {
   return (
     <button
-      className={`nova-cta inline-flex items-center justify-center gap-1.5 rounded-xl bg-accent px-4 py-2.5 text-[13px] font-bold text-white transition hover:brightness-110 ${className}`}
+      className={`inline-flex items-center justify-center gap-1.5 rounded-md bg-accent px-4 py-2.5 text-[11px] font-bold uppercase tracking-[.14em] text-[#061014] shadow-[0_0_18px_rgba(6,182,212,.18)] transition hover:brightness-110 ${className}`}
       {...props}
     >
       {children}
@@ -143,7 +143,7 @@ export function PrimaryBtn({ children, className = "", ...props }) {
 export function GhostBtn({ children, className = "", ...props }) {
   return (
     <button
-      className={`inline-flex items-center justify-center gap-1.5 rounded-xl border border-line2 bg-panel2 px-4 py-2.5 text-[13px] font-semibold text-white/90 transition hover:border-accent/40 hover:bg-white/[0.06] ${className}`}
+      className={`inline-flex items-center justify-center gap-1.5 rounded-md border border-line bg-panel2 px-4 py-2.5 text-[11px] font-semibold uppercase tracking-[.12em] text-prism-muted transition hover:border-line2 hover:text-prism-text ${className}`}
       {...props}
     >
       {children}

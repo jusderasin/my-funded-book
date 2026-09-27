@@ -1,3 +1,5 @@
+export const APP_VERSION = "2.0";
+
 export const FIRMS = {
   MFF: { n: "My Funded Futures", c: "#00d301" },
   Lucid: { n: "Lucid Trading", c: "#00d4a0" },

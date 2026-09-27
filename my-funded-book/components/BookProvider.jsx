@@ -8,8 +8,9 @@ import { translate } from "@/lib/i18n";
 const BookCtx = createContext(null);
 export const useBook = () => useContext(BookCtx);
 
-const SUPPORTED_THEMES = new Set(["signal", "blue", "dark", "oled", "darker", "cyberpunk"]);
+const SUPPORTED_THEMES = new Set(["prism", "signal", "blue", "dark", "oled", "darker", "cyberpunk"]);
 const THEME_FALLBACKS = {
+  prism: { accent: "#06b6d4", loss: "#ef4444" },
   signal: { accent: "#f4f4f5", loss: "#ff647c" },
   blue: { accent: "#3b82f6", loss: "#ef4444" },
   dark: { accent: "#3b82f6", loss: "#ef4444" },
@@ -29,13 +30,15 @@ function hexToRgba(hex, alpha) {
 // Si la colonne est vide, on garde le fallback défini dans tailwind.config.js / globals.css.
 function applyProfileVars(p) {
   if (typeof document === "undefined" || !p) return;
-  const selectedTheme = SUPPORTED_THEMES.has(p.theme) ? p.theme : "signal";
+  // Les profils existants utilisaient "signal" (violet). La V2 adopte PRISM
+  // noir/cyan comme identité par défaut sans exiger une migration de profil.
+  const selectedTheme = p.theme === "signal" ? "prism" : (SUPPORTED_THEMES.has(p.theme) ? p.theme : "prism");
   const fallback = THEME_FALLBACKS[selectedTheme];
   // Le thème Terminal Violet est une direction visuelle complète : il ne doit
   // pas être recoloré par les anciens accents verts enregistrés dans le profil.
-  const accent = selectedTheme === "signal" ? fallback.accent : (p.accent_gain || fallback.accent);
-  const prismAccent = selectedTheme === "signal" ? "#a78bfa" : accent;
-  const loss = selectedTheme === "signal" ? fallback.loss : (p.accent_loss || fallback.loss);
+  const accent = selectedTheme === "prism" || selectedTheme === "signal" ? fallback.accent : (p.accent_gain || fallback.accent);
+  const prismAccent = selectedTheme === "prism" ? "#06b6d4" : selectedTheme === "signal" ? "#a78bfa" : accent;
+  const loss = selectedTheme === "prism" || selectedTheme === "signal" ? fallback.loss : (p.accent_loss || fallback.loss);
   const root = document.documentElement;
 
   root.style.setProperty("--accent", accent);
@@ -43,7 +46,7 @@ function applyProfileVars(p) {
   root.style.setProperty("--prism-accent", prismAccent);
   root.style.setProperty("--prism-accent-soft", prismAccent);
   root.style.setProperty("--prism-accent-dim", hexToRgba(prismAccent, 0.13));
-  root.style.setProperty("--prism-win", selectedTheme === "signal" ? "#4ade80" : accent);
+  root.style.setProperty("--prism-win", selectedTheme === "signal" ? "#4ade80" : "#22c55e");
   root.style.setProperty("--prism-loss", loss);
   if (selectedTheme === "blue") root.removeAttribute("data-theme");
   else root.setAttribute("data-theme", selectedTheme);

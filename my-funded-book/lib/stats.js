@@ -2,7 +2,9 @@
 // à partir des trades bruts. Pure fonction, testable, sans effet de bord.
 
 export function computeStats(trades, startingBalance = 600000) {
-  const tr = trades || [];
+  // Les anciens enregistrements BE peuvent contenir un P&L résiduel. Pour
+  // toutes les statistiques, un résultat explicitement marqué BE est neutre.
+  const tr = (trades || []).map((trade) => trade?.outcome === "BE" ? { ...trade, pnl: 0, r: 0 } : trade);
   const wins = tr.filter((t) => t.pnl > 0);
   const losses = tr.filter((t) => t.pnl < 0);
   const net = tr.reduce((s, t) => s + Number(t.pnl || 0), 0);

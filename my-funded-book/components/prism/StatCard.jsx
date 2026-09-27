@@ -50,11 +50,11 @@ export default function StatCard({
             </span>
           )}
           {label && (
-            <span className="text-xs font-medium text-prism-muted">{label}</span>
+            <span className="text-[11px] font-semibold uppercase tracking-[0.18em] text-prism-muted">{label}</span>
           )}
         </div>
       )}
-      <div className={`${valueSize} font-bold tracking-tight tabular-nums ${toneClass}`}>
+      <div className={`${valueSize} font-mono font-bold tracking-tight tabular-nums ${toneClass}`}>
         {value}
       </div>
       {hint && (

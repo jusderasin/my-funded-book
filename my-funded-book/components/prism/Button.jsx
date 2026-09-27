@@ -37,20 +37,20 @@ export default function Button({
   const sizeCls = sizeClasses[size] || sizeClasses.md;
 
   const variantClasses = {
-    primary: "prism-primary bg-white text-black hover:bg-white/90 active:bg-white/80 shadow-prism-card",
+    primary: "prism-primary bg-prism-accent text-[#061014] hover:bg-prism-accentSoft active:bg-prism-accent shadow-[0_0_20px_rgba(6,182,212,.20)]",
     ghost:   "bg-transparent text-white border border-prism-line hover:bg-white/[0.03] hover:border-prism-line2",
     icon:    "bg-prism-panel border border-prism-line hover:border-prism-line2 text-prism-muted hover:text-white",
   };
   const variantCls = variantClasses[variant] || variantClasses.primary;
 
-  const radiusCls = pill ? "rounded-full" : "rounded-2xl";
+  const radiusCls = pill ? "rounded-full" : "rounded-md";
   const iconOnly = variant === "icon" && !children;
 
   return (
     <button
       type="button"
       disabled={disabled || loading}
-      className={`inline-flex items-center justify-center font-medium transition-all disabled:opacity-40 disabled:cursor-not-allowed ${iconOnly ? "h-10 w-10 p-0" : sizeCls} ${variantCls} ${radiusCls} ${className}`}
+      className={`inline-flex items-center justify-center font-semibold uppercase tracking-[.12em] transition-all disabled:opacity-40 disabled:cursor-not-allowed ${iconOnly ? "h-10 w-10 p-0" : sizeCls} ${variantCls} ${radiusCls} ${className}`}
       {...rest}
     >
       {loading ? (
