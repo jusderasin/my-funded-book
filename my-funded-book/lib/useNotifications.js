@@ -23,6 +23,6 @@ export function useNotifications({ trades, accounts, certificates, lang }) {
     const psychology = latest.psychology;
     const hasMindset = [psychology?.emotional, psychology?.focus, psychology?.confidence].some(Boolean) || latest.emotion;
     if (!hasMindset) return [...accountNotifications, { id: `psych-${latest.id}`, icon: Brain, tone: "amber", href: "/trade-logs", title: L === "en" ? "Mindset check-in missing" : "Check-in Psycho à compléter", text: L === "en" ? "Add emotional state, focus and confidence to your latest trade." : "Ajoute ton état émotionnel, ton focus et ta confiance à ton dernier trade." }].slice(0, 5);
-    return [...accountNotifications, { id: `ready-${latest.id}`, icon: CheckCheck, tone: "accent", href: "/calendar", title: L === "en" ? "Journal up to date" : "Journal à jour", text: L === "en" ? "Your latest trade and mindset check-in are recorded." : "Ton dernier trade et ton check-in Psycho sont bien enregistrés." }].slice(0, 5);
+    return [...accountNotifications, { id: `ready-${latest.id}`, icon: CheckCheck, tone: "accent", actionable: false, href: "/calendar", title: L === "en" ? "Journal up to date" : "Journal à jour", text: L === "en" ? "Your latest trade and mindset check-in are recorded." : "Ton dernier trade et ton check-in Psycho sont bien enregistrés." }].slice(0, 5);
   }, [trades, accounts, certificates, lang]);
 }
