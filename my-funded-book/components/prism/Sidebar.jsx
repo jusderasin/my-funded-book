@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BarChart3, Building2, Calendar, ClipboardList, DollarSign, History, LayoutDashboard, List, Moon, ScrollText, Settings, Sparkles, Sun, Trophy, X } from "lucide-react";
+import { BadgeCheck, BarChart3, Building2, Calendar, ClipboardList, DollarSign, FlaskConical, Gauge, Gift, Handshake, History, LayoutDashboard, List, Moon, Settings, Sparkles, Sun, Trophy, X } from "lucide-react";
 import BrandMark from "@/components/BrandMark";
 import { useBook } from "@/components/BookProvider";
 import { useEffect, useState } from "react";
@@ -10,17 +10,21 @@ import { useEffect, useState } from "react";
 export const NAV_ITEMS = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
   { icon: ClipboardList, label: "Journal", href: "/journal" },
-  { icon: List, label: "Trade Logs", href: "/trade-logs" },
-  { icon: BarChart3, label: "Analytics", href: "/breakdown" },
-  { icon: Calendar, label: "Calendar", href: "/calendar" },
-  { icon: Sparkles, label: "PRISM AI", href: "/report" },
-  { icon: ClipboardList, label: "Strat\u00e9gies", href: "/playbook" },
   { icon: Building2, label: "Comptes", href: "/accounts" },
+  { icon: BarChart3, label: "Reports", href: "/breakdown" },
+  { icon: Gauge, label: "Optimize", href: "/optimize" },
+  { icon: FlaskConical, label: "Simulation", href: "/simulation" },
+  { icon: Handshake, label: "Mentoring", href: "/mentoring" },
+  { icon: Sparkles, label: "PRISM AI", href: "/report" },
+  { icon: ClipboardList, label: "Stratégies", href: "/playbook" },
+  { icon: Calendar, label: "Calendrier", href: "/calendar" },
   { icon: History, label: "Backtest", href: "/backtest" },
+  { icon: List, label: "Trade Logs", href: "/trade-logs" },
   { icon: Trophy, label: "Classement", href: "/leaderboard" },
-  { icon: ScrollText, label: "Certificats", href: "/certificates" },
+  { icon: BadgeCheck, label: "Certificats", href: "/certificates" },
   { icon: DollarSign, label: "D\u00e9penses", href: "/expenses" },
-  { icon: Settings, label: "R\u00e9glages", href: "/settings" },
+  { icon: Gift, label: "Referral", href: "/referral" },
+  { icon: Settings, label: "Réglages", href: "/settings" },
 ];
 
 export default function Sidebar({ open = false, onClose, items = NAV_ITEMS }) {
@@ -31,12 +35,12 @@ export default function Sidebar({ open = false, onClose, items = NAV_ITEMS }) {
   useEffect(() => { const render = () => setClock(new Intl.DateTimeFormat("fr-FR", { hour: "2-digit", minute: "2-digit", second: "2-digit" }).format(new Date())); render(); const id = window.setInterval(render, 1000); const saved = localStorage.getItem("mtb.mode") || "dark"; setMode(saved); document.documentElement.dataset.mode = saved; return () => window.clearInterval(id); }, []);
   const toggleMode = () => { const next = mode === "dark" ? "light" : "dark"; setMode(next); localStorage.setItem("mtb.mode", next); document.documentElement.dataset.mode = next; };
   const isActive = (href) => pathname === href || pathname?.startsWith(`${href}/`);
-  const main = ["/dashboard", "/journal", "/trade-logs", "/accounts"];
-  const settings = ["/settings"];
+  const main = ["/dashboard", "/journal", "/accounts"];
+  const settings = ["/referral", "/leaderboard", "/certificates", "/expenses", "/settings"];
 
   return <>
     {open && <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden" onClick={onClose} aria-hidden="true" />}
-    <aside className={`fixed top-0 left-0 z-50 flex h-screen w-64 flex-col border-r border-prism-line bg-prism-bg transition-transform duration-200 lg:translate-x-0 ${open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
+    <aside className={`fixed top-0 left-0 z-50 flex h-screen w-[232px] flex-col border-r border-prism-line bg-prism-bg transition-transform duration-200 lg:translate-x-0 ${open ? "translate-x-0" : "-translate-x-full lg:translate-x-0"}`}>
       <div className="flex h-16 items-center justify-between border-b border-prism-line px-5" style={{ height: "calc(4rem + env(safe-area-inset-top))", paddingTop: "env(safe-area-inset-top)" }}>
         <Link href="/dashboard" onClick={onClose}><BrandMark /></Link>
         <button onClick={onClose} className="inline-flex h-8 w-8 items-center justify-center rounded-lg text-prism-muted hover:text-white lg:hidden" aria-label="Fermer le menu"><X className="h-5 w-5" /></button>

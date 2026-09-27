@@ -22,8 +22,13 @@ export const viewport = {
 
 export default function RootLayout({ children }) {
   return (
-    <html lang="fr">
+    <html lang="fr" data-theme="prism" data-mode="dark">
       <head>
+        <script
+          dangerouslySetInnerHTML={{
+            __html: "try { const theme = localStorage.getItem('mtb.theme') || 'prism'; const mode = localStorage.getItem('mtb.mode') || 'dark'; document.documentElement.dataset.theme = theme; document.documentElement.dataset.mode = mode; } catch (_) {}",
+          }}
+        />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="anonymous" />
         <link

@@ -1,7 +1,6 @@
 "use client";
 import React, { useEffect, useMemo, useState } from "react";
 import Sidebar, { NAV_ITEMS } from "./Sidebar";
-import AppHeader from "./AppHeader";
 import { useBook } from "@/components/BookProvider";
 import { LogTradeModal } from "@/components/modals";
 import { NavCustomizer } from "@/components/NavCustomizer";
@@ -42,7 +41,9 @@ export default function AppShellPrism({ user, children }) {
   const { profile, saveProfile, t, lang } = useBook();
   const [showNavCustomizer, setShowNavCustomizer] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
-  const orderedNav = useMemo(() => resolveNav(profile?.nav_layout), [profile?.nav_layout]);
+  // V3 uses one deliberate, stable information architecture. It must not be
+  // silently reordered by an old per-profile navigation preference.
+  const orderedNav = NAV_ITEMS;
   const [splash, setSplash] = useState(true);
   const [splashOut, setSplashOut] = useState(false);
   useEffect(() => {
@@ -71,16 +72,16 @@ export default function AppShellPrism({ user, children }) {
         items={orderedNav}
       />
       {/* La marge gauche compense la sidebar fixed sur desktop (lg+) uniquement */}
-      <div className="flex min-h-[100dvh] flex-col lg:pl-64">
-        <AppHeader
-          user={user}
-          onMenuClick={() => setSidebarOpen(true)}
-          onLogTrade={() => setQuickLogOpen(true)}
-        />
+      <div className="flex min-h-[100dvh] flex-col lg:pl-[232px]">
+        <div className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-prism-line bg-prism-bg/90 px-4 backdrop-blur lg:hidden">
+          <button onClick={() => setSidebarOpen(true)} className="rounded-md border border-prism-line px-3 py-1.5 text-xs font-bold text-prism-text">Menu</button>
+          <button onClick={() => setQuickLogOpen(true)} className="rounded-md bg-prism-accent px-3 py-1.5 text-xs font-bold text-black">+ Log trade</button>
+        </div>
         <main className="relative flex-1">
           <div className="pointer-events-none absolute inset-x-0 top-0 h-56 app-dot-grid opacity-40" />
           {children}
         </main>
+        <button onClick={() => setQuickLogOpen(true)} className="fixed bottom-5 right-5 z-30 hidden rounded-md bg-prism-accent px-4 py-2.5 text-xs font-extrabold text-black shadow-[0_12px_30px_-12px_var(--prism-accent)] transition hover:brightness-110 lg:inline-flex">+ Log trade</button>
       </div>
       {quickLogOpen && <LogTradeModal onClose={() => setQuickLogOpen(false)} />}
       <Tutorial
