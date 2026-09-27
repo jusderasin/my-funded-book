@@ -59,3 +59,26 @@ grant execute on function public.get_leaderboard(text) to authenticated;
 -- Valeur 0 = seul un résultat "BE" explicite est classé break-even.
 alter table public.profiles
   add column if not exists be_threshold numeric not null default 0;
+
+-- 003 - Suppression de trade verifiable et compatible avec le classement.
+-- Sans politique DELETE explicite, RLS peut renvoyer une suppression vide.
+-- Le front ne masque plus la ligne sans confirmation de la base.
+alter table public.trades
+  add column if not exists screenshot_url_2 text;
+
+alter table public.trades enable row level security;
+
+drop policy if exists "trades_delete_own" on public.trades;
+create policy "trades_delete_own"
+  on public.trades
+  for delete
+  to authenticated
+  using (auth.uid() = user_id);
+
+-- Diagnostic apres execution (lecture seule) : liste exacte des trades qui
+-- alimentent le classement mensuel, sans cache navigateur.
+-- select id, user_id, date, pnl, r, outcome, screenshot_url is not null as has_capture_1,
+--        screenshot_url_2 is not null as has_capture_2
+-- from public.trades
+-- where date >= date_trunc('month', current_date)::date
+-- order by user_id, date desc;

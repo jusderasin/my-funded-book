@@ -205,10 +205,21 @@ export function BookProvider({ user, children }) {
 
   const remove = useCallback(
     async (table, id, setter, list) => {
-      const { error } = await supabase.from(table).delete().eq("id", id);
+      // A DELETE blocked by RLS can return zero rows without an error. Confirm
+      // the deleted id before changing local state, otherwise old trades remain
+      // in Supabase and continue to feed the leaderboard.
+      const { data, error } = await supabase.from(table).delete().eq("id", id).select("id");
       if (error) return notify(error.message, true);
-      setter(list.filter((x) => x.id !== id));
+      if (!data?.some((row) => row.id === id)) {
+        notify("Suppression non confirmee par la base de donnees.", true);
+        return false;
+      }
+      setter((previous) => previous.filter((x) => x.id !== id));
+      if (table === "trades" && typeof window !== "undefined") {
+        window.dispatchEvent(new Event("mfb:trades-changed"));
+      }
       notify("Supprimé");
+      return true;
     },
     [supabase, notify]
   );

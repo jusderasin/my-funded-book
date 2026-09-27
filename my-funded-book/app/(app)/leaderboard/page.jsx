@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useCallback, useEffect, useMemo, useState } from "react";
 import { useBook } from "@/components/BookProvider";
 import { createClient } from "@/lib/supabase/client";
 import { Trophy, Camera, Info } from "lucide-react";
@@ -17,14 +17,20 @@ export default function LeaderboardPage() {
   const [saving, setSaving] = useState(false);
   const optedIn = !!profile?.leaderboard_opt_in;
 
-  async function load() {
+  const load = useCallback(async () => {
     setLoading(true);
     const { data, error } = await supabase.rpc("get_leaderboard", { p_period: period });
     if (!error) setRows(data || []);
     setLoading(false);
-  }
+  }, [period, supabase]);
 
-  useEffect(() => { load(); }, [period]);
+  useEffect(() => { load(); }, [load]);
+
+  useEffect(() => {
+    const reload = () => load();
+    window.addEventListener("mfb:trades-changed", reload);
+    return () => window.removeEventListener("mfb:trades-changed", reload);
+  }, [load]);
 
   async function toggleOptIn() {
     setSaving(true);
