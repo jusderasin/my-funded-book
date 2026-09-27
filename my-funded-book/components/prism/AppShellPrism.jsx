@@ -41,9 +41,7 @@ export default function AppShellPrism({ user, children }) {
   const { profile, saveProfile, t, lang } = useBook();
   const [showNavCustomizer, setShowNavCustomizer] = useState(false);
   const [showTutorial, setShowTutorial] = useState(false);
-  // V3 uses one deliberate, stable information architecture. It must not be
-  // silently reordered by an old per-profile navigation preference.
-  const orderedNav = NAV_ITEMS;
+  const orderedNav = useMemo(() => resolveNav(profile?.nav_layout), [profile?.nav_layout]);
   const [splash, setSplash] = useState(true);
   const [splashOut, setSplashOut] = useState(false);
   useEffect(() => {
