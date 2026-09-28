@@ -1,6 +1,7 @@
 "use client";
 
-import { useState } from "react";
+import { useEffect, useRef, useState } from "react";
+import { createPortal } from "react-dom";
 import { FilePicker } from "./FilePicker";
 import { useBook } from "./BookProvider";
 import { uploadFile } from "@/lib/upload";
@@ -15,12 +16,10 @@ import {
   AlertTriangle,
   Check,
   Info,
+  ImagePlus,
 } from "lucide-react";
 
 const firmOptions = Object.keys(FIRMS);
-
-// Valeurs de R suggérées à la sélection d'une sortie — modifiables ensuite à la main.
-const OUTCOME_DEFAULT_R = { TP: 2, SL: -1, BE: 0 };
 
 const PSYCHO_CHECKS = [
   { key: "calm", fr: "Je suis calme, je ne me précipite pas", en: "I am calm, not rushed" },
@@ -55,8 +54,9 @@ const PRISM_SELECT =
   "w-full rounded-xl border border-prism-line bg-black/40 px-3 py-2.5 text-sm text-white focus:border-prism-accent focus:outline-none transition-colors appearance-none cursor-pointer";
 
 function PrismModal({ title, onClose, footer, children, maxWidth = "max-w-2xl", className = "" }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-0 sm:p-4">
+  // Rendu dans <body> : un parent avec `transform` (sidebar) piégerait le `fixed`.
+  const node = (
+    <div className="fixed inset-0 z-[80] flex items-center justify-center p-0 sm:p-4">
       <div
         className="fixed inset-0 bg-black/70 backdrop-blur-sm"
         onClick={onClose}
@@ -91,6 +91,7 @@ function PrismModal({ title, onClose, footer, children, maxWidth = "max-w-2xl", 
       </div>
     </div>
   );
+  return typeof document === "undefined" ? node : createPortal(node, document.body);
 }
 
 function PrismField({ label, children, hint }) {
@@ -168,34 +169,168 @@ function PrismDangerBtn({ children, onClick, className = "", type = "button", di
 }
 
 /* ================================================================== */
-/*  LogTradeModal — reskin PRISM (déjà refait en Batch 8)              */
+/*  LogTradeModal — saisie rapide "pro" (bouton + Log trade, édition)  */
 /* ================================================================== */
+
+const QUICK_R_DEFAULT = { TP: 2, SL: -1, BE: 0 };
+
+const OUTCOME_STYLE = {
+  TP: { on: "border-[rgba(34,197,94,0.7)] bg-[rgba(34,197,94,0.15)] text-prism-win", label: { fr: "Take profit", en: "Take profit" } },
+  SL: { on: "border-[rgba(239,68,68,0.7)] bg-[rgba(239,68,68,0.15)] text-prism-loss", label: { fr: "Stop loss", en: "Stop loss" } },
+  BE: { on: "border-[rgba(138,138,147,0.7)] bg-[rgba(138,138,147,0.15)] text-white", label: { fr: "Break-even", en: "Break-even" } },
+};
+
+// Session probable d'après l'heure de New York (le trader peut la changer).
+function sessionNow() {
+  try {
+    const parts = new Intl.DateTimeFormat("en-US", { timeZone: "America/New_York", hour: "numeric", minute: "numeric", hourCycle: "h23" }).formatToParts(new Date());
+    const h = Number(parts.find((p) => p.type === "hour")?.value || 0);
+    const m = Number(parts.find((p) => p.type === "minute")?.value || 0);
+    const t = h * 60 + m;
+    if (t >= 570 && t < 720) return "NY AM";
+    if (t >= 720 && t < 1020) return "NY PM";
+    if (t >= 180 && t < 570) return "London";
+    return "Asia";
+  } catch {
+    return "NY AM";
+  }
+}
+
+// Force le signe du P&L selon la sortie : un SL est toujours une perte.
+function signPnl(value, outcome) {
+  if (value === "" || value == null) return value;
+  const n = Number(value);
+  if (!Number.isFinite(n)) return value;
+  if (outcome === "SL") return String(-Math.abs(n));
+  if (outcome === "TP") return String(Math.abs(n));
+  if (outcome === "BE") return "0";
+  return String(value);
+}
+
+const QL_TXT = "text-prism-text";
+const QL_LABEL = "mb-1.5 block text-[10px] font-semibold uppercase tracking-[.14em] text-prism-muted";
+const QL_INPUT = "h-11 w-full min-w-0 rounded-xl border border-prism-line bg-black/40 px-3 text-sm placeholder:text-prism-muted2 outline-none transition-colors focus:border-prism-accent";
+const QL_SEG = "flex h-10 flex-1 items-center justify-center rounded-lg border text-xs font-bold tracking-wide transition-colors";
+const QL_OFF = "border-prism-line text-prism-muted hover:border-prism-line2 hover:text-white";
+const QL_ON = "border-prism-accent bg-prism-accentDim text-prism-accent";
+
+function QlField({ label, children, className = "" }) {
+  return <div className={`min-w-0 ${className}`}><span className={QL_LABEL}>{label}</span>{children}</div>;
+}
+
+function ShotSlot({ label, file, url, onFile, onRemove, lang }) {
+  const inputRef = useRef(null);
+  const [preview, setPreview] = useState(null);
+  const [over, setOver] = useState(false);
+  useEffect(() => {
+    if (!file) { setPreview(null); return undefined; }
+    const u = URL.createObjectURL(file);
+    setPreview(u);
+    return () => URL.revokeObjectURL(u);
+  }, [file]);
+  const src = preview || url;
+  const drop = (e) => {
+    e.preventDefault();
+    setOver(false);
+    const f = [...(e.dataTransfer?.files || [])].find((x) => x.type.startsWith("image/"));
+    if (f) onFile(f);
+  };
+  return (
+    <div
+      onDragOver={(e) => { e.preventDefault(); setOver(true); }}
+      onDragLeave={() => setOver(false)}
+      onDrop={drop}
+      className={`relative h-28 min-w-0 overflow-hidden rounded-xl border ${src ? "border-prism-line" : "border-dashed"} ${over ? "border-prism-accent bg-prism-accentDim" : "border-prism-line2 bg-black/30"}`}
+    >
+      <input ref={inputRef} type="file" accept="image/*" className="hidden" onChange={(e) => { const f = e.target.files?.[0]; if (f) onFile(f); e.target.value = ""; }} />
+      {src ? (
+        <>
+          <img src={src} alt={label} className="h-full w-full object-cover" />
+          <span className="absolute left-2 top-2 rounded-md bg-black/70 px-1.5 py-0.5 text-[9px] font-bold uppercase tracking-[.14em] text-white">{label}</span>
+          <button type="button" onClick={onRemove} aria-label="Supprimer" className="absolute right-2 top-2 grid h-7 w-7 place-items-center rounded-md bg-black/70 text-white hover:bg-prism-loss"><X className="h-4 w-4" /></button>
+        </>
+      ) : (
+        <button type="button" onClick={() => inputRef.current?.click()} className="flex h-full w-full flex-col items-center justify-center gap-1 px-2 text-center">
+          <ImagePlus className="h-5 w-5 text-prism-muted" />
+          <span className="text-[10px] font-bold uppercase tracking-[.14em] text-white">{label}</span>
+          <span className="text-[10px] text-prism-muted2">{lang === "en" ? "Tap, drop or paste" : "Toucher, déposer ou coller"}</span>
+        </button>
+      )}
+    </div>
+  );
+}
 
 export function LogTradeModal({ editing, onClose }) {
   const { addTrade, updateTrade, playbooks, accounts, activeAccountId, trades, notify, t, lang } = useBook();
+  const en = lang === "en";
   const defaultAccountId =
     activeAccountId ||
     accounts.find((a) => a.type === "funded" && a.status === "active")?.id ||
     accounts.find((a) => a.status === "active")?.id ||
     accounts[0]?.id ||
     "";
-  const [f, setF] = useState(
-    editing ? { ...editing, strategy_checks: Array.isArray(editing.strategy_checks) ? editing.strategy_checks : [], psychology: { ...DEFAULT_PSYCHOLOGY, ...(editing.psychology || {}) } } : {
-      symbol: "MNQ", date: todayISO(), dir: "long", session: "NY AM", grade: "A+",
-      r: "", pnl: "", setup: "", strategy_checks: [], tags: [], emotion: null, psychology: DEFAULT_PSYCHOLOGY, why: "", plan: true, account_id: defaultAccountId, outcome: "",
-    }
+
+  // Symboles les plus utilisés sur les 60 derniers trades.
+  const recentSymbols = (() => {
+    const freq = {};
+    (trades || []).slice(0, 60).forEach((tr) => { if (tr.symbol) freq[tr.symbol] = (freq[tr.symbol] || 0) + 1; });
+    return Object.keys(freq).sort((a, b) => freq[b] - freq[a]).slice(0, 5);
+  })();
+
+  const blank = () => ({
+    symbol: recentSymbols[0] || "MNQ", date: todayISO(), dir: "long", session: sessionNow(), grade: "A",
+    r: "", pnl: "", setup: "", strategy_checks: [], tags: [], emotion: null, psychology: DEFAULT_PSYCHOLOGY,
+    why: "", plan: true, account_id: defaultAccountId, outcome: "",
+  });
+
+  const [f, setF] = useState(() =>
+    editing
+      ? {
+          ...editing,
+          r: editing.r ?? "", pnl: editing.pnl ?? "", outcome: editing.outcome || "",
+          tags: Array.isArray(editing.tags) ? editing.tags : [],
+          strategy_checks: Array.isArray(editing.strategy_checks) ? editing.strategy_checks : [],
+          psychology: { ...DEFAULT_PSYCHOLOGY, ...(editing.psychology || {}) },
+        }
+      : blank()
   );
+  const [quickR, setQuickR] = useState(QUICK_R_DEFAULT);
   const [file, setFile] = useState(null);
   const [file2, setFile2] = useState(null);
   const [shotUrl, setShotUrl] = useState(editing ? editing.screenshot_url || null : null);
   const [shotUrl2, setShotUrl2] = useState(editing ? editing.screenshot_url_2 || null : null);
-  const [uploading, setUploading] = useState(false);
+  const [saving, setSaving] = useState(false);
   const [advanced, setAdvanced] = useState(false);
   const [tagInput, setTagInput] = useState("");
   const set = (k, v) => setF((s) => ({ ...s, [k]: v }));
+
   const selectedStrategy = playbooks.find((strategy) => strategy.name === f.setup);
   const strategyRules = Array.isArray(selectedStrategy?.rules) ? selectedStrategy.rules : [];
   const selectedChecks = Array.isArray(f.strategy_checks) ? f.strategy_checks : [];
+
+  useEffect(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem("mtb.quickR") || "{}");
+      setQuickR((current) => ({ ...current, ...stored }));
+    } catch { /* valeurs par défaut */ }
+  }, []);
+
+  // Collage d'une image n'importe où dans le formulaire : premier emplacement libre.
+  const slotsRef = useRef({});
+  slotsRef.current = { first: !!(file || shotUrl), second: !!(file2 || shotUrl2) };
+  useEffect(() => {
+    const onPaste = (e) => {
+      const item = [...(e.clipboardData?.items || [])].find((i) => i.type.startsWith("image/"));
+      const img = item?.getAsFile();
+      if (!img) return;
+      e.preventDefault();
+      if (!slotsRef.current.first) setFile(img);
+      else if (!slotsRef.current.second) setFile2(img);
+      else notify(en ? "Both screenshot slots are full" : "Les deux emplacements de capture sont pleins", true);
+    };
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+  }, [en, notify]);
 
   const selectStrategy = (name) => setF((current) => ({ ...current, setup: name, strategy_checks: name === current.setup ? current.strategy_checks : [] }));
   const toggleStrategyRule = (rule) => setF((current) => {
@@ -216,31 +351,31 @@ export function LogTradeModal({ editing, onClose }) {
   const historyTags = Object.keys(tagFreq).sort((a, b) => tagFreq[b] - tagFreq[a]);
   const tagSuggestions = [...new Set([...TAG_LIB, ...historyTags])]
     .filter((tg) => !f.tags.some((x) => x.toLowerCase() === tg.toLowerCase()))
-    .slice(0, 16);
+    .slice(0, 12);
 
   function pickOutcome(o) {
-    const next = f.outcome === o ? "" : o;
-    set("outcome", next);
-    if (next && OUTCOME_DEFAULT_R[next] != null) set("r", OUTCOME_DEFAULT_R[next]);
+    setF((current) => {
+      const next = current.outcome === o ? "" : o;
+      if (!next) return { ...current, outcome: "" };
+      return { ...current, outcome: next, r: String(quickR[next]), pnl: signPnl(current.pnl, next) };
+    });
   }
 
-  async function submit() {
+  async function save(again = false) {
+    if (saving) return;
+    setSaving(true);
     let screenshot_url = shotUrl;
     let screenshot_url_2 = shotUrl2;
-    if (file || file2) {
-      try {
-        setUploading(true);
-        if (file) screenshot_url = await uploadFile(file, "trades");
-        if (file2) screenshot_url_2 = await uploadFile(file2, "trades");
-      } catch (e) {
-        setUploading(false);
-        return notify(e.message, true);
-      }
-      setUploading(false);
+    try {
+      if (file) screenshot_url = await uploadFile(file, "trades");
+      if (file2) screenshot_url_2 = await uploadFile(file2, "trades");
+    } catch (e) {
+      setSaving(false);
+      return notify(e.message, true);
     }
     const row = {
-      symbol: (f.symbol || "MNQ").toUpperCase(), date: f.date, dir: f.dir, session: f.session,
-      grade: f.grade, r: Number(f.r) || 0, pnl: Number(f.pnl) || 0, setup: f.setup || null,
+      symbol: (f.symbol || "MNQ").trim().toUpperCase(), date: f.date, dir: f.dir, session: f.session,
+      grade: f.grade, r: Number(f.r) || 0, pnl: Number(signPnl(f.pnl, f.outcome)) || 0, setup: f.setup || null,
       strategy_checks: selectedChecks, tags: f.tags, emotion: f.emotion || null, why: f.why || null, plan: !!f.plan,
       psychology: { ...DEFAULT_PSYCHOLOGY, ...(f.psychology || {}) },
       screenshot_url: screenshot_url || null,
@@ -248,260 +383,262 @@ export function LogTradeModal({ editing, onClose }) {
       account_id: f.account_id || null,
       outcome: f.outcome || null,
     };
-    // Un break-even est toujours neutre : il ne doit jamais conserver un
-    // ancien P&L ou R saisi avant le choix du résultat.
+    // Un break-even est toujours neutre.
     if (row.outcome === "BE") { row.r = 0; row.pnl = 0; }
     const result = editing ? await updateTrade(editing.id, row) : await addTrade(row);
-    // Ne ferme pas le formulaire sur une erreur Supabase : l'utilisateur
-    // peut corriger et réessayer au lieu de croire que le bouton est inactif.
-    if (result) onClose();
+    setSaving(false);
+    // Sur erreur Supabase, on garde le formulaire ouvert pour corriger.
+    if (!result) return;
+    if (again && !editing) {
+      // Garde le contexte (compte, symbole, date, session, stratégie), vide le reste.
+      setF((current) => ({ ...blank(), symbol: current.symbol, date: current.date, session: current.session, account_id: current.account_id, setup: current.setup, dir: current.dir }));
+      setFile(null); setFile2(null); setShotUrl(null); setShotUrl2(null);
+      setAdvanced(false);
+      return;
+    }
+    onClose();
   }
+
+  // Échap ferme, Ctrl/Cmd + Entrée enregistre.
+  const saveRef = useRef(save);
+  saveRef.current = save;
+  useEffect(() => {
+    const onKey = (e) => {
+      if (e.key === "Escape") onClose();
+      if (e.key === "Enter" && (e.metaKey || e.ctrlKey)) { e.preventDefault(); saveRef.current(false); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, [onClose]);
+
+  const pnlNum = Number(signPnl(f.pnl, f.outcome));
+  const pnlColor = f.pnl === "" || !Number.isFinite(pnlNum) || pnlNum === 0 ? "text-prism-text" : pnlNum > 0 ? "text-prism-win" : "text-prism-loss";
+  const rNum = Number(f.r);
+  const summary = f.outcome || f.r !== "" || f.pnl !== ""
+    ? `${f.r !== "" && Number.isFinite(rNum) ? `${rNum > 0 ? "+" : ""}${rNum}R` : ""}${f.pnl !== "" && Number.isFinite(pnlNum) ? ` · ${pnlNum < 0 ? "-" : "+"}$${Math.abs(pnlNum).toLocaleString("en-US")}` : ""}`
+    : "";
 
   return (
     <PrismModal
       title={editing ? t("m_edit_trade") : t("m_log_trade")}
       onClose={onClose}
+      maxWidth="max-w-xl"
       className="trade-log-modal"
       footer={
-        <>
-          <PrismGhostBtn className="flex-1" onClick={onClose}>{t("m_cancel")}</PrismGhostBtn>
-          <PrismPrimaryBtn className="flex-1" onClick={submit} disabled={uploading}>
-            {uploading ? t("m_sending") : editing ? t("m_save") : t("m_log_trade")}
-          </PrismPrimaryBtn>
-        </>
+        <div className="flex w-full flex-col gap-2">
+          <div className="flex gap-2">
+            <PrismGhostBtn className="flex-1" onClick={onClose}>{t("m_cancel")}</PrismGhostBtn>
+            <PrismPrimaryBtn className="flex-[2]" onClick={() => save(false)} disabled={saving}>
+              {saving ? t("m_sending") : editing ? t("m_save") : t("m_log_trade")}
+              {!saving && summary && <span className="font-mono text-xs text-black/60">{summary}</span>}
+            </PrismPrimaryBtn>
+          </div>
+          {!editing && (
+            <button type="button" onClick={() => save(true)} disabled={saving} className="text-center text-[11px] font-semibold text-prism-muted hover:text-prism-accent disabled:opacity-40">
+              {en ? "Save & log another" : "Enregistrer et en saisir un autre"}
+            </button>
+          )}
+        </div>
       }
     >
-      <div className="grid grid-cols-2 gap-3">
-        <PrismField label={t("m_instrument")}>
-          <input
-            className={PRISM_INPUT}
-            value={f.symbol}
-            onChange={(e) => set("symbol", e.target.value)}
-            placeholder="MNQ, NQ, MGC…"
-          />
-        </PrismField>
-        <PrismField label={t("m_date")}>
-          <input
-            type="date"
-            className={PRISM_INPUT}
-            value={f.date}
-            onChange={(e) => set("date", e.target.value)}
-          />
-        </PrismField>
-      </div>
+      <div className="space-y-5 overflow-x-hidden">
+        {/* 1. Résultat */}
+        <QlField label={en ? "Result" : "Résultat"}>
+          <div className="grid grid-cols-3 gap-2">
+            {["TP", "SL", "BE"].map((o) => {
+              const active = f.outcome === o;
+              const r = quickR[o];
+              return (
+                <button key={o} type="button" onClick={() => pickOutcome(o)}
+                  className={`flex h-16 flex-col items-center justify-center rounded-xl border transition-colors ${active ? OUTCOME_STYLE[o].on : "border-prism-line text-prism-muted hover:border-prism-line2 hover:text-white"}`}>
+                  <span className="text-base font-bold">{o}</span>
+                  <span className="font-mono text-[11px] opacity-80">{r > 0 ? "+" : ""}{r}R</span>
+                </button>
+              );
+            })}
+          </div>
+        </QlField>
 
-      {accounts.length > 0 && (
-        <PrismField label={lang === "en" ? "Account" : "Compte"}>
-          <select
-            className={PRISM_SELECT}
-            value={f.account_id || ""}
-            onChange={(e) => set("account_id", e.target.value)}
-          >
-            <option value="">{lang === "en" ? "None" : "Aucun"}</option>
-            {accounts.map((a) => (
-              <option key={a.id} value={a.id}>
-                {a.firm} · {fmtMoney(a.size)}{a.note ? " · " + a.note : ""}
-              </option>
+        {/* 2. R + P&L */}
+        <div className="grid grid-cols-[1fr_1.6fr] gap-3">
+          <QlField label="R">
+            <input type="number" inputMode="decimal" step="0.1" className={`${QL_INPUT} ${QL_TXT} font-mono`} value={f.r} onChange={(e) => set("r", e.target.value)} placeholder="0" />
+          </QlField>
+          <QlField label={t("m_pnl_net")}>
+            <input type="number" inputMode="decimal" step="0.01" className={`${QL_INPUT} font-mono text-base font-bold ${pnlColor}`} value={f.pnl}
+              onChange={(e) => set("pnl", e.target.value)}
+              onBlur={() => set("pnl", signPnl(f.pnl, f.outcome))}
+              placeholder={f.outcome === "SL" ? "-250" : "520"} disabled={f.outcome === "BE"} />
+          </QlField>
+        </div>
+        {f.outcome === "SL" && <p className="-mt-3 text-[11px] text-prism-muted2">{en ? "Loss sign is added automatically." : "Le signe « - » est ajouté automatiquement."}</p>}
+
+        {/* 3. Instrument + date */}
+        <div className="grid grid-cols-2 gap-3">
+          <QlField label={t("m_instrument")}>
+            <input className={`${QL_INPUT} ${QL_TXT} font-mono uppercase`} value={f.symbol} onChange={(e) => set("symbol", e.target.value)} placeholder="MNQ" />
+          </QlField>
+          <QlField label={t("m_date")}>
+            <input type="date" className={`${QL_INPUT} ${QL_TXT} appearance-none [&::-webkit-date-and-time-value]:text-left`} value={f.date} onChange={(e) => set("date", e.target.value)} />
+          </QlField>
+        </div>
+        {recentSymbols.length > 1 && (
+          <div className="-mt-3 flex flex-wrap gap-1.5">
+            {recentSymbols.map((s) => (
+              <button key={s} type="button" onClick={() => set("symbol", s)} className={`rounded-md border px-2 py-1 font-mono text-[11px] ${f.symbol?.toUpperCase() === s ? QL_ON : QL_OFF}`}>{s}</button>
             ))}
-          </select>
-        </PrismField>
-      )}
+          </div>
+        )}
 
-      <PrismField label={t("m_direction")}>
-        <div className="flex gap-1.5">
-          {["long", "short"].map((d) => (
-            <PrismChip key={d} active={f.dir === d} onClick={() => set("dir", d)}>
-              {d === "long" ? "LONG" : "SHORT"}
-            </PrismChip>
-          ))}
-        </div>
-      </PrismField>
+        {/* 4. Compte */}
+        {accounts.length > 0 && (
+          <QlField label={en ? "Account" : "Compte"}>
+            <select className={`${QL_INPUT} ${QL_TXT} cursor-pointer appearance-none`} value={f.account_id || ""} onChange={(e) => set("account_id", e.target.value)}>
+              <option value="">{en ? "None" : "Aucun"}</option>
+              {accounts.map((a) => (
+                <option key={a.id} value={a.id}>{a.note ? `${a.note} · ` : ""}{a.firm} · {fmtMoney(a.size)}</option>
+              ))}
+            </select>
+          </QlField>
+        )}
 
-      <PrismField label={t("m_session")}>
-        <div className="flex flex-wrap gap-1.5">
-          {SESSIONS.map((s) => (
-            <PrismChip key={s} active={f.session === s} onClick={() => set("session", s)}>
-              {s}
-            </PrismChip>
-          ))}
-        </div>
-      </PrismField>
-
-      <PrismField label={t("m_grade")}>
-        <div className="flex flex-wrap gap-1.5">
-          {GRADES.map((g) => (
-            <PrismChip key={g} active={f.grade === g} onClick={() => set("grade", g)}>
-              {g}
-            </PrismChip>
-          ))}
-        </div>
-      </PrismField>
-
-      <div className="grid grid-cols-2 gap-3">
-        <PrismField label="R">
-          <input
-            type="number"
-            step="0.1"
-            className={PRISM_INPUT}
-            value={f.r}
-            onChange={(e) => set("r", e.target.value)}
-            placeholder="1"
-          />
-        </PrismField>
-        <PrismField label={t("m_pnl_net")}>
-          <input
-            type="number"
-            step="0.01"
-            className={PRISM_INPUT}
-            value={f.pnl}
-            onChange={(e) => set("pnl", e.target.value)}
-            placeholder="520"
-          />
-        </PrismField>
-      </div>
-
-      <PrismField
-        label={lang === "en" ? "Exit (TP/SL/BE)" : "Sortie (TP/SL/BE)"}
-        hint={
-          lang === "en"
-            ? "Suggests a default R (TP = +2, SL = -1, BE = 0) — you can still edit the R field above."
-            : "Propose un R par défaut (TP = +2, SL = -1, BE = 0) — le champ R ci-dessus reste modifiable."
-        }
-      >
-        <div className="flex gap-1.5">
-          {["TP", "SL", "BE"].map((o) => (
-            <PrismChip key={o} active={f.outcome === o} onClick={() => pickOutcome(o)}>
-              {o}
-            </PrismChip>
-          ))}
-        </div>
-      </PrismField>
-
-      <PrismField label={lang === "en" ? "Strategy" : "Strat\u00e9gie"}>
-        <select
-          className={PRISM_SELECT}
-          value={f.setup || ""}
-          onChange={(e) => selectStrategy(e.target.value)}
-        >
-          <option value="">{t("m_none")}</option>
-          {playbooks.map((p) => (
-            <option key={p.id} value={p.name}>{p.name}</option>
-          ))}
-        </select>
-      </PrismField>
-
-      {selectedStrategy && (
-        <section className="mb-4 rounded-xl border border-prism-accent/30 bg-prism-accentDim/20 p-3 sm:p-4">
-          <div className="mb-2 flex items-center justify-between gap-3">
-            <div>
-              <p className="text-xs font-bold text-white">{lang === "en" ? "Entry checklist" : "Checklist d'entr\u00e9e"}</p>
-              <p className="mt-0.5 text-[11px] text-prism-muted">{selectedStrategy.name}</p>
+        {/* 5. Sens + session */}
+        <div className="grid grid-cols-1 gap-3 sm:grid-cols-[1fr_1.6fr]">
+          <QlField label={t("m_direction")}>
+            <div className="flex gap-2">
+              <button type="button" onClick={() => set("dir", "long")} className={`${QL_SEG} ${f.dir === "long" ? "border-[rgba(34,197,94,0.7)] bg-[rgba(34,197,94,0.12)] text-prism-win" : QL_OFF}`}>LONG</button>
+              <button type="button" onClick={() => set("dir", "short")} className={`${QL_SEG} ${f.dir === "short" ? "border-[rgba(239,68,68,0.7)] bg-[rgba(239,68,68,0.12)] text-prism-loss" : QL_OFF}`}>SHORT</button>
             </div>
-            <span className="rounded-full border border-prism-accent/30 px-2 py-0.5 text-[10px] font-semibold text-prism-accent">{selectedChecks.length}/{strategyRules.length}</span>
+          </QlField>
+          <QlField label={t("m_session")}>
+            <div className="flex gap-1.5">
+              {SESSIONS.map((s) => (
+                <button key={s} type="button" onClick={() => set("session", s)} className={`${QL_SEG} px-1 text-[11px] ${f.session === s ? QL_ON : QL_OFF}`}>{s}</button>
+              ))}
+            </div>
+          </QlField>
+        </div>
+
+        {/* 6. Grade + plan */}
+        <div className="grid grid-cols-[1.6fr_1fr] gap-3">
+          <QlField label={t("m_grade")}>
+            <div className="flex gap-1.5">
+              {GRADES.map((g) => (
+                <button key={g} type="button" onClick={() => set("grade", g)} className={`${QL_SEG} ${f.grade === g ? QL_ON : QL_OFF}`}>{g}</button>
+              ))}
+            </div>
+          </QlField>
+          <QlField label={en ? "Plan followed" : "Plan respecté"}>
+            <div className="flex gap-1.5">
+              <button type="button" onClick={() => set("plan", true)} className={`${QL_SEG} ${f.plan ? QL_ON : QL_OFF}`}>{t("m_yes")}</button>
+              <button type="button" onClick={() => set("plan", false)} className={`${QL_SEG} ${!f.plan ? "border-[rgba(239,68,68,0.7)] bg-[rgba(239,68,68,0.12)] text-prism-loss" : QL_OFF}`}>{t("m_no")}</button>
+            </div>
+          </QlField>
+        </div>
+
+        {/* 7. Captures */}
+        <QlField label={en ? "Screenshots" : "Captures"}>
+          <div className="grid grid-cols-2 gap-2.5">
+            <ShotSlot lang={lang} label={en ? "Entry" : "Entrée"} file={file} url={shotUrl} onFile={setFile} onRemove={() => { setFile(null); setShotUrl(null); }} />
+            <ShotSlot lang={lang} label={en ? "Exit" : "Sortie"} file={file2} url={shotUrl2} onFile={setFile2} onRemove={() => { setFile2(null); setShotUrl2(null); }} />
           </div>
-          {strategyRules.length ? <div className="space-y-1.5">{strategyRules.map((rule, index) => {
-            const checked = selectedChecks.includes(rule);
-            return <button key={`${rule}-${index}`} type="button" onClick={() => toggleStrategyRule(rule)} className={`flex w-full items-start gap-2 rounded-lg px-2 py-2 text-left text-xs transition-colors ${checked ? "bg-prism-accentDim text-white" : "text-prism-muted hover:bg-white/5 hover:text-white"}`}><span className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border ${checked ? "border-prism-accent bg-prism-accent text-black" : "border-prism-muted2"}`}>{checked && <Check className="h-3 w-3 stroke-[3]" />}</span><span>{rule}</span></button>;
-          })}</div> : <p className="text-xs text-prism-muted2">{lang === "en" ? "This strategy does not have any checklist rule yet." : "Cette strat\u00e9gie n'a pas encore de r\u00e8gle de checklist."}</p>}
-        </section>
-      )}
+        </QlField>
 
-      <button
-        type="button"
-        onClick={() => setAdvanced((v) => !v)}
-        className="mb-1 flex w-full items-center justify-between rounded-xl border border-prism-line bg-white/[0.02] px-3.5 py-3 text-left text-xs font-semibold text-prism-muted transition hover:border-prism-accent/40 hover:text-white"
-      >
-        <span>{lang === "en" ? "Add journal details" : "Ajouter des détails au journal"}</span>
-        <span className="text-prism-accent">{advanced ? "−" : "+"}</span>
-      </button>
+        {/* 8. Stratégie */}
+        <QlField label={en ? "Strategy" : "Stratégie"}>
+          <select className={`${QL_INPUT} ${QL_TXT} cursor-pointer appearance-none`} value={f.setup || ""} onChange={(e) => selectStrategy(e.target.value)}>
+            <option value="">{t("m_none")}</option>
+            {playbooks.map((p) => (<option key={p.id} value={p.name}>{p.name}</option>))}
+          </select>
+        </QlField>
 
-      {advanced && <>
-      <section className="mb-4 rounded-xl border border-prism-line2 bg-prism-panel2/60 p-3.5 sm:p-4">
-        <div className="mb-4">
-          <p className="text-sm font-bold text-white">{lang === "en" ? "Psychology before entry" : "Psycho avant l'entrée"}</p>
-          <p className="mt-1 text-[11px] leading-relaxed text-prism-muted">{lang === "en" ? "Nothing is scored here. Fill it in honestly to spot your patterns." : "Rien n'est noté ici. Réponds honnêtement pour repérer tes schémas."}</p>
-        </div>
-        <div className="space-y-3.5">
-          {[{ key: "emotional", fr: "État émotionnel", en: "Emotional state", hintFr: "1 = agité, 5 = stable", hintEn: "1 = rattled, 5 = steady" }, { key: "focus", fr: "Niveau de focus", en: "Focus level", hintFr: "1 = dispersé, 5 = très net", hintEn: "1 = scattered, 5 = sharp" }, { key: "confidence", fr: "Confiance", en: "Confidence", hintFr: "1 = incertain, 5 = certain", hintEn: "1 = unsure, 5 = certain" }].map((metric) => {
-            const value = Number(f.psychology?.[metric.key] || 0);
-            return <div key={metric.key} className="flex items-center justify-between gap-3"><div><p className="text-xs font-semibold text-white">{lang === "en" ? metric.en : metric.fr}</p><p className="mt-0.5 text-[10px] text-prism-muted2">{lang === "en" ? metric.hintEn : metric.hintFr}</p></div><div className="flex gap-1.5">{[1, 2, 3, 4, 5].map((n) => <button key={n} type="button" aria-label={`${metric.key} ${n}/5`} onClick={() => set("psychology", { ...DEFAULT_PSYCHOLOGY, ...(f.psychology || {}), [metric.key]: n })} className={`h-4 w-4 rounded-full transition ${n <= value ? "bg-prism-accent ring-2 ring-prism-accent/20" : "bg-white/10 hover:bg-white/20"}`} />)}</div></div>;
-          })}
-        </div>
-        <div className="my-4 h-px bg-prism-line" />
-        <div className="space-y-2.5">{PSYCHO_CHECKS.map((item) => {
-          const checked = (f.psychology?.checks || []).includes(item.key);
-          return <button key={item.key} type="button" onClick={() => set("psychology", { ...DEFAULT_PSYCHOLOGY, ...(f.psychology || {}), checks: checked ? (f.psychology?.checks || []).filter((key) => key !== item.key) : [...(f.psychology?.checks || []), item.key] })} className="flex w-full items-center gap-3 text-left text-xs text-prism-muted hover:text-white"><span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${checked ? "border-prism-accent bg-prism-accent text-black ring-2 ring-prism-accent/20" : "border-prism-muted2 bg-black/20"}`}>{checked && <Check className="h-3.5 w-3.5 stroke-[3]" />}</span>{lang === "en" ? item.en : item.fr}</button>;
-        })}</div>
-      </section>
+        {selectedStrategy && (
+          <section className="rounded-xl border border-[rgba(6,182,212,0.3)] bg-[rgba(6,182,212,0.05)] p-3">
+            <div className="mb-2 flex items-center justify-between gap-3">
+              <p className="text-xs font-bold text-white">{en ? "Entry checklist" : "Checklist d'entrée"}</p>
+              <span className="rounded-full border border-[rgba(6,182,212,0.3)] px-2 py-0.5 font-mono text-[10px] font-semibold text-prism-accent">{selectedChecks.length}/{strategyRules.length}</span>
+            </div>
+            {strategyRules.length ? (
+              <div className="space-y-1">
+                {strategyRules.map((rule, index) => {
+                  const checked = selectedChecks.includes(rule);
+                  return (
+                    <button key={`${rule}-${index}`} type="button" onClick={() => toggleStrategyRule(rule)} className={`flex w-full items-start gap-2 rounded-lg px-2 py-2 text-left text-xs transition-colors ${checked ? "bg-prism-accentDim text-white" : "text-prism-muted hover:bg-white/5 hover:text-white"}`}>
+                      <span className={`mt-0.5 flex h-4 w-4 shrink-0 items-center justify-center rounded border ${checked ? "border-prism-accent bg-prism-accent text-black" : "border-prism-muted2"}`}>{checked && <Check className="h-3 w-3 stroke-[3]" />}</span>
+                      <span>{rule}</span>
+                    </button>
+                  );
+                })}
+              </div>
+            ) : (
+              <p className="text-xs text-prism-muted2">{en ? "This strategy has no checklist rule yet." : "Cette stratégie n'a pas encore de règle de checklist."}</p>
+            )}
+          </section>
+        )}
 
-      <PrismField label={t("m_tags")}>
-        {f.tags.length > 0 && (
-          <div className="mb-2 flex flex-wrap gap-1.5">
-            {f.tags.map((tag) => (
-              <PrismChip key={tag} active danger onClick={() => removeTag(tag)}>
-                {tag} ×
-              </PrismChip>
-            ))}
+        {/* 9. Détails repliables */}
+        <button type="button" onClick={() => setAdvanced((v) => !v)} className="flex w-full items-center justify-between rounded-xl border border-prism-line bg-white/[0.02] px-3.5 py-3 text-left text-xs font-semibold text-prism-muted transition hover:text-white">
+          <span>{en ? "Psychology, tags & notes" : "Psycho, tags et notes"}{(f.tags.length || f.why) ? <span className="ml-2 text-prism-accent">•</span> : null}</span>
+          <span className="text-prism-accent">{advanced ? "−" : "+"}</span>
+        </button>
+
+        {advanced && (
+          <div className="space-y-5">
+            <section className="rounded-xl border border-prism-line2 bg-prism-panel2/60 p-3.5">
+              <p className="mb-3 text-xs font-bold text-white">{en ? "Before entry" : "Avant l'entrée"}</p>
+              <div className="space-y-3">
+                {[{ key: "emotional", fr: "État émotionnel", en: "Emotional state" }, { key: "focus", fr: "Focus", en: "Focus" }, { key: "confidence", fr: "Confiance", en: "Confidence" }].map((metric) => {
+                  const value = Number(f.psychology?.[metric.key] || 0);
+                  return (
+                    <div key={metric.key} className="flex items-center justify-between gap-3">
+                      <p className="text-xs text-white">{en ? metric.en : metric.fr}</p>
+                      <div className="flex gap-1">
+                        {[1, 2, 3, 4, 5].map((n) => (
+                          <button key={n} type="button" aria-label={`${metric.key} ${n}/5`} onClick={() => set("psychology", { ...DEFAULT_PSYCHOLOGY, ...(f.psychology || {}), [metric.key]: n })}
+                            className={`h-7 w-7 rounded-md border font-mono text-[11px] ${n === value ? QL_ON : n < value ? "border-[rgba(6,182,212,0.3)] text-prism-accent" : QL_OFF}`}>{n}</button>
+                        ))}
+                      </div>
+                    </div>
+                  );
+                })}
+              </div>
+              <div className="my-3 h-px bg-prism-line" />
+              <div className="space-y-2">
+                {PSYCHO_CHECKS.map((item) => {
+                  const checked = (f.psychology?.checks || []).includes(item.key);
+                  return (
+                    <button key={item.key} type="button" onClick={() => set("psychology", { ...DEFAULT_PSYCHOLOGY, ...(f.psychology || {}), checks: checked ? (f.psychology?.checks || []).filter((key) => key !== item.key) : [...(f.psychology?.checks || []), item.key] })} className="flex w-full items-center gap-3 text-left text-xs text-prism-muted hover:text-white">
+                      <span className={`flex h-5 w-5 shrink-0 items-center justify-center rounded-md border ${checked ? "border-prism-accent bg-prism-accent text-black" : "border-prism-muted2"}`}>{checked && <Check className="h-3.5 w-3.5 stroke-[3]" />}</span>
+                      {en ? item.en : item.fr}
+                    </button>
+                  );
+                })}
+              </div>
+            </section>
+
+            <QlField label={t("m_tags")}>
+              {f.tags.length > 0 && (
+                <div className="mb-2 flex flex-wrap gap-1.5">
+                  {f.tags.map((tag) => (<PrismChip key={tag} active onClick={() => removeTag(tag)}>{tag} ×</PrismChip>))}
+                </div>
+              )}
+              <div className="flex gap-1.5">
+                <input className={`${QL_INPUT} ${QL_TXT}`} value={tagInput} onChange={(e) => setTagInput(e.target.value)} onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTag(tagInput); } }} placeholder={en ? "Add a tag…" : "Ajouter un tag…"} />
+                <PrismGhostBtn className="px-3" onClick={() => addTag(tagInput)}>+</PrismGhostBtn>
+              </div>
+              {tagSuggestions.length > 0 && (
+                <div className="mt-2 flex flex-wrap gap-1.5">
+                  {tagSuggestions.map((tag) => (<PrismChip key={tag} onClick={() => addTag(tag)}>{tag}</PrismChip>))}
+                </div>
+              )}
+            </QlField>
+
+            <QlField label={t("m_why")}>
+              <textarea className={`${QL_INPUT} ${QL_TXT} h-auto min-h-[80px] resize-y py-2.5 leading-relaxed`} value={f.why || ""} onChange={(e) => set("why", e.target.value)} placeholder={t("m_why_ph")} />
+            </QlField>
           </div>
         )}
-        <div className="flex gap-1.5">
-          <input
-            className={PRISM_INPUT}
-            value={tagInput}
-            onChange={(e) => setTagInput(e.target.value)}
-            onKeyDown={(e) => { if (e.key === "Enter") { e.preventDefault(); addTag(tagInput); } }}
-            placeholder={
-              lang === "en" ? "Add a tag and press Enter…" : "Ajoute un tag et appuie sur Entrée…"
-            }
-          />
-          <PrismGhostBtn className="px-3" onClick={() => addTag(tagInput)}>+</PrismGhostBtn>
-        </div>
-        {tagSuggestions.length > 0 && (
-          <div className="mt-2 flex flex-wrap gap-1.5">
-            {tagSuggestions.map((tag) => (
-              <PrismChip key={tag} onClick={() => addTag(tag)}>{tag}</PrismChip>
-            ))}
-          </div>
-        )}
-      </PrismField>
-
-      <PrismField label={t("m_chart")}>
-        <div className="grid grid-cols-2 gap-2.5">
-          <FilePicker
-            accept="image/*"
-            value={file}
-            existingUrl={shotUrl}
-            onChange={setFile}
-            onRemove={() => { setFile(null); setShotUrl(null); }}
-            hint={t("m_chart_hint")}
-          />
-          <FilePicker
-            accept="image/*"
-            value={file2}
-            existingUrl={shotUrl2}
-            onChange={setFile2}
-            onRemove={() => { setFile2(null); setShotUrl2(null); }}
-            hint={lang === "en" ? "2nd screenshot (optional)" : "2e capture (optionnel)"}
-          />
-        </div>
-      </PrismField>
-
-      <PrismField label={t("m_why")}>
-        <textarea
-          className={`${PRISM_INPUT} min-h-[80px] resize-y leading-relaxed`}
-          value={f.why}
-          onChange={(e) => set("why", e.target.value)}
-          placeholder={t("m_why_ph")}
-        />
-      </PrismField>
-
-      <PrismField label={t("m_plan_ok")}>
-        <div className="flex gap-1.5">
-          <PrismChip active={f.plan} onClick={() => set("plan", true)}>{t("m_yes")}</PrismChip>
-          <PrismChip active={!f.plan} danger onClick={() => set("plan", false)}>{t("m_no")}</PrismChip>
-        </div>
-      </PrismField>
-      </>}
+      </div>
     </PrismModal>
   );
 }
