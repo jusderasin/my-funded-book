@@ -6,9 +6,16 @@ import { createClient } from "@/lib/supabase/client";
 import { Trophy, Camera, Info } from "lucide-react";
 
 const MEDAL = ["#f5b301", "#c3ccd6", "#cd7f3f"];
+const inPeriod = (date, period) => {
+  const value = new Date(`${date}T00:00:00`);
+  const now = new Date();
+  if (period === "week") return now - value <= 7 * 86400000;
+  if (period === "month") return value.getMonth() === now.getMonth() && value.getFullYear() === now.getFullYear();
+  return value.getFullYear() === now.getFullYear();
+};
 
 export default function LeaderboardPage() {
-  const { profile, saveProfile, lang } = useBook();
+  const { profile, saveProfile, trades, lang } = useBook();
   const supabase = useMemo(() => createClient(), []);
   const L = lang === "en" ? "en" : "fr";
   const [period, setPeriod] = useState("month");
@@ -40,6 +47,9 @@ export default function LeaderboardPage() {
   }
 
   const myRow = rows.find((r) => r.user_id === profile?.id);
+  const periodTrades = useMemo(() => (trades || []).filter((trade) => inPeriod(trade.date, period)), [trades, period]);
+  const capturedTrades = useMemo(() => periodTrades.filter((trade) => trade.screenshot_url || trade.screenshot_url_2).length, [periodTrades]);
+  const requiredCapturedTrades = Math.max(3, Math.ceil(periodTrades.length * 0.8));
 
   const fmtR = (v) => (v > 0 ? "+" : "") + Number(v).toFixed(2) + "R";
   const fmtPnl = (v) => (v > 0 ? "+" : "") + Number(v).toLocaleString(L === "en" ? "en-US" : "fr-FR", { maximumFractionDigits: 0 }) + " $";
@@ -71,7 +81,7 @@ export default function LeaderboardPage() {
           <div>
             <div className="text-[13px] font-bold">{optedIn ? (L === "en" ? "You're in the ranking" : "Tu participes au classement") : (L === "en" ? "Join the ranking" : "Rejoins le classement")}</div>
             <div className="mt-0.5 text-[11.5px] text-muted2">
-              {L === "en" ? "Only trades with a screenshot count. Min 3 in the period." : "Seuls les trades avec capture comptent. Minimum 3 sur la période."}
+              {L === "en" ? "All trades in the period count (real P&L and R). To rank: at least 3 trades and 80% with a screenshot." : "Tous tes trades de la période comptent (P&L et R réels). Pour être classé : au moins 3 trades et 80 % avec une capture."}
             </div>
           </div>
         </div>
@@ -84,7 +94,7 @@ export default function LeaderboardPage() {
       {optedIn && !myRow && !loading && (
         <div className="mb-4 flex items-center gap-2 rounded-xl border border-dashed border-line bg-panel/50 p-3 text-[12px] text-muted2">
           <Camera size={14} className="shrink-0 text-accent" />
-          {L === "en" ? "Not eligible yet — you need at least 3 screenshotted trades this period." : "Pas encore éligible — il te faut au moins 3 trades avec capture sur cette période."}
+          {L === "en" ? `${capturedTrades} / ${requiredCapturedTrades} trades with screenshot (80% required).` : `${capturedTrades} / ${requiredCapturedTrades} trades avec capture (80 % requis).`}
         </div>
       )}
 
@@ -136,8 +146,8 @@ export default function LeaderboardPage() {
       <div className="mt-3 flex items-start gap-1.5 rounded-xl border border-dashed border-line bg-panel/50 p-3 text-[11px] text-muted2">
         <Info size={13} className="mt-0.5 shrink-0" />
         {L === "en"
-          ? "Self-reported ranking, based only on trades with a screenshot. Not broker-verified."
-          : "Classement auto-déclaré, basé uniquement sur les trades avec capture. Non vérifié auprès d'un broker."}
+          ? "Self-reported ranking. Eligibility requires 3 trades and 80% with a screenshot. Not broker-verified."
+          : "Classement auto-déclaré. L'éligibilité requiert 3 trades et 80 % avec une capture. Non vérifié auprès d'un broker."}
       </div>
     </div>
   );
