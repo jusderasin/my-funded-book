@@ -560,7 +560,7 @@ export default function JournalPage() {
             <Card title={T.execution}>
               <div className="mb-4 grid grid-cols-3 gap-2">
                 {["TP", "SL", "BE"].map((outcome) => (
-                  <button key={outcome} type="button" onClick={() => setQuickOutcome(outcome)} className={`h-10 rounded-md border text-xs font-extrabold transition ${f.outcome === outcome ? outcome === "TP" ? "border-prism-win bg-prism-win/15 text-prism-win" : outcome === "SL" ? "border-prism-loss bg-prism-loss/15 text-prism-loss" : "border-prism-line2 bg-prism-panel2 text-prism-text" : "border-prism-line text-prism-muted hover:text-prism-text"}`}>
+                  <button key={outcome} type="button" onClick={() => setQuickOutcome(outcome)} className={`h-10 rounded-md border text-xs font-extrabold transition ${f.outcome === outcome ? outcome === "TP" ? "border-prism-win bg-[rgba(34,197,94,0.15)] text-prism-win" : outcome === "SL" ? "border-prism-loss bg-[rgba(239,68,68,0.15)] text-prism-loss" : "border-prism-line2 bg-[rgba(138,138,147,0.15)] text-prism-text" : "border-prism-line text-prism-muted hover:text-prism-text"}`}>
                     {outcome} <span className="font-mono">{quickR[outcome] >= 0 ? "+" : ""}{quickR[outcome]}R</span>
                   </button>
                 ))}
