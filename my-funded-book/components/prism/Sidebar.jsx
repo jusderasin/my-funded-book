@@ -12,17 +12,10 @@ import { ConfirmModal } from "@/components/prism/TerminalPrimitives";
 
 export const NAV_ITEMS = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
-  { icon: ClipboardList, label: "Journal", href: "/journal" },
+  { icon: ClipboardList, label: "Trades", href: "/journal" },
   { icon: Building2, label: "Comptes", href: "/accounts" },
-  { icon: BarChart3, label: "Reports", href: "/breakdown" },
-  { icon: Sparkles, label: "PRISM AI", href: "/report" },
-  { icon: ClipboardList, label: "Stratégies", href: "/playbook" },
-  { icon: Calendar, label: "Calendrier", href: "/calendar" },
-  { icon: History, label: "Backtest", href: "/backtest" },
-  { icon: List, label: "Trade Logs", href: "/trade-logs" },
+  { icon: BarChart3, label: "Rapports", href: "/reports" },
   { icon: Trophy, label: "Classement", href: "/leaderboard" },
-  { icon: BadgeCheck, label: "Certificats", href: "/certificates" },
-  { icon: DollarSign, label: "D\u00e9penses", href: "/expenses" },
   { icon: Settings, label: "Réglages", href: "/settings" },
 ];
 
@@ -41,7 +34,7 @@ export default function Sidebar({ open = false, onClose, items = NAV_ITEMS }) {
   const toggleMode = () => { const next = mode === "dark" ? "light" : "dark"; setMode(next); localStorage.setItem("mtb.mode", next); document.documentElement.dataset.mode = next; };
   const isActive = (href) => pathname === href || pathname?.startsWith(`${href}/`);
   const main = ["/dashboard", "/journal", "/accounts"];
-  const settings = ["/referral", "/leaderboard", "/certificates", "/expenses", "/settings"];
+  const settings = ["/leaderboard", "/settings"];
 
   return <>
     {open && <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden" onClick={onClose} aria-hidden="true" />}

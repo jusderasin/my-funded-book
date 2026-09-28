@@ -259,13 +259,6 @@ export default function SettingsPage() {
                 <span className="absolute top-[3px] h-[18px] w-[18px] rounded-full bg-white transition-all" style={{ left: optedIn ? "23px" : "3px" }} />
               </button>
             </div>
-            {profile?.id && (
-              <div className="mt-3">
-                <Link href={`/u/${profile.id}`} className="inline-flex items-center gap-1.5 rounded-lg bg-accent px-3.5 py-2 text-[12px] font-bold text-black hover:brightness-110">
-                  <Eye size={14} /> {lang === "en" ? "View public profile" : "Voir mon profil public"}
-                </Link>
-              </div>
-            )}
           </div>
 
           <div className={cardCls}>
