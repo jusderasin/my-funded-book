@@ -5,6 +5,7 @@ import { useBook } from "@/components/BookProvider";
 import { fmtMoney } from "@/lib/format";
 import { BarChart3, TrendingUp, Layers, Clock, Tag, Target, Calendar, ArrowLeftRight, Award, Heart } from "lucide-react";
 import { EMOTION_BY_KEY } from "@/lib/constants";
+import { filterTrades, tradesToCsv } from "@/lib/reports";
 
 const GREEN = "var(--accent)";
 const RED = "var(--loss)";
@@ -230,12 +231,13 @@ function Empty() {
 /* ---------- page ---------- */
 
 export default function BreakdownPage() {
-  const { trades, lang } = useBook();
+  const { trades, accounts, lang } = useBook();
   const L = lang === "en" ? "en" : "fr";
   const [period, setPeriod] = useState("all");
+  const [filters, setFilters] = useState({ account: "", symbol: "", dir: "", setup: "", session: "", outcome: "" });
 
   const data = useMemo(() => {
-    const list = (trades || []).filter((tr) => inPeriod(tr.date, period));
+    const list = filterTrades((trades || []).filter((tr) => inPeriod(tr.date, period)), filters);
     const o = overall(list);
 
     const WD_FR = ["Dim", "Lun", "Mar", "Mer", "Jeu", "Ven", "Sam"];
@@ -300,7 +302,7 @@ export default function BreakdownPage() {
         return L === "en" ? em.en : em.fr;
       }),
     };
-  }, [trades, period, L]);
+  }, [trades, period, L, filters]);
 
   const o = data.o;
   const pfDisplay = o.pf === Infinity ? "∞" : o.pf.toFixed(2);
@@ -327,6 +329,14 @@ export default function BreakdownPage() {
             </button>
           ))}
         </div>
+      </div>
+
+      <div className="sticky top-0 z-20 mb-4 flex flex-wrap gap-2 rounded-xl border border-prism-line bg-prism-panel/95 p-3 backdrop-blur">
+        <select className="h-8 rounded border border-prism-line bg-prism-surface px-2 text-xs" value={filters.account} onChange={(e) => setFilters((f) => ({ ...f, account: e.target.value }))}><option value="">{L === "en" ? "All accounts" : "Tous les comptes"}</option>{(accounts || []).map((a) => <option key={a.id} value={a.id}>{a.note || a.firm}</option>)}</select>
+        {[['symbol', 'Symbol'], ['setup', 'Setup'], ['session', 'Session']].map(([key, label]) => <input key={key} className="h-8 w-28 rounded border border-prism-line bg-prism-surface px-2 text-xs" placeholder={label} value={filters[key]} onChange={(e) => setFilters((f) => ({ ...f, [key]: e.target.value }))} />)}
+        <select className="h-8 rounded border border-prism-line bg-prism-surface px-2 text-xs" value={filters.dir} onChange={(e) => setFilters((f) => ({ ...f, dir: e.target.value }))}><option value="">{L === "en" ? "Direction" : "Direction"}</option><option value="long">LONG</option><option value="short">SHORT</option></select>
+        <select className="h-8 rounded border border-prism-line bg-prism-surface px-2 text-xs" value={filters.outcome} onChange={(e) => setFilters((f) => ({ ...f, outcome: e.target.value }))}><option value="">{L === "en" ? "Result" : "Résultat"}</option><option value="TP">TP</option><option value="SL">SL</option><option value="BE">BE</option></select>
+        <button type="button" onClick={() => { const blob = new Blob([tradesToCsv(data.list)], { type: "text/csv" }); const url = URL.createObjectURL(blob); const link = document.createElement("a"); link.href = url; link.download = "mytradebook-report.csv"; link.click(); URL.revokeObjectURL(url); }} className="ml-auto h-8 rounded bg-prism-accent px-3 text-xs font-bold text-black">Export CSV</button>
       </div>
 
       {o.n === 0 ? (
