@@ -10,6 +10,7 @@
 // page le détecte et masque ces champs au lieu de faire échouer l'insertion.
 
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import {
   AlertCircle, ArrowDownRight, ArrowUpRight, Check, ChevronDown, ChevronLeft, ChevronRight,
   FileText, Filter, ImagePlus, ListChecks, Plus, Star, Trash2, Upload, X,
@@ -772,10 +773,11 @@ export default function JournalPage() {
       {confirmIds && (
         <ConfirmModal title={T.confirmDelTitle} message={T.confirmDelMsg(confirmIds.length)} confirmLabel={T.deleteSel} onClose={() => setConfirmIds(null)} onConfirm={confirmDelete} />
       )}
-      {lightbox && (
-        <div className="fixed inset-0 z-[120] grid place-items-center bg-black/90 p-6" onClick={() => setLightbox(null)}>
+      {lightbox && typeof document !== "undefined" && createPortal(
+        <div className="fixed inset-0 z-[120] grid overflow-x-hidden overflow-y-auto bg-black/90 p-6" onClick={() => setLightbox(null)}>
           <button type="button" onClick={(event) => { event.stopPropagation(); setLightbox((current) => ({ ...current, index: (current.index + current.urls.length - 1) % current.urls.length })); }} className="absolute left-5 text-3xl">‹</button><img src={lightbox.urls[lightbox.index]} alt="" className="max-h-full max-w-full rounded-lg" onClick={(event) => event.stopPropagation()} /><button type="button" onClick={(event) => { event.stopPropagation(); setLightbox((current) => ({ ...current, index: (current.index + 1) % current.urls.length })); }} className="absolute right-5 text-3xl">›</button>
-        </div>
+        </div>,
+        document.body,
       )}
     </div>
   );
@@ -900,9 +902,9 @@ function ScreenshotModal({ T, files, onClose, onSave }) {
   const add = (incoming) => setList((cur) => [...cur, ...Array.from(incoming || []).filter((file) => file.type.startsWith("image/"))].slice(0, 2));
   const previews = useMemo(() => list.map((file) => URL.createObjectURL(file)), [list]);
   useEffect(() => () => previews.forEach((u) => URL.revokeObjectURL(u)), [previews]);
-  return (
-    <div className="fixed inset-0 z-[100] grid place-items-center bg-black/85 p-4 backdrop-blur-sm" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <section className="w-full max-w-2xl overflow-hidden rounded-2xl border border-prism-line bg-prism-panel">
+  const modal = (
+    <div className="fixed inset-0 z-[100] grid overflow-x-hidden overflow-y-auto bg-black/85 p-4 backdrop-blur-sm" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <section className="m-auto w-full max-w-[calc(100vw-2rem)] overflow-hidden rounded-2xl border border-prism-line bg-prism-panel sm:max-w-2xl">
         <header className="flex items-center justify-between border-b border-prism-line px-5 py-4">
           <h2 className="text-xs font-bold tracking-[.16em]">{T.shotsTitle}</h2>
           <button type="button" onClick={onClose} className="text-prism-muted hover:text-prism-text"><X className="h-5 w-5" /></button>
@@ -937,4 +939,5 @@ function ScreenshotModal({ T, files, onClose, onSave }) {
       </section>
     </div>
   );
+  return typeof document === "undefined" ? modal : createPortal(modal, document.body);
 }

@@ -1,6 +1,7 @@
 "use client";
 
 import { useEffect } from "react";
+import { createPortal } from "react-dom";
 import { X } from "lucide-react";
 
 const toneText = {
@@ -62,12 +63,12 @@ export function Modal({ title, onClose, children, footer }) {
     window.addEventListener("keydown", h);
     return () => window.removeEventListener("keydown", h);
   }, [onClose]);
-  return (
+  const modal = (
     <div
-      className="fixed inset-0 z-[70] flex items-end justify-center bg-black/70 backdrop-blur-sm sm:items-center"
+      className="fixed inset-0 z-[70] flex items-end justify-center overflow-x-hidden bg-black/70 p-2 backdrop-blur-sm sm:items-center sm:p-4"
       onMouseDown={(e) => e.target === e.currentTarget && onClose()}
     >
-      <div className="w-full max-w-[560px] max-h-[92vh] overflow-y-auto rounded-t-2xl border border-line2 bg-ink2 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.7)] sm:rounded-2xl">
+      <div className="max-h-[92vh] w-full max-w-[calc(100vw-1rem)] overflow-x-hidden overflow-y-auto rounded-t-2xl border border-line2 bg-ink2 p-5 shadow-[0_24px_80px_rgba(0,0,0,0.7)] sm:max-w-[560px] sm:rounded-2xl">
         <div className="mb-4 flex items-center justify-between">
           <h3 className="text-[17px] font-extrabold">{title}</h3>
           <button onClick={onClose} className="rounded-lg p-1 text-muted hover:bg-panel2 hover:text-white">
@@ -79,6 +80,7 @@ export function Modal({ title, onClose, children, footer }) {
       </div>
     </div>
   );
+  return typeof document === "undefined" ? modal : createPortal(modal, document.body);
 }
 
 export function Field({ label, children }) {

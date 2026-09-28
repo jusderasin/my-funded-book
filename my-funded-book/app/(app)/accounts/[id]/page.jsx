@@ -5,6 +5,7 @@
 // Les calculs de risque restent ceux de lib/accountHealth.js.
 
 import { useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import Link from "next/link";
 import { useParams, useRouter } from "next/navigation";
 import {
@@ -514,9 +515,9 @@ function AssignModal({ account, lang, onClose }) {
     onClose();
   }
 
-  return (
-    <div className="fixed inset-0 z-[100] grid place-items-center bg-black/85 p-4 backdrop-blur-sm" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
-      <section className="flex max-h-[88dvh] w-full max-w-4xl flex-col overflow-hidden rounded-2xl border border-prism-line bg-prism-panel shadow-2xl">
+  const modal = (
+    <div className="fixed inset-0 z-[100] grid overflow-x-hidden overflow-y-auto bg-black/85 p-4 backdrop-blur-sm" onMouseDown={(e) => e.target === e.currentTarget && onClose()}>
+      <section className="m-auto flex max-h-[88dvh] w-full max-w-[calc(100vw-2rem)] flex-col overflow-hidden rounded-2xl border border-prism-line bg-prism-panel shadow-2xl sm:max-w-4xl">
         <header className="flex items-start justify-between border-b border-prism-line px-6 py-5">
           <div>
             <h2 className="text-lg font-bold">{en ? "Assign Trades" : "Assigner des trades"} — {accountName(account)}</h2>
@@ -572,4 +573,5 @@ function AssignModal({ account, lang, onClose }) {
       </section>
     </div>
   );
+  return typeof document === "undefined" ? modal : createPortal(modal, document.body);
 }
