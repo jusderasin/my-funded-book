@@ -82,3 +82,10 @@ create policy "trades_delete_own"
 -- from public.trades
 -- where date >= date_trunc('month', current_date)::date
 -- order by user_id, date desc;
+
+-- 004 — Journal V3 : détails d'exécution d'un trade.
+-- Une seule colonne JSONB (heures, prix, taille, profit prévu, swing, note,
+-- émotions maîtrisées). Ajout seulement, aucune donnée existante modifiée.
+-- Tant qu'elle n'existe pas, la page Journal masque ces champs.
+alter table public.trades
+  add column if not exists execution jsonb not null default '{}'::jsonb;
