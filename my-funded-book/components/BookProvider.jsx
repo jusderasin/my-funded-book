@@ -8,16 +8,7 @@ import { translate } from "@/lib/i18n";
 const BookCtx = createContext(null);
 export const useBook = () => useContext(BookCtx);
 
-const SUPPORTED_THEMES = new Set(["prism", "signal", "blue", "dark", "oled", "darker", "cyberpunk"]);
-const THEME_FALLBACKS = {
-  prism: { accent: "#06b6d4", loss: "#ef4444" },
-  signal: { accent: "#f4f4f5", loss: "#ff647c" },
-  blue: { accent: "#3b82f6", loss: "#ef4444" },
-  dark: { accent: "#3b82f6", loss: "#ef4444" },
-  oled: { accent: "#3b82f6", loss: "#ef4444" },
-  darker: { accent: "#3b82f6", loss: "#ef4444" },
-  cyberpunk: { accent: "#a78bfa", loss: "#fb7185" },
-};
+const PRISM_THEME = { accent: "#06b6d4", loss: "#ef4444" };
 
 function hexToRgba(hex, alpha) {
   const value = String(hex || "").replace("#", "");
@@ -32,13 +23,13 @@ function applyProfileVars(p) {
   if (typeof document === "undefined" || !p) return;
   // Les profils existants utilisaient "signal" (violet). La V2 adopte PRISM
   // noir/cyan comme identité par défaut sans exiger une migration de profil.
-  const selectedTheme = p.theme === "signal" ? "prism" : (SUPPORTED_THEMES.has(p.theme) ? p.theme : "prism");
-  const fallback = THEME_FALLBACKS[selectedTheme];
+  const selectedTheme = "prism";
+  const fallback = PRISM_THEME;
   // Le thème Terminal Violet est une direction visuelle complète : il ne doit
   // pas être recoloré par les anciens accents verts enregistrés dans le profil.
-  const accent = selectedTheme === "prism" || selectedTheme === "signal" ? fallback.accent : (p.accent_gain || fallback.accent);
-  const prismAccent = selectedTheme === "prism" ? "#06b6d4" : selectedTheme === "signal" ? "#a78bfa" : accent;
-  const loss = selectedTheme === "prism" || selectedTheme === "signal" ? fallback.loss : (p.accent_loss || fallback.loss);
+  const accent = fallback.accent;
+  const prismAccent = fallback.accent;
+  const loss = fallback.loss;
   const root = document.documentElement;
 
   root.style.setProperty("--accent", accent);
@@ -46,27 +37,9 @@ function applyProfileVars(p) {
   root.style.setProperty("--prism-accent", prismAccent);
   root.style.setProperty("--prism-accent-soft", prismAccent);
   root.style.setProperty("--prism-accent-dim", hexToRgba(prismAccent, 0.13));
-  root.style.setProperty("--prism-win", selectedTheme === "signal" ? "#4ade80" : "#22c55e");
+  root.style.setProperty("--prism-win", "#22c55e");
   root.style.setProperty("--prism-loss", loss);
-  if (selectedTheme === "blue") root.removeAttribute("data-theme");
-  else root.setAttribute("data-theme", selectedTheme);
-  return;
-  // Signal est l'identité par défaut du produit. Tous les anciens thèmes
-  // basculent vers Signal; seul "blue" est désormais un choix explicite.
-  const theme = p.theme === "blue" ? "blue" : "signal";
-  if (theme === "signal") {
-    document.documentElement.style.setProperty("--accent", "#8cff4f");
-    document.documentElement.style.setProperty("--loss", "#ff6d6d");
-  } else {
-    if (p.accent_gain) document.documentElement.style.setProperty("--accent", p.accent_gain);
-    if (p.accent_loss) document.documentElement.style.setProperty("--loss", p.accent_loss);
-  }
-  // "blue" est le thème classique sans attribut data-theme.
-  if (theme === "blue") {
-    document.documentElement.removeAttribute("data-theme");
-  } else {
-    document.documentElement.setAttribute("data-theme", theme);
-  }
+  root.setAttribute("data-theme", selectedTheme);
 }
 
 export function BookProvider({ user, children }) {
