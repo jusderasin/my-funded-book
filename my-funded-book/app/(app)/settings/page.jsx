@@ -10,6 +10,17 @@ import { createClient } from "@/lib/supabase/client";
 import { Field, inputCls, Chip, PrimaryBtn, GhostBtn } from "@/components/ui";
 import { User, CreditCard, Lock, Eye, SlidersHorizontal } from "lucide-react";
 
+const DEFAULT_QUICK_R = { TP: 2, SL: -1, BE: 0 };
+
+function readQuickR(value) {
+  if (!value || typeof value !== "object") return DEFAULT_QUICK_R;
+  return {
+    TP: Number.isFinite(Number(value.TP)) ? Number(value.TP) : DEFAULT_QUICK_R.TP,
+    SL: Number.isFinite(Number(value.SL)) ? Number(value.SL) : DEFAULT_QUICK_R.SL,
+    BE: Number.isFinite(Number(value.BE)) ? Number(value.BE) : DEFAULT_QUICK_R.BE,
+  };
+}
+
 export default function SettingsPage() {
   const { profile, saveProfile, trades, lang, setLang, t, notify, subscription, reload } = useBook();
   const supabase = useMemo(() => createClient(), []);
@@ -25,6 +36,9 @@ export default function SettingsPage() {
   const [saving, setSaving] = useState(false);
   const [pinSaving, setPinSaving] = useState(false);
   const [optSaving, setOptSaving] = useState(false);
+  const [quickR, setQuickR] = useState(DEFAULT_QUICK_R);
+  const [hasQuickRColumn, setHasQuickRColumn] = useState(false);
+  const [quickRSaving, setQuickRSaving] = useState(false);
   const set = (k, v) => setF((s) => ({ ...s, [k]: v }));
   const optedIn = !!profile?.leaderboard_opt_in;
 
@@ -38,6 +52,33 @@ export default function SettingsPage() {
       });
     }
   }, [profile?.id]);
+
+  useEffect(() => {
+    let active = true;
+
+    try {
+      const stored = window.localStorage.getItem("mtb.quickR");
+      if (stored) setQuickR(readQuickR(JSON.parse(stored)));
+    } catch {
+      window.localStorage.setItem("mtb.quickR", JSON.stringify(DEFAULT_QUICK_R));
+    }
+
+    supabase
+      .from("profiles")
+      .select("quick_r")
+      .limit(1)
+      .then(({ data, error }) => {
+        if (!active || error) return;
+        setHasQuickRColumn(true);
+        const remote = data?.[0]?.quick_r;
+        if (!remote) return;
+        const next = readQuickR(remote);
+        setQuickR(next);
+        window.localStorage.setItem("mtb.quickR", JSON.stringify(next));
+      });
+
+    return () => { active = false; };
+  }, [supabase]);
 
   // Abonnement
   const [portalLoading, setPortalLoading] = useState(false);
@@ -97,6 +138,31 @@ export default function SettingsPage() {
     setOptSaving(true);
     await saveProfile({ leaderboard_opt_in: !optedIn });
     setOptSaving(false);
+  }
+
+  async function saveQuickR(next = quickR) {
+    const values = readQuickR(next);
+    if (values.TP <= 0 || values.SL >= 0) {
+      notify(lang === "en" ? "TP must be greater than 0 and SL must be less than 0." : "Le TP doit être supérieur à 0 et le SL inférieur à 0.", true);
+      return false;
+    }
+
+    setQuickRSaving(true);
+    setQuickR(values);
+    window.localStorage.setItem("mtb.quickR", JSON.stringify(values));
+
+    if (hasQuickRColumn) {
+      await saveProfile({ quick_r: values });
+    }
+
+    setQuickRSaving(false);
+    notify(lang === "en" ? "Quick trade values saved." : "Valeurs rapides enregistrées.");
+    return true;
+  }
+
+  function resetQuickR() {
+    setQuickR(DEFAULT_QUICK_R);
+    saveQuickR(DEFAULT_QUICK_R);
   }
 
   function replayTutorial() {
@@ -246,6 +312,31 @@ export default function SettingsPage() {
           <AccentPicker profile={profile} saveProfile={saveProfile} lang={lang} notify={notify} />
 
           <PushNotifications profile={profile} saveProfile={saveProfile} lang={lang} notify={notify} />
+
+          <div className={cardCls}>
+            <div className={sectionLabel}>{lang === "en" ? "Trading" : "Trading"}</div>
+            <p className="mb-3 text-[11.5px] text-muted2">
+              {lang === "en" ? "Default R values for the TP, SL and break-even quick buttons." : "Valeurs R par défaut des boutons rapides TP, SL et break-even."}
+            </p>
+            <div className="grid gap-3 sm:grid-cols-3">
+              {Object.entries(quickR).map(([key, value]) => (
+                <Field key={key} label={key}>
+                  <input
+                    className={inputCls}
+                    type="number"
+                    inputMode="decimal"
+                    step="0.1"
+                    value={value}
+                    onChange={(event) => setQuickR((current) => ({ ...current, [key]: event.target.value }))}
+                  />
+                </Field>
+              ))}
+            </div>
+            <div className="mt-3 flex flex-wrap justify-end gap-2">
+              <GhostBtn onClick={resetQuickR} disabled={quickRSaving}>{lang === "en" ? "Reset" : "Réinitialiser"}</GhostBtn>
+              <PrimaryBtn onClick={() => saveQuickR()} disabled={quickRSaving}>{quickRSaving ? t("m_sending") : t("settings_save")}</PrimaryBtn>
+            </div>
+          </div>
 
           <div className={cardCls}>
             <div className="flex items-center justify-between gap-3">
