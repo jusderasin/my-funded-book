@@ -46,10 +46,19 @@ function deltas(trades, threshold, lang) {
   return Object.fromEntries(Object.keys(latest).map((key) => {
     const oldValue = earlier[key];
     const value = latest[key];
-    if (!Number.isFinite(value)) return [key, null];
-    if (!Number.isFinite(oldValue) || oldValue === 0) return [key, `${value >= 0 ? "+" : ""}${value.toFixed(2)} ${suffix}`];
-    const change = (value - oldValue) / Math.abs(oldValue) * 100;
-    return [key, `${change >= 0 ? "+" : ""}${change.toFixed(0)}% ${suffix}`];
+    const currentDay = trades.filter((trade) => trade.date === dates.at(-1));
+    const previousDay = trades.filter((trade) => trade.date === dates.at(-2));
+    const unavailable = currentDay.length < 2 || previousDay.length < 2 || !Number.isFinite(value) || !Number.isFinite(oldValue) || ((key === "profitFactor" || key === "sharpe" || key === "sortino") && (!oldValue || !value));
+    if (unavailable) return [key, { text: "—", tone: "neutral" }];
+    const difference = value - oldValue;
+    const tone = difference > 0 ? "gain" : difference < 0 ? "loss" : "neutral";
+    const sign = difference > 0 ? "+" : "";
+    const display = key === "net"
+      ? fmtMoney(difference)
+      : key === "winRate"
+        ? `${sign}${difference.toFixed(0)} pts`
+        : `${sign}${difference.toFixed(2)}`;
+    return [key, { text: `${display} ${suffix}`, tone }];
   }));
 }
 
@@ -66,7 +75,7 @@ export default function DashboardPage() {
   const values = useMemo(() => metrics(trades, threshold), [trades, threshold]);
   const changes = useMemo(() => deltas(trades, threshold, lang), [trades, threshold, lang]);
   const L = lang === "en"
-    ? { title: "Account details", subtitle: "Performance and trading metrics.", empty: "No trades yet", equity: "EQUITY CURVE", drawdown: "DRAWDOWN CURVE", chart: "NOT ENOUGH DATA FOR THE CHART", none: "No data for this period", ratio: "WIN / LOSS RATIO", avgR: "AVERAGE R:R" }
+    ? { title: "Dashboard", subtitle: "Performance and trading metrics.", empty: "No trades yet", equity: "EQUITY CURVE", drawdown: "DRAWDOWN CURVE", chart: "NOT ENOUGH DATA FOR THE CHART", none: "No data for this period", ratio: "WIN / LOSS RATIO", avgR: "AVERAGE R:R" }
     : { title: "Détails du compte", subtitle: "Performance et métriques de trading.", empty: "Pas encore de trade", equity: "COURBE D'ÉQUITY", drawdown: "COURBE DE DRAWDOWN", chart: "PAS ASSEZ DE DONNÉES POUR LE GRAPHIQUE", none: "Aucune donnée sur cette période", ratio: "RATIO GAIN / PERTE", avgR: "R:R MOYEN" };
   const cards = [
     ["net", "NET P&L", fmtMoney(values.net), null, values.net < 0 ? "loss" : "gain"],
