@@ -1,10 +1,11 @@
 "use client";
 
-import { useMemo } from "react";
+import { useMemo, useState } from "react";
 import { Area } from "@/components/charts";
 import { useBook } from "@/components/BookProvider";
 import { Card, EmptyState, StatCard } from "@/components/prism/TerminalPrimitives";
 import { fmtMoney, fmtR, frDate } from "@/lib/format";
+import { computeStats } from "@/lib/stats";
 
 const average = (xs) => xs.length ? xs.reduce((a, x) => a + x, 0) / xs.length : 0;
 
@@ -52,7 +53,14 @@ function deltas(trades, threshold, lang) {
 }
 
 export default function DashboardPage() {
-  const { scopedTrades: trades, scopedStats: stats, profile, lang } = useBook();
+  const { scopedTrades, activeAccount, profile, lang } = useBook();
+  const [range, setRange] = useState("all");
+  const trades = useMemo(() => {
+    if (range === "all") return scopedTrades;
+    const days = Number(range); const cutoff = new Date(); cutoff.setDate(cutoff.getDate() - days);
+    return scopedTrades.filter((trade) => new Date(`${trade.date}T00:00:00`) >= cutoff);
+  }, [scopedTrades, range]);
+  const stats = useMemo(() => computeStats(trades, Number(activeAccount?.size) || Number(profile?.starting_balance) || 0), [trades, activeAccount, profile]);
   const threshold = Number(profile?.be_threshold) || 0;
   const values = useMemo(() => metrics(trades, threshold), [trades, threshold]);
   const changes = useMemo(() => deltas(trades, threshold, lang), [trades, threshold, lang]);
@@ -69,8 +77,12 @@ export default function DashboardPage() {
     ["breakEvens", "TRADES BE", String(values.breakEvens), trades.length ? values.breakEvens / trades.length * 100 : 0],
     ["averageR", L.avgR, fmtR(values.averageR), Math.min(Math.abs(values.averageR) * 25, 100), values.averageR < 0 ? "loss" : "accent"],
   ];
-  return <main className="min-h-full bg-prism-bg p-5 sm:p-8"><header className="mb-7"><h1 className="text-3xl font-bold tracking-tight">{L.title}</h1><p className="mt-1 text-sm text-prism-muted">{L.subtitle}</p></header><section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{cards.map(([key, label, value, ring, tone]) => <StatCard key={key} label={label} value={trades.length ? value : L.empty} ring={trades.length ? ring : null} sublabel={trades.length ? changes?.[key] : ""} tone={tone} />)}</section><section className="mt-5 space-y-5"><Curve label={L.equity} value={values.net} values={(stats.curve || []).map((x) => x.eq)} labels={(stats.curve || []).map((x) => frDate(x.d))} color="#22c55e" empty={L.chart} /><Curve label={L.drawdown} value={-(Number(stats.maxDD) || 0)} values={stats.ddSeries || []} labels={(stats.curve || []).map((x) => frDate(x.d))} color="#ef4444" empty={L.none} /></section></main>;
+  const daily = Object.entries(stats.byDay || {});
+  const sessions = ["Asia", "London", "NY AM", "NY PM"].map((session) => ({ session, pnl: trades.filter((t) => t.session === session).reduce((sum, t) => sum + (Number(t.pnl) || 0), 0) }));
+  return <main className="min-h-full bg-prism-bg p-5 sm:p-8"><header className="mb-7 flex flex-wrap items-end justify-between gap-3"><div><h1 className="text-3xl font-bold tracking-tight">{L.title}</h1><p className="mt-1 text-sm text-prism-muted">{L.subtitle}</p></div><div className="flex gap-1">{[["7", "7 j"], ["30", "30 j"], ["90", "90 j"], ["all", lang === "en" ? "All" : "Tout"]].map(([value, label]) => <button key={value} type="button" onClick={() => setRange(value)} className={`rounded border px-3 py-1.5 text-xs ${range === value ? "border-prism-accent text-prism-accent" : "border-prism-line text-prism-muted"}`}>{label}</button>)}</div></header><section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">{cards.map(([key, label, value, ring, tone]) => <StatCard key={key} label={label} value={trades.length ? value : L.empty} ring={trades.length ? ring : null} sublabel={trades.length ? changes?.[key] : ""} tone={tone} />)}</section><section className="mt-5 space-y-5"><Curve label={L.equity} value={values.net} values={(stats.curve || []).map((x) => x.eq)} labels={(stats.curve || []).map((x) => frDate(x.d))} color="#22c55e" empty={L.chart} /><Curve label={L.drawdown} value={-(Number(stats.maxDD) || 0)} values={stats.ddSeries || []} labels={(stats.curve || []).map((x) => frDate(x.d))} color="#ef4444" empty={L.none} /></section><section className="mt-5 grid gap-4 lg:grid-cols-2"><MiniCard title={lang === "en" ? "P&L BY DAY" : "P&L PAR JOUR"} rows={daily.map(([date, pnl]) => ({ label: frDate(date), value: pnl }))} /><MiniCard title={lang === "en" ? "P&L BY SESSION" : "P&L PAR SESSION"} rows={sessions.map(({ session, pnl }) => ({ label: session, value: pnl }))} /><Card padding="p-5"><p className="text-[10px] font-bold tracking-[.16em] text-prism-accent">{lang === "en" ? "DISCIPLINE" : "DISCIPLINE"}</p><p className="mt-3 font-mono text-2xl">{trades.length ? `${Math.round(trades.filter((t) => t.plan).length / trades.length * 100)}%` : "—"}</p><p className="mt-2 text-xs text-prism-muted">{lang === "en" ? "Trades within plan" : "Trades dans le plan"}</p></Card>{activeAccount && <Card padding="p-5"><p className="text-[10px] font-bold tracking-[.16em] text-prism-accent">{lang === "en" ? "ACCOUNT TARGET" : "OBJECTIF DU COMPTE"}</p><p className="mt-3 font-mono text-2xl">{fmtMoney(Number(activeAccount.profit_target) || 0)}</p><a className="mt-2 block text-xs text-prism-accent" href={`/accounts/${activeAccount.id}`}>{lang === "en" ? "Open account →" : "Voir le compte →"}</a></Card>}</section></main>;
 }
+
+function MiniCard({ title, rows }) { return <Card padding="p-5"><p className="mb-4 text-[10px] font-bold tracking-[.16em] text-prism-accent">{title}</p><div className="space-y-2">{rows.length ? rows.map((row) => <div key={row.label} className="flex justify-between border-b border-prism-line pb-2 text-xs"><span className="text-prism-muted">{row.label}</span><b className={row.value < 0 ? "text-prism-loss" : "text-prism-win"}>{fmtMoney(row.value)}</b></div>) : <p className="text-xs text-prism-muted">—</p>}</div></Card>; }
 
 function Curve({ label, value, values, labels, color, empty }) {
   return <section><p className="mb-2 text-[10px] font-bold tracking-[.16em]" style={{ color }}>{label}</p><Card padding="p-6"><div className="mb-5 flex justify-end"><b className="font-mono text-sm" style={{ color }}>{fmtMoney(value)}</b></div>{values.length > 1 ? <Area values={values} labels={labels} color={color} fill={color} fmt={fmtMoney} /> : <EmptyState title={empty} />}</Card></section>;
