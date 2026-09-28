@@ -42,8 +42,8 @@ export default function AppShellPrism({ user, children }) {
         onClose={() => setSidebarOpen(false)}
       />
       {/* La marge gauche compense la sidebar fixed sur desktop (lg+) uniquement */}
-      <div className="flex min-h-[100dvh] flex-col lg:pl-[232px]">
-        <div className="sticky top-0 z-30 flex h-14 items-center justify-between border-b border-prism-line bg-prism-bg/90 px-4 backdrop-blur lg:hidden">
+      <div className="flex min-h-[100dvh] flex-col pt-[calc(3.5rem+env(safe-area-inset-top))] lg:pl-[232px] lg:pt-0">
+        <div className="fixed inset-x-0 top-0 z-30 flex h-[calc(3.5rem+env(safe-area-inset-top))] items-end justify-between border-b border-prism-line bg-prism-bg/95 px-4 pb-2 pt-[env(safe-area-inset-top)] backdrop-blur lg:hidden">
           <button onClick={() => setSidebarOpen(true)} className="rounded-md border border-prism-line px-3 py-1.5 text-xs font-bold text-prism-text">Menu</button>
           <button onClick={() => setQuickLogOpen(true)} className="rounded-md bg-prism-accent px-3 py-1.5 text-xs font-bold text-black">+ Log trade</button>
         </div>
