@@ -1,602 +1,120 @@
 "use client";
 
-import { useState, useEffect, useMemo } from "react";
+import { useMemo } from "react";
+import { Area } from "@/components/charts";
 import { useBook } from "@/components/BookProvider";
-import { Modal, GhostBtn } from "@/components/ui";
-import { Area, Bars, Calendar } from "@/components/charts";
-import { fmtMoney, frDate } from "@/lib/format";
-import { LogTradeModal } from "@/components/modals";
-import KpiCustomizer from "@/components/KpiCustomizer";
-import { KPI_CATALOG, DEFAULT_KPI_IDS, MIN_KPIS, MAX_KPIS } from "@/lib/kpiCatalog";
-import { psychBucket, tradeMentalScore } from "@/lib/constants";
-import { Gauge as PrismGauge, Card } from "@/components/prism";
-import { Activity, ArrowUpRight, Flame, Sparkles, Target, Settings2, X } from "lucide-react";
+import { Card, EmptyState, StatCard } from "@/components/prism/TerminalPrimitives";
+import { fmtMoney, fmtR, frDate } from "@/lib/format";
 
-const KPI_STORAGE_KEY = "mfb.dashboard.kpis";
+function average(values) {
+  return values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
+}
+
+function metricData(trades, threshold) {
+  const pnl = trades.map((trade) => Number(trade.pnl) || 0);
+  const winners = pnl.filter((value) => value > threshold);
+  const losers = pnl.filter((value) => value < -threshold);
+  const breakEvens = pnl.filter((value) => Math.abs(value) <= threshold);
+  const gains = winners.reduce((sum, value) => sum + value, 0);
+  const losses = Math.abs(losers.reduce((sum, value) => sum + value, 0));
+  const returns = pnl.map((value, index) => index ? value - pnl[index - 1] : value);
+  const mean = average(returns);
+  const deviation = Math.sqrt(average(returns.map((value) => (value - mean) ** 2)));
+  const downside = Math.sqrt(average(returns.filter((value) => value < 0).map((value) => value ** 2)));
+  const avgGain = average(winners);
+  const avgLoss = Math.abs(average(losers));
+  const rValues = trades.map((trade) => Number(trade.r) || 0);
+
+  return {
+    net: pnl.reduce((sum, value) => sum + value, 0),
+    winRate: trades.length ? (winners.length / trades.length) * 100 : 0,
+    profitFactor: losses ? gains / losses : gains ? Infinity : 0,
+    gainLossRatio: avgLoss ? avgGain / avgLoss : 0,
+    sharpe: deviation ? mean / deviation : 0,
+    sortino: downside ? mean / downside : 0,
+    breakEvens: breakEvens.length,
+    averageR: average(rValues),
+  };
+}
+
+function comparison(trades) {
+  const dates = [...new Set(trades.map((trade) => trade.date))].sort();
+  if (dates.length < 2) return "— vs dernier jour tradé";
+  const previous = trades.filter((trade) => trade.date === dates.at(-2)).reduce((sum, trade) => sum + (Number(trade.pnl) || 0), 0);
+  const current = trades.filter((trade) => trade.date === dates.at(-1)).reduce((sum, trade) => sum + (Number(trade.pnl) || 0), 0);
+  const delta = previous ? ((current - previous) / Math.abs(previous)) * 100 : 0;
+  return `${delta >= 0 ? "+" : ""}${delta.toFixed(0)}% vs dernier jour tradé`;
+}
 
 export default function DashboardPage() {
-  const { scopedStats: s, scopedTrades: trades, accounts, activeAccount, activeAccountId, setActiveAccountId, t, lang } = useBook();
-  const L = lang === "en" ? "en" : "fr";
-  const [cal, setCal] = useState(() => {
-    const last = s.days[s.days.length - 1] || new Date().toISOString().slice(0, 10);
-    const [y, m] = last.split("-");
-    return { y: +y, m: +m };
-  });
-  const [dayKey, setDayKey] = useState(null);
-  const [editing, setEditing] = useState(null);
-  const [kpiIds, setKpiIds] = useState(DEFAULT_KPI_IDS);
-  const [customizing, setCustomizing] = useState(false);
-  const [calMode, setCalMode] = useState("pnl"); // "pnl" | "psych"
-  const [showIntro, setShowIntro] = useState(false);
-
-  useEffect(() => {
-    try {
-      const raw = localStorage.getItem(KPI_STORAGE_KEY);
-      if (!raw) return;
-      const arr = JSON.parse(raw);
-      if (!Array.isArray(arr)) return;
-      const valid = arr.filter((id) => KPI_CATALOG.some((k) => k.id === id));
-      if (valid.length >= MIN_KPIS && valid.length <= MAX_KPIS) {
-        setKpiIds(valid);
-      }
-    } catch {}
-  }, []);
-
-  useEffect(() => {
-    try {
-      setShowIntro(localStorage.getItem("mfb.dashboard.intro.dismissed") !== "1");
-    } catch {
-      setShowIntro(true);
-    }
-  }, []);
-
-  const dismissIntro = () => {
-    setShowIntro(false);
-    try { localStorage.setItem("mfb.dashboard.intro.dismissed", "1"); } catch {}
-  };
-
-  const saveKpis = (ids) => {
-    setKpiIds(ids);
-    try {
-      localStorage.setItem(KPI_STORAGE_KEY, JSON.stringify(ids));
-    } catch {}
-    setCustomizing(false);
-  };
-
-  const shift = (dir) => {
-    let m = cal.m + dir, y = cal.y;
-    if (m < 1) { m = 12; y--; }
-    if (m > 12) { m = 1; y++; }
-    setCal({ y, m });
-  };
-
-  const tradesByDay = {};
-  trades.forEach((tr) => { tradesByDay[tr.date] = (tradesByDay[tr.date] || 0) + 1; });
-  const recent = trades.slice(0, 8);
-  const dayTrades = dayKey ? trades.filter((tr) => tr.date === dayKey) : [];
-  const models = useMemo(() => {
-    const groups = new Map();
-    trades.forEach((trade) => {
-      const name = trade.setup || "Freestyle trading";
-      const group = groups.get(name) || { name, trades: 0, wins: 0, pnl: 0, losses: 0 };
-      group.trades += 1; group.pnl += Number(trade.pnl || 0);
-      if (Number(trade.pnl || 0) >= 0) group.wins += 1; else group.losses += 1;
-      groups.set(name, group);
-    });
-    return [...groups.values()].sort((a, b) => b.pnl - a.pnl).slice(0, 4);
-  }, [trades]);
-
-  // --- Vue "Psych" du calendrier : état mental moyen par jour, dérivé du champ emotion ---
-  const psychSums = {};
-  trades.forEach((tr) => {
-    const sc = tradeMentalScore(tr);
-    if (sc == null) return;
-    if (!psychSums[tr.date]) psychSums[tr.date] = { sum: 0, n: 0 };
-    psychSums[tr.date].sum += sc;
-    psychSums[tr.date].n += 1;
-  });
-  const psychByDay = {};
-  Object.keys(psychSums).forEach((d) => { psychByDay[d] = psychSums[d].sum / psychSums[d].n; });
-  const psychBucketFn = (score) => {
-    const b = psychBucket(score);
-    return { color: b.color, label: L === "en" ? b.en : b.fr };
-  };
-  const psychDayScores = Object.values(psychByDay);
-  const psychAvg = psychDayScores.length ? psychDayScores.reduce((a, v) => a + v, 0) / psychDayScores.length : null;
-  const psychPeakDays = psychDayScores.filter((v) => v >= 75).length;
-  const psychGoodDays = psychDayScores.filter((v) => v >= 45 && v < 75).length;
-  const psychChallengingDays = psychDayScores.filter((v) => v < 45).length;
-
-  const kpiCount = kpiIds.length;
-  const gridCls =
-    kpiCount === 4
-      ? "grid grid-cols-2 gap-3 md:grid-cols-4"
-      : kpiCount === 6
-      ? "grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6"
-      : "grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-5";
-
-  // Sublabel PRISM Score : nombre total de trades
-  const gaugeSublabel =
-    trades.length > 0
-      ? L === "en"
-        ? `Based on ${trades.length} trades`
-        : `Basé sur ${trades.length} trades`
-      : L === "en"
-      ? "No trades yet"
-      : "Aucun trade";
+  const { scopedTrades: trades, scopedStats: s, profile } = useBook();
+  const threshold = Number(profile?.be_threshold) || 0;
+  const metrics = useMemo(() => metricData(trades, threshold), [trades, threshold]);
+  const sublabel = comparison(trades);
+  const hasTrades = trades.length > 0;
+  const cards = [
+    ["NET P&L", fmtMoney(metrics.net), null],
+    ["WIN RATE", `${metrics.winRate.toFixed(1)}%`, metrics.winRate],
+    ["PROFIT FACTOR", metrics.profitFactor === Infinity ? "∞" : metrics.profitFactor.toFixed(2), Math.min(metrics.profitFactor * 25, 100)],
+    ["RATIO GAIN / PERTE", metrics.gainLossRatio.toFixed(2), Math.min(metrics.gainLossRatio * 40, 100)],
+    ["SHARPE", metrics.sharpe.toFixed(2), Math.min(Math.max(metrics.sharpe * 25, 0), 100)],
+    ["SORTINO", metrics.sortino.toFixed(2), Math.min(Math.max(metrics.sortino * 25, 0), 100)],
+    ["TRADES BE", String(metrics.breakEvens), trades.length ? (metrics.breakEvens / trades.length) * 100 : 0],
+    ["R:R MOYEN", fmtR(metrics.averageR), Math.min(Math.max(metrics.averageR * 25, 0), 100)],
+  ];
 
   return (
-    <div className="dashboard-command min-h-full bg-prism-bg text-prism-text p-4 sm:p-6 lg:p-8">
-      <div className="dashboard-aurora" aria-hidden="true" />
-      <div className="dashboard-grid" aria-hidden="true" />
-      {showIntro && <div className="dashboard-top mb-5 flex flex-col justify-between gap-5 xl:flex-row xl:items-end">
-        <div className="relative z-10">
-          <div className="mb-3 flex items-center gap-2">
-            <span className="dashboard-live-dot" />
-            <span className="text-[10px] font-bold uppercase tracking-[0.22em] text-prism-accent">
-              {L === "en" ? "Live trading command center" : "Centre de contrôle en direct"}
-            </span>
-          </div>
-          <h1 className="max-w-xl text-3xl font-semibold tracking-[-0.055em] text-white sm:text-4xl">
-            {L === "en" ? "Build the process. Earn the edge." : "Construis ton process. Gagne ton edge."}
-          </h1>
-          <p className="mt-2 max-w-2xl text-sm leading-6 text-prism-muted">
-            {L === "en" ? "Every number here is a decision you can improve." : "Chaque chiffre ici est une décision que tu peux améliorer."}
-          </p>
-          <button type="button" onClick={dismissIntro} className="dashboard-dismiss" aria-label={L === "en" ? "Hide welcome message" : "Masquer le message de bienvenue"}>
-            <X className="h-4 w-4" />
-          </button>
-        </div>
-        <div className="relative z-10 flex flex-wrap items-center gap-2">
-          <div className="dashboard-status-pill">
-            <Activity className="h-3.5 w-3.5" />
-            <span>{trades.length ? `${trades.length} ${L === "en" ? "trades analysed" : "trades analysés"}` : L === "en" ? "Ready for your first trade" : "Prêt pour ton premier trade"}</span>
-          </div>
-        <button
-          type="button"
-          onClick={() => setCustomizing(true)}
-          className="signal-interactive inline-flex items-center gap-2 rounded-xl border border-prism-line bg-prism-panel px-3.5 py-2 text-xs font-semibold text-prism-muted hover:border-prism-line2 hover:text-white transition-colors"
-          title={L === "en" ? "Customize KPIs" : "Personnaliser les KPIs"}
-        >
-          <Settings2 className="h-3.5 w-3.5" />
-          <span>{L === "en" ? "Personnaliser" : "Personnaliser"}</span>
-        </button>
-        </div>
-      </div>}
+    <main className="min-h-full bg-prism-bg p-5 sm:p-8">
+      <header className="mb-7">
+        <p className="text-[10px] font-bold uppercase tracking-[.18em] text-prism-accent">Account analytics</p>
+        <h1 className="mt-2 text-3xl font-bold tracking-tight">Détails du compte</h1>
+        <p className="mt-1 text-sm text-prism-muted">Performance et métriques de trading.</p>
+      </header>
 
-      {accounts.length > 0 && (
-        <div className="relative z-10 mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-prism-line bg-prism-panel p-3 sm:px-4">
-          <div>
-            <div className="text-[10px] font-semibold uppercase tracking-widest text-prism-muted2">{L === "en" ? "Dashboard workspace" : "Espace dashboard"}</div>
-            <div className="mt-1 text-sm font-semibold text-white">
-              {activeAccount ? `${activeAccount.firm} · ${activeAccount.type === "funded" || activeAccount.status === "funded" ? "Funded" : "Challenge"} · ${activeAccount.size?.toLocaleString?.() || activeAccount.size}$` : (L === "en" ? "All accounts" : "Tous les comptes")}
-            </div>
-          </div>
-          <select
-            value={activeAccountId || ""}
-            onChange={(event) => setActiveAccountId(event.target.value)}
-            className="rounded-xl border border-prism-line2 bg-black/30 px-3 py-2 text-sm font-semibold text-white outline-none focus:border-prism-accent"
-            aria-label={L === "en" ? "Select dashboard account" : "Sélectionner le compte du dashboard"}
-          >
-            {accounts.map((account) => (
-              <option key={account.id} value={account.id}>
-                {account.firm} · {account.type === "funded" || account.status === "funded" ? "Funded" : "Challenge"} · {account.size}$ {account.note ? `· ${account.note}` : ""}
-              </option>
-            ))}
-          </select>
-        </div>
-      )}
-
-      {/* KPIs grid */}
-      <div className={`mb-4 ${gridCls}`}>
-        {kpiIds.map((id) => {
-          const kpi = KPI_CATALOG.find((k) => k.id === id);
-          if (!kpi) return null;
-          const p = kpi.render(s, L);
-          return (
-            <KpiPrism
-              key={id}
-              label={kpi.labels[L]}
-              value={p.value}
-              tone={p.tone}
-              sub={p.sub}
-              className={kpiCount === 5 && kpiIds.indexOf(id) === 4 ? "hidden sm:block" : ""}
-            />
-          );
-        })}
-      </div>
-
-      {/* Streak bandeau */}
-      <Card padding="p-4" className="dashboard-streak mb-4">
-        <div className="flex flex-wrap items-center gap-x-5 gap-y-2 text-sm">
-          <span className="inline-flex items-center gap-2 text-prism-muted">
-            <Flame className="h-4 w-4 text-prism-accent" />
-            <b className="font-mono font-bold text-white tabular-nums">{s.streak}</b>
-            <span>{t("streak_plan")}</span>
-          </span>
-          <span className="inline-flex items-center gap-2 text-prism-muted">
-            <b className="font-mono font-bold text-white tabular-nums">{s.days.length}</b>
-            <span>{t("streak_days")}</span>
-          </span>
-          <span className="inline-flex items-center gap-2">
-            <b className="font-mono font-bold text-prism-accent tabular-nums">{s.planPct.toFixed(0)}%</b>
-            <span className="text-prism-muted">{t("streak_adher")}</span>
-          </span>
-          <span className="inline-flex items-center gap-2 text-prism-muted">
-            <b className="font-mono font-bold text-prism-win tabular-nums">{s.greenDays}</b>
-            <span>{t("streak_green")}</span>
-          </span>
-        </div>
-      </Card>
-
-      {/* Row : PRISM Score + Charts */}
-      <div className="mb-4 grid gap-4 xl:grid-cols-[280px_1.25fr_.9fr]">
-        {/* PRISM Score card */}
-        <Card padding="p-6" className="dashboard-score-card overflow-hidden">
-          <div className="dashboard-score-orbit" aria-hidden="true" />
-          <SectionHeader icon={<Sparkles className="h-4 w-4" />}>
-            {L === "en" ? "PRISM Score" : "Score PRISM"}
-          </SectionHeader>
-
-          <div className="flex flex-col items-center pt-2 pb-4">
-            <PrismGauge
-              value={s.edge}
-              max={100}
-              label="PRISM"
-              sublabel={gaugeSublabel}
-              size={180}
-              strokeWidth={10}
-            />
-          </div>
-
-          {/* Score Breakdown en progress bars */}
-          <div className="mt-2 space-y-3">
-            <div className="text-[10px] font-semibold uppercase tracking-widest text-prism-muted2 pb-1">
-              {L === "en" ? "Score Breakdown" : "Décomposition"}
-            </div>
-            {(Array.isArray(s.axes) ? s.axes : []).map((axis, i) => {
-              const name = axis?.label || axis?.name || axis?.k || `Axe ${i + 1}`;
-              const value = Number(axis?.value ?? axis?.v ?? axis?.pct ?? 0);
-              const pct = Math.max(0, Math.min(100, value));
-              return (
-                <div key={i}>
-                  <div className="flex items-center justify-between text-xs mb-1">
-                    <span className="text-prism-muted">{name}</span>
-                    <span className="text-white font-semibold tabular-nums">{pct.toFixed(0)}</span>
-                  </div>
-                  <div className="h-1.5 bg-white/5 rounded-full overflow-hidden">
-                    <div
-                      className="h-full bg-prism-accent transition-all"
-                      style={{ width: `${pct}%` }}
-                    />
-                  </div>
-                </div>
-              );
-            })}
-          </div>
-        </Card>
-
-        {/* Charts card : Cumul + Bars */}
-        <Card padding="p-6" className="dashboard-chart-card overflow-hidden">
-          <div className="dashboard-chart-light" aria-hidden="true" />
-          <SectionHeader>{t("daily_cum")}</SectionHeader>
-          <Area
-            values={s.cumSeries}
-            color="var(--prism-accent)"
-            fill="var(--prism-accent)"
-            labels={s.days.map(frDate)}
-            fmt={(v) => (v >= 0 ? "+" : "") + fmtMoney(v)}
+      <section className="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
+        {cards.map(([label, value, ring]) => (
+          <StatCard
+            key={label}
+            label={label}
+            value={hasTrades ? value : "No trades yet"}
+            ring={hasTrades ? ring : null}
+            sublabel={hasTrades ? sublabel : ""}
+            tone={label === "NET P&L" && metrics.net < 0 ? "loss" : "gain"}
           />
-          <SectionHeader className="mt-6">{t("net_daily")}</SectionHeader>
-          <Bars byDay={s.byDay} days={s.days} labels={s.days.map(frDate)} />
-        </Card>
+        ))}
+      </section>
 
-        <Card padding="p-0" className="dashboard-models-card overflow-hidden">
-          <div className="flex items-center justify-between border-b border-prism-line px-4 py-4">
-            <SectionHeader className="mb-0">Models</SectionHeader>
-            <span className="rounded-md border border-prism-line px-2 py-1 text-[10px] font-semibold text-prism-muted">{models.length}</span>
-          </div>
-          <div className="overflow-x-auto">
-            <table className="w-full min-w-[360px] text-left">
-              <thead className="border-b border-prism-line bg-white/[0.015] text-[9px] uppercase tracking-widest text-prism-muted2"><tr><th className="px-4 py-3 font-semibold">Model</th><th className="px-3 py-3 text-right font-semibold">Trades</th><th className="px-3 py-3 text-right font-semibold">Win rate</th><th className="px-4 py-3 text-right font-semibold">P&L</th></tr></thead>
-              <tbody>{models.length ? models.map((model, index) => <tr key={model.name} className="border-b border-prism-line last:border-0"><td className="px-4 py-4 text-xs font-semibold text-white"><span className="mr-2 font-mono text-prism-muted2">#{index + 1}</span>{model.name}</td><td className="px-3 py-4 text-right font-mono text-xs text-prism-muted">{model.trades}</td><td className="px-3 py-4 text-right font-mono text-xs text-prism-muted">{((model.wins / model.trades) * 100).toFixed(0)}%</td><td className={`px-4 py-4 text-right font-mono text-xs font-bold ${model.pnl >= 0 ? "text-prism-win" : "text-prism-loss"}`}>{model.pnl >= 0 ? "+" : ""}{fmtMoney(model.pnl)}</td></tr>) : <tr><td colSpan="4" className="px-4 py-14 text-center text-xs text-prism-muted2">Ajoute un trade pour créer ton premier modèle.</td></tr>}</tbody>
-            </table>
-          </div>
-          <div className="border-t border-dashed border-prism-line px-4 py-3 text-center text-xs font-semibold text-prism-muted">+ Ajouter un modèle</div>
-        </Card>
-      </div>
-
-      {/* Row : Recent trades + Calendar */}
-      <div className="mb-4 grid gap-4 lg:grid-cols-2">
-        {/* Recent trades */}
-        <Card padding="p-6" className="dashboard-recent-card">
-          <SectionHeader>{t("recent_trades")}</SectionHeader>
-          {recent.length === 0 ? (
-            <p className="py-8 text-center text-xs text-prism-muted2">{t("no_trades")}</p>
-          ) : (
-            <>
-              <table className="w-full">
-                <thead>
-                  <tr className="text-[10px] uppercase tracking-widest text-prism-muted2">
-                    <th className="pb-3 text-left font-semibold">{t("th_close_date")}</th>
-                    <th className="pb-3 text-left font-semibold">{t("th_symbol")}</th>
-                    <th className="pb-3 text-right font-semibold">{t("th_net_pnl")}</th>
-                  </tr>
-                </thead>
-                <tbody>
-                  {recent.map((tr) => (
-                    <tr key={tr.id} className="border-t border-prism-line text-sm">
-                      <td className="py-2.5 font-mono text-prism-muted">{frDate(tr.date)}</td>
-                      <td className="py-2.5 font-mono text-white">{tr.symbol}</td>
-                      <td className={`py-2.5 text-right font-mono tabular-nums ${tr.pnl >= 0 ? "text-prism-win" : "text-prism-loss"}`}>
-                        {(tr.pnl >= 0 ? "+" : "") + fmtMoney(tr.pnl)}
-                      </td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-              <div className="mt-4 flex justify-between border-t border-prism-line2 pt-4 font-mono text-base font-bold">
-                <span className="font-sans text-xs font-semibold uppercase tracking-widest text-prism-muted2">
-                  {t("balance")}
-                </span>
-                <span className={`tabular-nums ${s.net >= 0 ? "text-prism-win" : "text-prism-loss"}`}>
-                  {fmtMoney(s.balance, true)}
-                </span>
-              </div>
-            </>
-          )}
-        </Card>
-
-        {/* Calendar dual mode */}
-        <Card padding="p-6" className="dashboard-calendar-card">
-          <div className="mb-4 flex items-center justify-between">
-            <div className="flex gap-1.5">
-              <button
-                type="button"
-                onClick={() => setCalMode("pnl")}
-                className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
-                  calMode === "pnl"
-                    ? "border-prism-accent bg-prism-accentDim text-prism-accent"
-                    : "border-prism-line bg-transparent text-prism-muted hover:text-white hover:border-prism-line2"
-                }`}
-              >
-                $ P&L
-              </button>
-              <button
-                type="button"
-                onClick={() => setCalMode("psych")}
-                className={`rounded-lg border px-3 py-1.5 text-xs font-semibold transition-colors ${
-                  calMode === "psych"
-                    ? "border-prism-accent bg-prism-accentDim text-prism-accent"
-                    : "border-prism-line bg-transparent text-prism-muted hover:text-white hover:border-prism-line2"
-                }`}
-              >
-                {L === "en" ? "Psych" : "Psycho"}
-              </button>
-            </div>
-          </div>
-          <Calendar
-            byDay={s.byDay}
-            tradesByDay={tradesByDay}
-            month={cal}
-            onShift={shift}
-            t={t}
-            onDayClick={setDayKey}
-            mode={calMode}
-            psychByDay={psychByDay}
-            psychBucketFn={psychBucketFn}
-          />
-          {calMode === "psych" && (
-            <div className="mt-4 border-t border-prism-line pt-4">
-              {psychAvg == null ? (
-                <div className="text-center text-xs text-prism-muted2">
-                  {L === "en"
-                    ? "No mindset check-in logged yet — complete the Psycho section when logging a trade."
-                    : "Aucun check-in Psycho renseigné pour l'instant — complète la section Psycho à la saisie d'un trade."}
-                </div>
-              ) : (
-                <div className="flex flex-wrap items-center justify-between gap-3">
-                  <div>
-                    <div className="text-[10px] font-semibold uppercase tracking-widest text-prism-muted2">
-                      {L === "en" ? "Average mental state" : "État mental moyen"}
-                    </div>
-                    <div
-                      className="font-mono text-2xl font-bold tabular-nums"
-                      style={{ color: psychBucketFn(psychAvg).color }}
-                    >
-                      {Math.round(psychAvg)}{" "}
-                      <span className="text-xs font-semibold text-prism-muted2">
-                        {psychBucketFn(psychAvg).label}
-                      </span>
-                    </div>
-                  </div>
-                  <div className="flex gap-4 text-xs">
-                    <span className="text-prism-muted2">
-                      {L === "en" ? "Peak" : "Pic"}{" "}
-                      <b className="font-mono text-prism-accent tabular-nums">{psychPeakDays}</b>
-                    </span>
-                    <span className="text-prism-muted2">
-                      {L === "en" ? "Good" : "Bons"}{" "}
-                      <b className="font-mono tabular-nums" style={{ color: "#f5b301" }}>
-                        {psychGoodDays}
-                      </b>
-                    </span>
-                    <span className="text-prism-muted2">
-                      {L === "en" ? "Challenging" : "Difficiles"}{" "}
-                      <b className="font-mono text-prism-loss tabular-nums">{psychChallengingDays}</b>
-                    </span>
-                  </div>
-                </div>
-              )}
-              <p className="mt-3 text-[10px] leading-4 text-prism-muted2">
-                {L === "en"
-                  ? "Mental score = average of emotional state, focus and confidence (each 1–5), converted to /100. Checkboxes stay visible in the trade but do not inflate the score."
-                  : "Score mental = moyenne de l'état émotionnel, du focus et de la confiance (chacun noté de 1 à 5), convertie sur 100. Les cases cochées restent visibles dans le trade, mais ne gonflent pas le score."}
-              </p>
-            </div>
-          )}
-        </Card>
-      </div>
-
-      {/* Row : Account balance + Drawdown */}
-      <div className="grid gap-4 md:grid-cols-2">
-        <Card padding="p-6" className="dashboard-equity-card">
-          <div className="mb-4 flex items-center justify-between">
-            <div className="text-[10px] font-semibold uppercase tracking-widest text-prism-muted2">
-              {t("account_balance")}
-            </div>
-            <span className={`font-mono text-sm font-bold tabular-nums ${s.net >= 0 ? "text-prism-win" : "text-prism-loss"}`}>
-              {fmtMoney(s.balance)}
-            </span>
-          </div>
-          <div className="mb-2 text-xs text-prism-muted2">
-            {t("starting_balance_lbl")}{" "}
-            <span className="font-mono text-white tabular-nums">{fmtMoney(s.startingBalance)}</span>
-          </div>
-          <Area
-            values={s.curve.map((c) => c.eq)}
-            color="var(--prism-accent-soft)"
-            fill="var(--prism-accent)"
-            labels={s.curve.map((c) => frDate(c.d))}
-            fmt={fmtMoney}
-          />
-        </Card>
-
-        <Card padding="p-6" className="dashboard-dd-card">
-          <div className="mb-4 flex items-center justify-between">
-            <div className="text-[10px] font-semibold uppercase tracking-widest text-prism-muted2">
-              {t("drawdown")}
-            </div>
-            <span className="font-mono text-sm font-bold text-prism-loss tabular-nums">
-              {fmtMoney(-s.maxDD)}
-            </span>
-          </div>
-          <div className="h-[26px]" />
-          <Area
-            values={s.ddSeries}
-            color="#ef4444"
-            fill="#ef4444"
-            labels={s.curve.map((c) => frDate(c.d))}
-            fmt={fmtMoney}
-          />
-        </Card>
-      </div>
-
-      {/* Modals */}
-      {dayKey && (
-        <Modal
-          title={frDate(dayKey)}
-          onClose={() => setDayKey(null)}
-          footer={
-            <GhostBtn className="flex-1" onClick={() => setDayKey(null)}>
-              {L === "en" ? "Close" : "Fermer"}
-            </GhostBtn>
-          }
-        >
-          {dayTrades.length === 0 ? (
-            <div className="py-4 text-center text-xs text-prism-muted2">
-              {L === "en" ? "No trade this day." : "Aucun trade ce jour."}
-            </div>
-          ) : (
-            <div className="flex flex-col gap-2">
-              {dayTrades.map((tr) => (
-                <div
-                  key={tr.id}
-                  className="flex flex-wrap items-center gap-3 rounded-xl border border-prism-line bg-white/[0.02] px-3 py-2.5"
-                >
-                  <span
-                    className={`font-mono text-base font-bold tabular-nums ${
-                      tr.pnl >= 0 ? "text-prism-win" : "text-prism-loss"
-                    }`}
-                  >
-                    {(tr.pnl >= 0 ? "+" : "") + fmtMoney(tr.pnl)}
-                  </span>
-                  <span className="font-mono text-[11px] text-prism-muted2">
-                    {frDate(tr.date)} · {tr.symbol} · {tr.dir === "long" ? "LONG" : "SHORT"} · {fmtR(tr.r)}
-                    {tr.session ? " · " + tr.session : ""}
-                  </span>
-                  <div className="flex-1" />
-                  <GhostBtn
-                    className="px-3 py-1.5 text-xs"
-                    onClick={() => {
-                      setEditing(tr);
-                      setDayKey(null);
-                    }}
-                  >
-                    {L === "en" ? "Edit" : "Éditer"}
-                  </GhostBtn>
-                </div>
-              ))}
-            </div>
-          )}
-        </Modal>
-      )}
-
-      {editing && <LogTradeModal editing={editing} onClose={() => setEditing(null)} />}
-
-      {customizing && (
-        <KpiCustomizer
-          selected={kpiIds}
-          onSave={saveKpis}
-          onClose={() => setCustomizing(false)}
-          lang={L}
+      <section className="mt-5 grid gap-5 xl:grid-cols-2">
+        <CurveCard
+          label="EQUITY CURVE"
+          value={metrics.net}
+          values={(s.curve || []).map((point) => point.eq)}
+          labels={(s.curve || []).map((point) => frDate(point.d))}
+          color="#22c55e"
+          empty="PAS ASSEZ DE DONNÉES POUR LE GRAPHIQUE"
         />
-      )}
-    </div>
+        <CurveCard
+          label="DRAWDOWN CURVE"
+          value={-(Number(s.maxDD) || 0)}
+          values={s.ddSeries || []}
+          labels={(s.curve || []).map((point) => frDate(point.d))}
+          color="#ef4444"
+          empty="Aucune donnée sur cette période"
+        />
+      </section>
+    </main>
   );
 }
 
-/* ------------------------------------------------------------------ */
-/*  Sous-composants locaux                                             */
-/* ------------------------------------------------------------------ */
-
-/**
- * KpiPrism — carte de KPI dans le style PRISM (label muted + valeur massive).
- * Remplace le composant Kpi legacy sur ce dashboard uniquement pour matcher
- * le look TradeXNova. Prend les mêmes {value, tone, sub} que kpi.render() renvoie.
- */
-function KpiPrism({ label, value, tone, sub, className = "" }) {
-  const toneClass =
-    tone === "positive" || tone === "up" || tone === "good"
-      ? "text-prism-win"
-      : tone === "negative" || tone === "down" || tone === "bad"
-      ? "text-prism-loss"
-      : "text-white";
-
+function CurveCard({ label, value, values, labels, color, empty }) {
+  const enoughData = values.length > 1;
   return (
-    <div className={`dashboard-kpi signal-interactive relative overflow-hidden rounded-2xl border border-prism-line bg-prism-panel p-4 sm:p-5 ${className}`}>
-      <div className="dashboard-kpi-ray" aria-hidden="true" />
-      <div className="relative z-10 flex items-start justify-between gap-3">
-        <div className="text-[10px] font-semibold uppercase tracking-widest text-prism-muted2">
-          {label}
-        </div>
-        <div className="dashboard-kpi-icon">
-          {tone === "positive" || tone === "up" || tone === "good" ? <ArrowUpRight className="h-3.5 w-3.5" /> : <Target className="h-3.5 w-3.5" />}
-        </div>
+    <Card padding="p-6">
+      <div className="mb-5 flex items-center justify-between">
+        <p className="text-[10px] font-bold tracking-[.16em]" style={{ color }}>{label}</p>
+        <b className="font-mono text-sm" style={{ color }}>{fmtMoney(value)}</b>
       </div>
-      <div className={`relative z-10 mt-2 text-2xl font-bold tracking-tight tabular-nums sm:text-3xl ${toneClass}`}>
-        {value}
-      </div>
-      {sub && (
-        <div className="relative z-10 mt-1 text-[11px] text-prism-muted2">{sub}</div>
-      )}
-    </div>
+      {enoughData ? <Area values={values} labels={labels} color={color} fill={color} fmt={fmtMoney} /> : <EmptyState title={empty} />}
+    </Card>
   );
-}
-
-/** SectionHeader — libellé de section discret style TradeXNova. */
-function SectionHeader({ children, icon, className = "" }) {
-  return (
-    <h3
-      className={`relative z-10 mb-4 flex items-center gap-2 text-[11px] font-semibold uppercase tracking-widest text-prism-muted2 ${className}`}
-    >
-      {icon && <span className="text-prism-accent">{icon}</span>}
-      {children}
-    </h3>
-  );
-}
-
-function fmtR(r) {
-  const n = Number(r) || 0;
-  return (n >= 0 ? "+" : "") + n.toFixed(1) + "R";
 }
