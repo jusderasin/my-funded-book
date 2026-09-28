@@ -82,3 +82,13 @@ create policy "trades_delete_own"
 -- from public.trades
 -- where date >= date_trunc('month', current_date)::date
 -- order by user_id, date desc;
+
+-- 004 - Champs optionnels du workspace Journal V3.
+alter table public.trades
+  add column if not exists entry_time text,
+  add column if not exists exit_time text,
+  add column if not exists entry_price numeric,
+  add column if not exists exit_price numeric,
+  add column if not exists planned_profit numeric,
+  add column if not exists followed_rules text,
+  add column if not exists controlled_emotions text;
