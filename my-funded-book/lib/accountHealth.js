@@ -51,8 +51,14 @@ export function accountHealth(account, allTrades, certificates = [], L = "fr") {
       a.date < b.date ? -1 : a.date > b.date ? 1 : (a.created_at || "") < (b.created_at || "") ? -1 : 1
     );
 
-  let cum = 0;
-  let peak = 0;
+  // Progression déjà réalisée avant l'ouverture du compte dans MyTradeBook
+  // (colonne JSONB `progress`, migration 005) : sert de point de départ.
+  const progress = account.progress || {};
+  const baseProfit = Number(progress.existing_profit) || 0;
+  const priorDays = Math.max(0, Number(progress.winning_days) || 0);
+
+  let cum = baseProfit;
+  let peak = Math.max(0, baseProfit);
   const byDay = {};
   for (const tr of at) {
     const p = Number(tr.pnl) || 0;
@@ -62,7 +68,7 @@ export function accountHealth(account, allTrades, certificates = [], L = "fr") {
   }
   const balance = size + cum;
   const highWater = size + peak;
-  const tradingDays = Object.keys(byDay).length;
+  const tradingDays = Object.keys(byDay).length + priorDays;
 
   const today = todayISO();
 
@@ -72,7 +78,8 @@ export function accountHealth(account, allTrades, certificates = [], L = "fr") {
   let eodPeak = 0;
   if (trailingType === "eod") {
     const closedDates = Object.keys(byDay).filter((d) => d !== today).sort();
-    let ec = 0;
+    let ec = baseProfit;
+    eodPeak = Math.max(0, baseProfit);
     for (const d of closedDates) {
       ec += byDay[d];
       if (ec > eodPeak) eodPeak = ec;
@@ -172,7 +179,7 @@ export function accountHealth(account, allTrades, certificates = [], L = "fr") {
   }
 
   return {
-    size, balance, highWater, cum, tradingDays,
+    size, balance, highWater, cum, tradingDays, baseProfit, priorBestDay: Number(progress.best_day) || 0, byDay,
     maxDD,
     trailingType,
     trailing: trailingType !== "static", // legacy — pour compat avec l'ancien code UI

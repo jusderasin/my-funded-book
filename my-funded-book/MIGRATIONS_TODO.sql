@@ -89,3 +89,10 @@ create policy "trades_delete_own"
 -- Tant qu'elle n'existe pas, la page Journal masque ces champs.
 alter table public.trades
   add column if not exists execution jsonb not null default '{}'::jsonb;
+
+-- 005 — Comptes prop : progression existante + règle de consistance.
+-- JSONB : existing_profit, winning_days, best_day, consistency, consistency_phase.
+-- Ajout seulement. Sans cette colonne, le wizard masque l'option
+-- "J'ai déjà de la progression" et la consistance vient des préréglages.
+alter table public.accounts
+  add column if not exists progress jsonb not null default '{}'::jsonb;

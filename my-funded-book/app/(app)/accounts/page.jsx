@@ -1,261 +1,261 @@
 "use client";
 
+// Account Manager — liste des comptes prop firm.
+// Toute la logique de risque vient de lib/accountHealth.js (inchangée) ;
+// cette page ne fait que l'afficher.
+
 import { useMemo, useState } from "react";
 import { useRouter } from "next/navigation";
+import { Building2, Info, MoreHorizontal, Plus, RefreshCw, Rocket, Search } from "lucide-react";
 import { useBook } from "@/components/BookProvider";
-import { Pill, FirmDot, EmptyState, SegTabs, PrimaryBtn } from "@/components/ui";
 import { AccountModal } from "@/components/modals";
-import { firmColor, STATUS_LABEL } from "@/lib/constants";
-import { fmtMoney, frDate } from "@/lib/format";
-import { accountHealth, signedMoney } from "@/lib/accountHealth";
-import { Rocket, Trash2, Info, ChevronRight, Pencil } from "lucide-react";
+import { ConfirmModal } from "@/components/prism/TerminalPrimitives";
+import AccountWizard from "@/components/accounts/AccountWizard";
+import { accountHealth } from "@/lib/accountHealth";
+import {
+  AMBER, Badge, Bar, CYAN, GREEN, INPUT, OUTLINE_CYAN, PHASE_TONE, RED,
+  accountName, firmLabel, money, phaseOf,
+} from "@/components/accounts/shared";
 
-const GREEN = "var(--accent)";
-const AMBER = "#f59e0b";
-const RED = "var(--loss)";
-
-const alertColor = (lvl) => (lvl === "danger" ? RED : lvl === "warn" ? AMBER : lvl === "ok" ? GREEN : "#6b7385");
-const alertBg = (lvl) =>
-  lvl === "danger"
-    ? "color-mix(in srgb, var(--loss) 10%, transparent)"
-    : lvl === "warn"
-    ? "rgba(245,158,11,.10)"
-    : lvl === "ok"
-    ? "color-mix(in srgb, var(--accent) 10%, transparent)"
-    : "rgba(255,255,255,.04)";
-
-function Meter({ label, sub, pct, color }) {
-  return (
-    <div className="mb-2.5">
-      <div className="mb-1 flex items-baseline justify-between">
-        <span className="text-[11px] text-muted2">{label}</span>
-        <span className="font-mono text-[11px] font-semibold" style={{ color }}>{sub}</span>
-      </div>
-      <div className="h-1.5 overflow-hidden rounded-md" style={{ background: "#1e2230" }}>
-        <div className="h-full rounded-md transition-all" style={{ width: Math.max(0, Math.min(100, pct)) + "%", background: color }} />
-      </div>
-    </div>
-  );
-}
-
-function Stat({ label, value, color }) {
-  return (
-    <div className="rounded-lg bg-panel2 px-2 py-1.5 text-center">
-      <div className="text-[9.5px] uppercase tracking-wide text-muted2">{label}</div>
-      <div className="font-mono text-[13px] font-bold" style={color ? { color } : undefined}>{value}</div>
-    </div>
-  );
-}
+const TXT = {
+  fr: {
+    title: "Gestionnaire de comptes", subtitle: "Suivi et gestion de tes comptes prop firm", add: "Ajouter un compte", search: "Rechercher un compte…",
+    active: "Actifs", all: "Tous", emptyTitle: "Aucun compte prop pour l'instant",
+    emptyText: "Ajoute tes comptes prop firm pour suivre les règles, les objectifs, les cycles de payout et voir des analyses dédiées sur ton Dashboard.",
+    emptyCta: "Créer ton premier compte", noMatch: "Aucun compte ne correspond à ta recherche.",
+    balance: "Solde", target: "Profit target", dd: "Drawdown utilisé", trades: "trades", days: "jours",
+    rename: "Renommer", edit: "Modifier les règles", promote: "Passer en Funded", del: "Supprimer",
+    phase: { eval: "Évaluation", funded: "Funded", failed: "Cramé", paid: "Payé" },
+    confirmDel: "Supprimer ce compte ?", confirmDelMsg: (n) => `« ${n} » sera supprimé. Ses trades restent dans ton journal mais perdent le lien avec ce compte.`,
+    confirmPromote: "Passer en Funded ?", confirmPromoteMsg: (n) => `« ${n} » passe en compte Funded. Tes trades et ton P&L restent liés.`,
+    disclaimer: "Estimations basées sur tes trades loggés (P&L réalisé), pas l'unrealized intraday. Indicateur, pas la valeur officielle de la prop firm.",
+    blown: "CRAMÉ",
+  },
+  en: {
+    title: "Account Manager", subtitle: "Track and manage your prop firm accounts", add: "Add Account", search: "Search accounts…",
+    active: "Active", all: "All", emptyTitle: "No prop accounts yet",
+    emptyText: "Add your prop firm accounts to track rules, targets, payout cycles, and view scoped analytics on your Dashboard.",
+    emptyCta: "Create Your First Account", noMatch: "No account matches your search.",
+    balance: "Balance", target: "Profit target", dd: "Drawdown used", trades: "trades", days: "days",
+    rename: "Rename", edit: "Edit rules", promote: "Move to Funded", del: "Delete",
+    phase: { eval: "Evaluation", funded: "Funded", failed: "Blown", paid: "Paid" },
+    confirmDel: "Delete this account?", confirmDelMsg: (n) => `“${n}” will be deleted. Its trades stay in your journal but lose the link to this account.`,
+    confirmPromote: "Move to Funded?", confirmPromoteMsg: (n) => `“${n}” becomes a Funded account. Your trades and P&L stay linked.`,
+    disclaimer: "Estimates from your logged trades (realized P&L), not intraday unrealized. Indicator, not the firm's official value.",
+    blown: "BLOWN",
+  },
+};
 
 export default function AccountsPage() {
-  const { accounts, trades, certificates, updateAccount, deleteAccount, t, lang } = useBook();
+  const { accounts, trades, certificates, lang, updateAccount, deleteAccount, reload } = useBook();
   const router = useRouter();
   const L = lang === "en" ? "en" : "fr";
-  const [filter, setFilter] = useState("all");
-  const [modal, setModal] = useState(false);
-  const [editAcc, setEditAcc] = useState(null); // objet compte en cours d'édition (null = pas d'édition)
+  const T = TXT[L];
 
-  let list = accounts;
-  if (filter === "eval") list = list.filter((a) => a.type === "eval" && a.status !== "funded" && a.status !== "passed");
-  if (filter === "funded") list = list.filter((a) => a.type === "funded" || a.status === "funded" || a.status === "passed");
+  const [query, setQuery] = useState("");
+  const [scope, setScope] = useState("active");
+  const [wizard, setWizard] = useState(false);
+  const [editing, setEditing] = useState(null);
+  const [renaming, setRenaming] = useState(null);
+  const [confirm, setConfirm] = useState(null); // { kind: "delete" | "promote", account }
+  const [refreshing, setRefreshing] = useState(false);
 
-  const rows = useMemo(
-    () => list.map((a) => ({ a, h: accountHealth(a, trades, certificates, L) })),
-    [list, trades, certificates, L]
-  );
+  const rows = useMemo(() => {
+    const q = query.trim().toLowerCase();
+    return accounts
+      .map((a) => ({ a, h: accountHealth(a, trades, certificates, L) }))
+      .filter(({ a, h }) => scope === "all" || !["failed", "paid"].includes(phaseOf(a, h)))
+      .filter(({ a }) => !q || `${accountName(a)} ${firmLabel(a.firm)}`.toLowerCase().includes(q));
+  }, [accounts, trades, certificates, L, scope, query]);
 
-  const promote = async (a) => {
-    const ok = window.confirm(
-      L === "en"
-        ? `Move "${a.firm} \u00b7 ${fmtMoney(a.size)}" to Funded? Your trades and PnL stay linked.`
-        : `Passer "${a.firm} \u00b7 ${fmtMoney(a.size)}" en Funded ? Tes trades et ton PnL restent li\u00e9s.`
-    );
-    if (!ok) return;
-    await updateAccount(a.id, { type: "funded", status: "funded" });
-  };
+  async function refresh() {
+    setRefreshing(true);
+    await reload?.();
+    setRefreshing(false);
+  }
 
-  const openDetail = (id) => router.push(`/accounts/${id}`);
-  // Handler clavier pour role="button" — respecte les patterns d'accessibilité (Enter/Space)
-  const onCardKey = (e, id) => {
-    if (e.key === "Enter" || e.key === " ") {
-      e.preventDefault();
-      openDetail(id);
-    }
-  };
+  async function runConfirm() {
+    const { kind, account } = confirm;
+    setConfirm(null);
+    if (kind === "delete") await deleteAccount(account.id);
+    if (kind === "promote") await updateAccount(account.id, { type: "funded", status: "funded" });
+  }
 
   return (
-    <div>
-      <div className="mb-3 flex items-center justify-between">
-        <div className="text-[11px] font-semibold uppercase tracking-wide text-muted2">{t("acc_title")}</div>
-        <PrimaryBtn className="px-3 py-1.5 text-[12px]" onClick={() => setModal(true)}>{t("acc_add")}</PrimaryBtn>
+    <div className="mx-auto max-w-[1280px] px-5 py-8 text-prism-text sm:px-10">
+      <header className="mb-6 flex flex-wrap items-start justify-between gap-4">
+        <div>
+          <h1 className="text-[26px] font-bold tracking-tight">{T.title}</h1>
+          <p className="mt-1 text-sm text-prism-muted">{T.subtitle}</p>
+        </div>
+        <div className="flex items-center gap-2">
+          <button type="button" onClick={refresh} aria-label="refresh" className="grid h-10 w-10 place-items-center rounded-lg border border-prism-line text-prism-muted hover:text-prism-text">
+            <RefreshCw className={`h-4 w-4 ${refreshing ? "animate-spin" : ""}`} />
+          </button>
+          <button type="button" onClick={() => setWizard(true)} className={OUTLINE_CYAN}><Plus className="h-4 w-4" />{T.add}</button>
+        </div>
+      </header>
+
+      <div className="mb-8 flex flex-wrap items-center gap-3">
+        <div className="relative w-full sm:w-80">
+          <Search className="pointer-events-none absolute left-3 top-1/2 h-4 w-4 -translate-y-1/2 text-prism-muted" />
+          <input className={`${INPUT} pl-9 font-sans text-sm`} placeholder={T.search} value={query} onChange={(e) => setQuery(e.target.value)} />
+        </div>
+        <div className="inline-flex rounded-lg border border-prism-line bg-prism-surface p-1">
+          {["active", "all"].map((s) => (
+            <button key={s} type="button" onClick={() => setScope(s)} className={`rounded-md px-3 py-1.5 text-xs font-medium ${scope === s ? "bg-prism-panel2 text-prism-text" : "text-prism-muted"}`}>{T[s]}</button>
+          ))}
+        </div>
       </div>
-      <SegTabs active={filter} onChange={setFilter}
-        tabs={[{ value: "all", label: t("acc_tab_all") }, { value: "eval", label: t("acc_tab_eval") }, { value: "funded", label: t("acc_tab_funded") }]} />
 
-      {rows.length === 0 ? (
-        <EmptyState icon="\u25a4" title={t("acc_empty_t")} sub={t("acc_empty_s")} />
+      {accounts.length === 0 ? (
+        <div className="mx-auto flex max-w-md flex-col items-center py-20 text-center">
+          <span className="grid h-16 w-16 place-items-center rounded-2xl border border-prism-line bg-prism-panel2"><Building2 className="h-7 w-7 text-prism-muted" /></span>
+          <h2 className="mt-6 text-lg font-bold">{T.emptyTitle}</h2>
+          <p className="mt-2 text-sm leading-6 text-prism-muted">{T.emptyText}</p>
+          <button type="button" onClick={() => setWizard(true)} className={`${OUTLINE_CYAN} mt-7`}><Plus className="h-4 w-4" />{T.emptyCta}</button>
+        </div>
+      ) : rows.length === 0 ? (
+        <p className="py-16 text-center text-sm text-prism-muted">{T.noMatch}</p>
       ) : (
-        <div className="grid gap-3 md:grid-cols-2 xl:grid-cols-3">
-          {rows.map(({ a, h }) => {
-            const stStyle = STATUS_LABEL[a.status] || ["gray", a.status];
-            const stKey = { active: "st_active", passed: "st_passed", funded: "st_funded", failed: "st_failed", paid: "st_paid" }[a.status];
-            const isEval = !(a.type === "funded" || a.status === "funded" || a.status === "passed");
-
-            const hasDD = h.maxDD != null;
-            const ddColor = !hasDD ? "#6b7385" : h.breached ? RED : h.ddMarginPct <= 20 ? RED : h.ddMarginPct <= 50 ? AMBER : GREEN;
-            const cushionTxt = h.breached ? (L === "en" ? "BLOWN" : "CRAM\u00c9") : hasDD ? signedMoney(h.ddMargin) : "\u2014";
-
-            return (
-              // Carte cliquable : router.push → /accounts/[id]. role="button" pour l'a11y,
-              // stopPropagation sur les boutons enfants pour éviter la double action.
-              <div
-                key={a.id}
-                role="button"
-                tabIndex={0}
-                onClick={() => openDetail(a.id)}
-                onKeyDown={(e) => onCardKey(e, a.id)}
-                className="group cursor-pointer rounded-2xl border bg-panel p-4 transition-colors hover:border-line2 hover:bg-panel/80 focus:border-accent focus:outline-none"
-                style={{ borderColor: h.breached ? RED : "#242833" }}
-              >
-                {/* Header */}
-                <div className="mb-3 flex items-start justify-between gap-2">
-                  <div className="min-w-0">
-                    <div className="flex items-center gap-1.5 text-[14px] font-semibold">
-                      <FirmDot color={firmColor(a.firm)} />
-                      <span className="truncate">{a.firm}</span>
-                      <ChevronRight size={14} className="text-muted2 opacity-0 transition-opacity group-hover:opacity-100" />
-                    </div>
-                    <div className="mt-0.5 flex flex-wrap items-center gap-1.5">
-                      <Pill tone="gray">{fmtMoney(a.size)}</Pill>
-                      <Pill tone={isEval ? "yellow" : "green"}>{isEval ? t("acc_eval") : t("acc_funded")}</Pill>
-                      <Pill tone={stStyle[0]}>{stKey ? t(stKey) : stStyle[1]}</Pill>
-                    </div>
-                    {a.note ? <div className="mt-1 font-mono text-[11px] text-muted2">{a.note}</div> : null}
-                  </div>
-                  <div className="flex shrink-0 items-center gap-0.5">
-                    <button
-                      onClick={(e) => { e.stopPropagation(); setEditAcc(a); }}
-                      className="rounded-md p-1 text-muted2 hover:bg-panel2 hover:text-white"
-                      aria-label={L === "en" ? "edit" : "éditer"}
-                      title={L === "en" ? "Edit account" : "Éditer le compte"}
-                    >
-                      <Pencil size={14} />
-                    </button>
-                    <button
-                      onClick={(e) => { e.stopPropagation(); deleteAccount(a.id); }}
-                      className="rounded-md p-1 text-muted2 hover:bg-lossDim hover:text-loss"
-                      aria-label="delete"
-                    >
-                      <Trash2 size={15} />
-                    </button>
-                  </div>
-                </div>
-
-                {/* Alertes live */}
-                {h.alerts.length > 0 && (
-                  <div className="mb-3 flex flex-col gap-1.5">
-                    {h.alerts.map((al, i) => (
-                      <div key={i} className="rounded-md px-2.5 py-1.5 text-[11px] font-semibold"
-                        style={{ color: alertColor(al.level), background: alertBg(al.level), borderLeft: "2px solid " + alertColor(al.level) }}>
-                        {al.msg}
-                      </div>
-                    ))}
-                  </div>
-                )}
-
-                {/* Cushion avant breach (headline) */}
-                <div className="mb-3 flex items-center justify-between rounded-xl bg-panel2 px-3.5 py-3">
-                  <div>
-                    <div className="text-[10px] uppercase tracking-wide text-muted2">
-                      {L === "en" ? "Margin before breach" : "Marge avant breach"}{h.maxDD != null ? " \u00b7 " + (h.trailing ? "trailing" : "static") : ""}
-                    </div>
-                    <div className="font-mono text-[20px] font-extrabold leading-tight" style={{ color: ddColor }}>{cushionTxt}</div>
-                  </div>
-                  <div className="text-right">
-                    <div className="text-[10px] uppercase tracking-wide text-muted2">{L === "en" ? "Balance" : "Solde"}</div>
-                    <div className="font-mono text-[13px] font-bold text-white">~ {fmtMoney(Math.round(h.balance))}</div>
-                  </div>
-                </div>
-
-                {/* Objectif profit / payout */}
-                {h.target != null && h.target > 0 && (
-                  <Meter
-                    label={isEval ? (L === "en" ? "Profit target" : "Objectif profit") : (L === "en" ? "Payout target" : "Objectif payout")}
-                    sub={signedMoney(h.cum) + " / " + fmtMoney(h.target)}
-                    pct={h.targetPct || 0}
-                    color={h.targetReached ? GREEN : "var(--accent)"}
-                  />
-                )}
-
-                {/* Drawdown utilisé */}
-                {hasDD && (
-                  <Meter
-                    label={L === "en" ? "Drawdown used" : "Drawdown utilis\u00e9"}
-                    sub={fmtMoney(Math.max(0, h.maxDD - h.ddMargin)) + " / " + fmtMoney(h.maxDD)}
-                    pct={h.maxDD > 0 ? Math.max(0, 100 - (h.ddMargin / h.maxDD) * 100) : 0}
-                    color={ddColor}
-                  />
-                )}
-
-                {/* Daily loss (aujourd'hui) */}
-                {h.dailyLimit != null && (
-                  <Meter
-                    label={L === "en" ? "Day loss (today)" : "Perte du jour"}
-                    sub={fmtMoney(h.dailyUsed) + " / " + fmtMoney(h.dailyLimit)}
-                    pct={h.dailyPct || 0}
-                    color={h.dailyHit ? RED : (h.dailyPct || 0) >= 70 ? AMBER : GREEN}
-                  />
-                )}
-
-                {/* Payout (funded) */}
-                {!isEval && (
-                  <div className="mb-3 flex items-center justify-between rounded-lg bg-panel2 px-3 py-2">
-                    <span className="text-[10px] uppercase tracking-wide text-muted2">Payout</span>
-                    <span className="font-mono text-[12px] font-bold" style={{ color: h.payoutEligible ? GREEN : "#8a93a6" }}>
-                      {h.payoutEligible
-                        ? (L === "en" ? "\u2705 Available" : "\u2705 Disponible")
-                        : h.daysToPayout != null && h.daysToPayout > 0
-                        ? "\u23f3 " + h.daysToPayout + (L === "en" ? "d" : "j")
-                        : h.minDaysLeft > 0
-                        ? h.minDaysLeft + (L === "en" ? "d min" : "j min")
-                        : "\u2014"}
-                    </span>
-                  </div>
-                )}
-
-                {/* Mini stats */}
-                <div className={"grid " + (isEval ? "grid-cols-3" : "grid-cols-4") + " gap-1.5"}>
-                  <Stat label="Trades" value={<span>{h.trades} <span className="text-[10px] text-accent">{h.wins}W</span> <span className="text-[10px] text-loss">{h.losses}L</span></span>} />
-                  <Stat label="PnL" value={signedMoney(h.cum)} color={h.cum >= 0 ? GREEN : RED} />
-                  <Stat label={L === "en" ? "Days" : "Jours"} value={h.tradingDays} />
-                  {!isEval && <Stat label="Payouts" value={fmtMoney(h.payoutTotal)} color="#ff66e4" />}
-                </div>
-
-                {/* Passer en funded (eval) */}
-                {isEval && (
-                  <button
-                    onClick={(e) => { e.stopPropagation(); promote(a); }}
-                    className="mt-3 flex w-full items-center justify-center gap-1.5 rounded-lg px-3 py-2 text-[12px] font-bold text-ink transition"
-                    style={{ background: h.targetReached && !h.breached ? GREEN : "#f5b301" }}
-                  >
-                    <Rocket size={14} /> {L === "en" ? "Move to Funded" : "Passer en Funded"}
-                  </button>
-                )}
-              </div>
-            );
-          })}
+        <div className="grid gap-5 [grid-template-columns:repeat(auto-fill,minmax(320px,1fr))]">
+          {rows.map(({ a, h }) => (
+            <AccountCard
+              key={a.id}
+              a={a}
+              h={h}
+              T={T}
+              renaming={renaming === a.id}
+              onOpen={() => router.push(`/accounts/${a.id}`)}
+              onRename={() => setRenaming(a.id)}
+              onRenamed={async (note) => { setRenaming(null); if (note && note !== a.note) await updateAccount(a.id, { note }); }}
+              onEdit={() => setEditing(a)}
+              onPromote={() => setConfirm({ kind: "promote", account: a })}
+              onDelete={() => setConfirm({ kind: "delete", account: a })}
+            />
+          ))}
         </div>
       )}
 
-      <div className="mt-3 flex items-start gap-1.5 text-[11px] text-muted2">
-        <Info size={13} className="mt-px shrink-0" />
-        {L === "en"
-          ? "Estimates from your logged trades (realized PnL), not intraday unrealized. Indicator, not the firm's official value."
-          : "Estimations bas\u00e9es sur tes trades logg\u00e9s (PnL r\u00e9alis\u00e9), pas l'unrealized intraday. Indicateur, pas la valeur officielle de la prop firm."}
-      </div>
+      {accounts.length > 0 && (
+        <p className="mt-8 flex items-start gap-2 text-[11px] text-prism-muted"><Info className="mt-px h-3.5 w-3.5 shrink-0" />{T.disclaimer}</p>
+      )}
 
-      {modal && <AccountModal onClose={() => setModal(false)} />}
-      {editAcc && <AccountModal editing={editAcc} onClose={() => setEditAcc(null)} />}
+      {wizard && <AccountWizard onClose={() => setWizard(false)} onCreated={(acc) => { setWizard(false); router.push(`/accounts/${acc.id}`); }} />}
+      {editing && <AccountModal editing={editing} onClose={() => setEditing(null)} />}
+      {confirm && (
+        <ConfirmModal
+          title={confirm.kind === "delete" ? T.confirmDel : T.confirmPromote}
+          message={confirm.kind === "delete" ? T.confirmDelMsg(accountName(confirm.account)) : T.confirmPromoteMsg(accountName(confirm.account))}
+          confirmLabel={confirm.kind === "delete" ? T.del : T.promote}
+          onClose={() => setConfirm(null)}
+          onConfirm={runConfirm}
+        />
+      )}
     </div>
   );
+}
+
+function AccountCard({ a, h, T, renaming, onOpen, onRename, onRenamed, onEdit, onPromote, onDelete }) {
+  const [menu, setMenu] = useState(false);
+  const phase = phaseOf(a, h);
+  const hasDD = h.maxDD != null && h.maxDD > 0;
+  const ddUsed = hasDD ? Math.max(0, h.maxDD - h.ddMargin) : 0;
+  const ddPct = hasDD ? (ddUsed / h.maxDD) * 100 : 0;
+  const ddColor = h.breached || ddPct >= 80 ? RED : ddPct >= 50 ? AMBER : CYAN;
+  const winRate = h.trades ? Math.round((h.wins / h.trades) * 100) : 0;
+  const alert = h.alerts.find((x) => x.level === "danger") || h.alerts.find((x) => x.level === "ok") || h.alerts.find((x) => x.level === "warn");
+  const stop = (fn) => (e) => { e.stopPropagation(); setMenu(false); fn(); };
+
+  return (
+    <div
+      role="button"
+      tabIndex={0}
+      onClick={() => !renaming && onOpen()}
+      onKeyDown={(e) => { if ((e.key === "Enter" || e.key === " ") && !renaming) { e.preventDefault(); onOpen(); } }}
+      className={`group relative cursor-pointer rounded-xl border bg-prism-panel p-5 transition hover:border-prism-line2 focus:outline-none focus-visible:border-prism-accent ${h.breached ? "border-[rgba(239,68,68,0.5)]" : "border-prism-line"}`}
+    >
+      <div className="flex items-start justify-between gap-3">
+        <div className="min-w-0">
+          <div className="flex flex-wrap items-center gap-2">
+            <span className="text-[11px] font-bold uppercase tracking-[.12em] text-prism-accent">{firmLabel(a.firm)}</span>
+            <Badge tone={PHASE_TONE[phase]}>{T.phase[phase]}</Badge>
+          </div>
+          {renaming ? (
+            <input
+              autoFocus
+              defaultValue={a.note || ""}
+              onClick={(e) => e.stopPropagation()}
+              onKeyDown={(e) => { e.stopPropagation(); if (e.key === "Enter") onRenamed(e.currentTarget.value.trim()); if (e.key === "Escape") onRenamed(null); }}
+              onBlur={(e) => onRenamed(e.currentTarget.value.trim())}
+              className={`${INPUT} mt-2 h-9 font-sans text-sm`}
+            />
+          ) : (
+            <h3 className="mt-2 truncate text-base font-bold">{accountName(a)}</h3>
+          )}
+          <p className="mt-0.5 text-xs text-prism-muted">{money(a.size, false)}</p>
+        </div>
+        <div className="relative">
+          <button type="button" onClick={(e) => { e.stopPropagation(); setMenu((v) => !v); }} className="grid h-8 w-8 place-items-center rounded-md text-prism-muted hover:bg-prism-panel2 hover:text-prism-text" aria-label="menu">
+            <MoreHorizontal className="h-4 w-4" />
+          </button>
+          {menu && (
+            <div className="absolute right-0 top-9 z-20 w-52 overflow-hidden rounded-lg border border-prism-line bg-prism-panel shadow-2xl" onClick={(e) => e.stopPropagation()}>
+              <MenuItem onClick={stop(onRename)}>{T.rename}</MenuItem>
+              <MenuItem onClick={stop(onEdit)}>{T.edit}</MenuItem>
+              {phase === "eval" && <MenuItem onClick={stop(onPromote)}>{T.promote}</MenuItem>}
+              <MenuItem danger onClick={stop(onDelete)}>{T.del}</MenuItem>
+            </div>
+          )}
+        </div>
+      </div>
+
+      <div className="mt-5 flex items-end justify-between">
+        <div>
+          <p className="text-[10px] font-semibold uppercase tracking-[.14em] text-prism-muted">{T.balance}</p>
+          <p className="mt-1 font-mono text-2xl font-bold">{money(h.balance)}</p>
+        </div>
+        <p className={`font-mono text-sm font-bold ${h.breached ? "text-prism-loss" : h.cum >= 0 ? "text-prism-win" : "text-prism-loss"}`}>
+          {h.breached ? T.blown : `${h.cum >= 0 ? "+" : ""}${money(h.cum)}`}
+        </p>
+      </div>
+
+      <div className="mt-5 space-y-3">
+        {h.target != null && h.target > 0 && (
+          <div>
+            <div className="mb-1.5 flex justify-between text-[11px]"><span className="text-prism-muted">{T.target}</span><span className="font-mono">{money(h.cum, false)} / {money(h.target, false)}</span></div>
+            <Bar pct={h.targetPct || 0} color={h.targetReached ? GREEN : CYAN} />
+          </div>
+        )}
+        {hasDD && (
+          <div>
+            <div className="mb-1.5 flex justify-between text-[11px]"><span className="text-prism-muted">{T.dd}</span><span className="font-mono">{money(ddUsed, false)} / {money(h.maxDD, false)}</span></div>
+            <Bar pct={ddPct} color={ddColor} />
+          </div>
+        )}
+      </div>
+
+      {alert && (
+        <p className={`mt-4 rounded-md border px-3 py-2 text-[11px] font-semibold ${alert.level === "danger" ? "border-[rgba(239,68,68,0.35)] bg-[rgba(239,68,68,0.08)] text-prism-loss" : alert.level === "ok" ? "border-[rgba(34,197,94,0.35)] bg-[rgba(34,197,94,0.08)] text-prism-win" : "border-[rgba(245,158,11,0.35)] bg-[rgba(245,158,11,0.08)] text-amber-400"}`}>
+          {alert.msg}
+        </p>
+      )}
+
+      <div className="mt-4 flex items-center justify-between border-t border-prism-line pt-3 font-mono text-[11px] text-prism-muted">
+        <span>{h.trades} {T.trades} · <span className="text-prism-win">{h.wins}W</span> <span className="text-prism-loss">{h.losses}L</span></span>
+        <span>WR {winRate}%</span>
+        <span>{h.tradingDays} {T.days}</span>
+      </div>
+
+      {phase === "eval" && h.targetReached && !h.breached && (
+        <button type="button" onClick={(e) => { e.stopPropagation(); onPromote(); }} className="mt-4 flex h-9 w-full items-center justify-center gap-2 rounded-md bg-prism-win text-xs font-bold text-black">
+          <Rocket className="h-3.5 w-3.5" />{T.promote}
+        </button>
+      )}
+    </div>
+  );
+}
+
+function MenuItem({ children, onClick, danger }) {
+  return <button type="button" onClick={onClick} className={`block w-full px-3 py-2.5 text-left text-xs hover:bg-prism-panel2 ${danger ? "text-prism-loss" : "text-prism-text"}`}>{children}</button>;
 }
