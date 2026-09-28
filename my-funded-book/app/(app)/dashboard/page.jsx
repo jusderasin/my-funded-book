@@ -77,6 +77,8 @@ export default function DashboardPage() {
   const L = lang === "en"
     ? { title: "Dashboard", subtitle: "Performance and trading metrics.", empty: "No trades yet", equity: "EQUITY CURVE", drawdown: "DRAWDOWN CURVE", chart: "NOT ENOUGH DATA FOR THE CHART", none: "No data for this period", ratio: "WIN / LOSS RATIO", avgR: "AVERAGE R:R" }
     : { title: "Détails du compte", subtitle: "Performance et métriques de trading.", empty: "Pas encore de trade", equity: "COURBE D'ÉQUITY", drawdown: "COURBE DE DRAWDOWN", chart: "PAS ASSEZ DE DONNÉES POUR LE GRAPHIQUE", none: "Aucune donnée sur cette période", ratio: "RATIO GAIN / PERTE", avgR: "R:R MOYEN" };
+  L.title = "Dashboard";
+
   const cards = [
     ["net", "NET P&L", fmtMoney(values.net), null, values.net < 0 ? "loss" : "gain"],
     ["winRate", "WIN RATE", `${values.winRate.toFixed(1)}%`, values.winRate],
