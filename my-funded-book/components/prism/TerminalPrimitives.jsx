@@ -2,6 +2,24 @@
 
 import { X } from "lucide-react";
 
+export const inputCls = "h-10 w-full rounded-md border border-prism-line bg-prism-surface px-3 font-mono text-xs text-prism-text outline-none focus:border-prism-accent";
+
+export function Card({ children, className = "", padding = "p-6" }) {
+  return <section className={`rounded-xl border border-prism-line bg-prism-panel ${padding} ${className}`}>{children}</section>;
+}
+
+export function Field({ label, children, hint }) {
+  return <label className="block text-[10px] font-semibold uppercase tracking-[.12em] text-prism-muted2"><span>{label}</span>{children}<span className="mt-1 block normal-case tracking-normal text-prism-muted">{hint}</span></label>;
+}
+
+export function Input(props) { return <input {...props} className={`${inputCls} ${props.className || ""}`} />; }
+export function Select(props) { return <select {...props} className={`${inputCls} ${props.className || ""}`} />; }
+export function Toggle({ checked, onChange, label }) { return <button type="button" onClick={() => onChange?.(!checked)} className="flex items-center gap-2 text-xs"><span className={`relative h-5 w-9 rounded-full ${checked ? "bg-prism-accent" : "bg-prism-panel2"}`}><i className={`absolute top-0.5 h-4 w-4 rounded-full bg-white transition ${checked ? "left-4" : "left-0.5"}`} /></span>{label}</button>; }
+export function NotEnoughData({ children = "Pas assez de données pour cette analyse." }) { return <EmptyState title="PAS ASSEZ DE DONNÉES">{children}</EmptyState>; }
+export function SettingRow({ title, description, children }) { return <div className="flex items-center justify-between gap-4 border-b border-prism-line py-4 last:border-0"><div><b className="text-sm">{title}</b><p className="mt-1 text-xs text-prism-muted">{description}</p></div>{children}</div>; }
+export function RangeSlider(props) { return <input {...props} type="range" className="accent-prism-accent" />; }
+export function AnimatedNumber({ value }) { return <span className="font-mono tabular-nums">{value}</span>; }
+
 export function SectionLabel({ children, className = "" }) {
   return <div className={`flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[.18em] text-prism-muted ${className}`}><span>{children}</span><i className="h-px flex-1 bg-prism-line" /></div>;
 }

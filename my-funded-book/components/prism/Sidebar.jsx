@@ -15,6 +15,10 @@ export const NAV_ITEMS = [
   { icon: ClipboardList, label: "Trades", href: "/journal" },
   { icon: Building2, label: "Comptes", href: "/accounts" },
   { icon: BarChart3, label: "Rapports", href: "/reports" },
+  { icon: Gauge, label: "Optimize", href: "/optimize" },
+  { icon: FlaskConical, label: "Simulation", href: "/simulation" },
+  { icon: Handshake, label: "Mentoring", href: "/mentoring" },
+  { icon: Gift, label: "Parrainage", href: "/referral" },
   { icon: Trophy, label: "Classement", href: "/leaderboard" },
   { icon: Settings, label: "Réglages", href: "/settings" },
 ];
@@ -34,7 +38,7 @@ export default function Sidebar({ open = false, onClose, items = NAV_ITEMS }) {
   const toggleMode = () => { const next = mode === "dark" ? "light" : "dark"; setMode(next); localStorage.setItem("mtb.mode", next); document.documentElement.dataset.mode = next; };
   const isActive = (href) => pathname === href || pathname?.startsWith(`${href}/`);
   const main = ["/dashboard", "/journal", "/accounts"];
-  const settings = ["/leaderboard", "/settings"];
+  const settings = ["/referral", "/leaderboard", "/settings"];
 
   return <>
     {open && <div className="fixed inset-0 z-40 bg-black/60 backdrop-blur-sm lg:hidden" onClick={onClose} aria-hidden="true" />}
