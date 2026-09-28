@@ -15,10 +15,6 @@ export const NAV_ITEMS = [
   { icon: ClipboardList, label: "Trades", href: "/journal" },
   { icon: Building2, label: "Comptes", href: "/accounts" },
   { icon: BarChart3, label: "Rapports", href: "/reports" },
-  { icon: Gauge, label: "Optimize", href: "/optimize" },
-  { icon: FlaskConical, label: "Simulation", href: "/simulation" },
-  { icon: Handshake, label: "Mentoring", href: "/mentoring" },
-  { icon: Gift, label: "Parrainage", href: "/referral" },
   { icon: Trophy, label: "Classement", href: "/leaderboard" },
   { icon: Settings, label: "Réglages", href: "/settings" },
 ];

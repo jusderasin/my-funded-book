@@ -1,5 +1,6 @@
 "use client";
 
+import { useEffect, useState } from "react";
 import { X } from "lucide-react";
 
 export const inputCls = "h-10 w-full rounded-md border border-prism-line bg-prism-surface px-3 font-mono text-xs text-prism-text outline-none focus:border-prism-accent";
@@ -18,7 +19,17 @@ export function Toggle({ checked, onChange, label }) { return <button type="butt
 export function NotEnoughData({ children = "Pas assez de données pour cette analyse." }) { return <EmptyState title="PAS ASSEZ DE DONNÉES">{children}</EmptyState>; }
 export function SettingRow({ title, description, children }) { return <div className="flex items-center justify-between gap-4 border-b border-prism-line py-4 last:border-0"><div><b className="text-sm">{title}</b><p className="mt-1 text-xs text-prism-muted">{description}</p></div>{children}</div>; }
 export function RangeSlider(props) { return <input {...props} type="range" className="accent-prism-accent" />; }
-export function AnimatedNumber({ value }) { return <span className="font-mono tabular-nums">{value}</span>; }
+export function AnimatedNumber({ value }) {
+  const numeric = Number(value);
+  const [display, setDisplay] = useState(Number.isFinite(numeric) ? 0 : value);
+  useEffect(() => {
+    if (!Number.isFinite(numeric) || localStorage.getItem("mtb.animations") === "off") { setDisplay(value); return; }
+    const start = performance.now();
+    const frame = (now) => { const p = Math.min(1, (now - start) / 600); setDisplay(numeric * (1 - (1 - p) ** 3)); if (p < 1) requestAnimationFrame(frame); };
+    const id = requestAnimationFrame(frame); return () => cancelAnimationFrame(id);
+  }, [numeric, value]);
+  return <span className="font-mono tabular-nums">{Number.isFinite(numeric) ? display.toLocaleString("fr-FR", { maximumFractionDigits: 2 }) : display}</span>;
+}
 
 export function SectionLabel({ children, className = "" }) {
   return <div className={`flex items-center gap-3 text-[11px] font-semibold uppercase tracking-[.18em] text-prism-muted ${className}`}><span>{children}</span><i className="h-px flex-1 bg-prism-line" /></div>;
