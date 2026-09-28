@@ -96,3 +96,8 @@ alter table public.trades
 -- "J'ai déjà de la progression" et la consistance vient des préréglages.
 alter table public.accounts
   add column if not exists progress jsonb not null default '{}'::jsonb;
+
+-- 006 - Valeurs rapides TP / SL / BE personnalisables par profil.
+-- Le Journal utilise localStorage tant que cette colonne n'est pas disponible.
+alter table public.profiles
+  add column if not exists quick_r jsonb not null default '{"TP": 2, "SL": -1, "BE": 0}'::jsonb;

@@ -130,7 +130,7 @@ const WIN_BG = "bg-[rgba(34,197,94,0.12)]";
 
 const emptyForm = () => ({
   mode: "day", end_date: "", entry_time: "", exit_time: "", symbol: "", dir: "long",
-  entry_price: "", exit_price: "", size: "1", r: "", planned: "", pnl: "",
+  entry_price: "", exit_price: "", size: "1", r: "", planned: "", pnl: "", outcome: null,
   setup: "", tags: [], rating: 0, followed: "", emotions: "", why: "",
 });
 
@@ -147,6 +147,7 @@ export default function JournalPage() {
   const [f, setF] = useState(emptyForm);
   const [tagInput, setTagInput] = useState("");
   const [files, setFiles] = useState([]);
+  const [quickR, setQuickR] = useState({ TP: 2, SL: -1, BE: 0 });
   const [err, setErr] = useState("");
   const [saving, setSaving] = useState(false);
   const [notesOpen, setNotesOpen] = useState(false);
@@ -165,6 +166,13 @@ export default function JournalPage() {
   const [monthPicker, setMonthPicker] = useState(false);
   const [hasExecution, setHasExecution] = useState(true);
 
+  useEffect(() => {
+    try {
+      const stored = JSON.parse(localStorage.getItem("mtb.quickR") || "{}");
+      setQuickR((current) => ({ ...current, ...stored }));
+    } catch { /* keep defaults */ }
+  }, []);
+
   // Détecte si la colonne `execution` existe (migration 004).
   useEffect(() => {
     let alive = true;
@@ -174,7 +182,23 @@ export default function JournalPage() {
     return () => { alive = false; };
   }, [supabase]);
 
+  useEffect(() => {
+    const onPaste = (event) => {
+      const image = [...(event.clipboardData?.files || [])].find((file) => file.type.startsWith("image/"));
+      if (!image) return;
+      setFiles((current) => current[0] ? current[1] ? current : [current[0], image] : [image, current[1] || null]);
+    };
+    window.addEventListener("paste", onPaste);
+    return () => window.removeEventListener("paste", onPaste);
+  }, []);
+
   const put = (key, value) => setF((cur) => ({ ...cur, [key]: value }));
+  const setQuickOutcome = (outcome) => {
+    setF((current) => {
+      const next = current.outcome === outcome ? null : outcome;
+      return { ...current, outcome: next, r: next ? String(quickR[next]) : current.r, pnl: next === "BE" ? "0" : current.pnl };
+    });
+  };
   const beThreshold = Math.max(0, Number(profile?.be_threshold) || 0);
 
   const classify = (t) => {
@@ -312,7 +336,7 @@ export default function JournalPage() {
       screenshot_url: urls[0],
       screenshot_url_2: urls[1],
       account_id: activeAccountId || null,
-      outcome: pnl === 0 ? "BE" : null,
+      outcome: f.outcome || (pnl === 0 ? "BE" : null),
       strategy_checks: [],
     };
     if (hasExecution) {
@@ -534,6 +558,13 @@ export default function JournalPage() {
             </Card>
 
             <Card title={T.execution}>
+              <div className="mb-4 grid grid-cols-3 gap-2">
+                {["TP", "SL", "BE"].map((outcome) => (
+                  <button key={outcome} type="button" onClick={() => setQuickOutcome(outcome)} className={`h-10 rounded-md border text-xs font-extrabold transition ${f.outcome === outcome ? outcome === "TP" ? "border-prism-win bg-prism-win/15 text-prism-win" : outcome === "SL" ? "border-prism-loss bg-prism-loss/15 text-prism-loss" : "border-prism-line2 bg-prism-panel2 text-prism-text" : "border-prism-line text-prism-muted hover:text-prism-text"}`}>
+                    {outcome} <span className="font-mono">{quickR[outcome] >= 0 ? "+" : ""}{quickR[outcome]}R</span>
+                  </button>
+                ))}
+              </div>
               <div className="grid grid-cols-2 gap-3">
                 {hasExecution && <>
                   <Field label={T.entryPrice}><input inputMode="decimal" className={INPUT} placeholder="6500.00" value={f.entry_price} onChange={(e) => put("entry_price", e.target.value)} /></Field>
@@ -577,12 +608,10 @@ export default function JournalPage() {
                   />
                   <datalist id="journal-tag-suggestions">{tagSuggestions.map((tg) => <option key={tg} value={tg} />)}</datalist>
                 </Field>
-                <Field label={T.screenshot}>
-                  <button type="button" onClick={() => setShotsOpen(true)} className={`${INPUT} flex items-center justify-between`}>
-                    <span className="flex min-w-0 items-center gap-2 truncate whitespace-nowrap"><ImagePlus className="h-3.5 w-3.5 shrink-0" />{files.length ? `${files.length} / 2` : T.addShots}</span>
-                    <Plus className="h-3.5 w-3.5 text-prism-muted" />
-                  </button>
-                </Field>
+                <div className="col-span-2 grid grid-cols-2 gap-3">
+                  <ScreenshotSlot label={lang === "en" ? "ENTRY" : "ENTRÉE"} file={files[0]} onPick={(file) => setFiles((current) => [file, current[1] || null])} />
+                  <ScreenshotSlot label={lang === "en" ? "EXIT" : "SORTIE"} file={files[1]} onPick={(file) => setFiles((current) => [current[0] || null, file])} />
+                </div>
                 {f.tags.length > 0 && (
                   <div className="col-span-2 -mt-1 flex flex-wrap gap-1.5">
                     {f.tags.map((tg) => (
@@ -715,16 +744,12 @@ export default function JournalPage() {
                         <td className="px-2 font-bold">{t.symbol}</td>
                         <td className={`px-2 font-bold ${t.dir === "long" ? "text-prism-accent" : "text-prism-loss"}`}>{String(t.dir || "").toUpperCase()}</td>
                         <td className="px-2">{e.size ?? "—"}</td>
-                        <td className={`px-2 font-bold ${classify(t) === "be" ? "text-prism-muted" : p > 0 ? "text-prism-win" : "text-prism-loss"}`}>{fmtMoney(p, true)}</td>
+                        <td className={`px-2 font-bold ${classify(t) === "be" ? "text-prism-muted" : p > 0 ? "text-prism-win" : "text-prism-loss"}`}>{fmtMoney(p, true)} {t.outcome && <span className="ml-1 rounded border border-current px-1 text-[8px]">{t.outcome}</span>}</td>
                         <td className="px-2">{Number(t.r) ? Number(t.r).toFixed(2) : "—"}</td>
                         <td className="max-w-[140px] truncate px-2">{t.setup || "—"}</td>
                         <td className="max-w-[160px] px-2"><div className="flex flex-wrap gap-1">{(t.tags || []).slice(0, 3).map((tg) => <span key={tg} className="rounded border border-prism-line px-1.5 text-[9px]">{tg}</span>)}{!(t.tags || []).length && "—"}</div></td>
                         <td className="px-2">
-                          {t.screenshot_url ? (
-                            <button type="button" onClick={(ev) => { ev.stopPropagation(); setLightbox(t.screenshot_url); }}>
-                              <img src={t.screenshot_url} alt="" className="h-7 w-10 rounded object-cover" />
-                            </button>
-                          ) : "—"}
+                          <div className="flex gap-1">{[t.screenshot_url, t.screenshot_url_2].filter(Boolean).map((url, index) => <button key={url} type="button" onClick={(ev) => { ev.stopPropagation(); setLightbox({ urls: [t.screenshot_url, t.screenshot_url_2].filter(Boolean), index }); }}><img src={url} alt="" className="h-7 w-10 rounded object-cover" /></button>)}{!t.screenshot_url && !t.screenshot_url_2 && "-"}</div>
                         </td>
                         <td className="max-w-[200px] truncate px-2 font-sans text-prism-muted">{t.why || "—"}</td>
                       </tr>
@@ -749,7 +774,7 @@ export default function JournalPage() {
       )}
       {lightbox && (
         <div className="fixed inset-0 z-[120] grid place-items-center bg-black/90 p-6" onClick={() => setLightbox(null)}>
-          <img src={lightbox} alt="" className="max-h-full max-w-full rounded-lg" />
+          <button type="button" onClick={(event) => { event.stopPropagation(); setLightbox((current) => ({ ...current, index: (current.index + current.urls.length - 1) % current.urls.length })); }} className="absolute left-5 text-3xl">‹</button><img src={lightbox.urls[lightbox.index]} alt="" className="max-h-full max-w-full rounded-lg" onClick={(event) => event.stopPropagation()} /><button type="button" onClick={(event) => { event.stopPropagation(); setLightbox((current) => ({ ...current, index: (current.index + 1) % current.urls.length })); }} className="absolute right-5 text-3xl">›</button>
         </div>
       )}
     </div>
@@ -856,6 +881,17 @@ function DailyReview({ date, T, review, onSave }) {
       )}
     </div>
   );
+}
+
+function ScreenshotSlot({ label, file, onPick }) {
+  const [dragging, setDragging] = useState(false);
+  const preview = useMemo(() => file ? URL.createObjectURL(file) : null, [file]);
+  useEffect(() => () => preview && URL.revokeObjectURL(preview), [preview]);
+  const accept = (items) => {
+    const image = [...(items || [])].find((item) => item.type?.startsWith("image/"));
+    if (image) onPick(image);
+  };
+  return <label onDragOver={(event) => { event.preventDefault(); setDragging(true); }} onDragLeave={() => setDragging(false)} onDrop={(event) => { event.preventDefault(); setDragging(false); accept(event.dataTransfer.files); }} className={`relative flex h-24 cursor-pointer items-center justify-center overflow-hidden rounded-md border border-dashed ${dragging ? "border-prism-accent bg-prism-accentDim" : "border-prism-line"}`}><input className="hidden" type="file" accept="image/*" onChange={(event) => accept(event.target.files)} />{preview ? <img src={preview} alt={label} className="h-full w-full object-cover" /> : <span className="text-[10px] font-bold tracking-[.12em] text-prism-muted"><ImagePlus className="mx-auto mb-1 h-4 w-4" />{label}</span>}<span className="absolute right-1 top-1 grid h-4 w-4 place-items-center rounded-full bg-black/60 text-[9px] text-white">?</span></label>;
 }
 
 function ScreenshotModal({ T, files, onClose, onSave }) {
