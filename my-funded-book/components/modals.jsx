@@ -263,12 +263,7 @@ function ShotSlot({ label, file, url, onFile, onRemove, lang }) {
 export function LogTradeModal({ editing, onClose }) {
   const { addTrade, updateTrade, playbooks, accounts, activeAccountId, trades, notify, t, lang } = useBook();
   const en = lang === "en";
-  const defaultAccountId =
-    activeAccountId ||
-    accounts.find((a) => a.type === "funded" && a.status === "active")?.id ||
-    accounts.find((a) => a.status === "active")?.id ||
-    accounts[0]?.id ||
-    "";
+  const defaultAccountId = trades[0]?.account_id || accounts.find((account) => account.status === "active")?.id || "";
 
   // Symboles les plus utilisés sur les 60 derniers trades.
   const recentSymbols = (() => {
