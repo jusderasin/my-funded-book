@@ -101,10 +101,3 @@ alter table public.accounts
 -- Le Journal utilise localStorage tant que cette colonne n'est pas disponible.
 alter table public.profiles
   add column if not exists quick_r jsonb not null default '{"TP": 2, "SL": -1, "BE": 0}'::jsonb;
-
--- 008 - Espaces de travail de comptes.
--- Les groupes sont volontairement des libellés souples : "Principal",
--- "Copier" ou le nom d'une prop firm. Un nouveau compte rejoint par défaut
--- Principal, sans créer de groupe isolé ni modifier les trades existants.
-alter table public.accounts
-  add column if not exists group_name text not null default 'Principal';

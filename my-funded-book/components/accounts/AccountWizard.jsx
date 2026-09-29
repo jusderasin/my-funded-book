@@ -53,7 +53,7 @@ const TXT = {
 };
 
 export default function AccountWizard({ onClose, onCreated }) {
-  const { lang, addAccount, accounts } = useBook();
+  const { lang, addAccount } = useBook();
   const T = TXT[lang === "en" ? "en" : "fr"];
   const supabase = useMemo(() => createClient(), []);
 
@@ -70,21 +70,15 @@ export default function AccountWizard({ onClose, onCreated }) {
   const [withProgress, setWithProgress] = useState(false);
   const [progress, setProgress] = useState({ balance: "", existing: "0", winDays: "0", bestDay: "", startDate: "" });
   const [hasProgressCol, setHasProgressCol] = useState(false);
-  const [hasGroupColumn, setHasGroupColumn] = useState(false);
-  const [groupName, setGroupName] = useState("Principal");
   const [saving, setSaving] = useState(false);
   const [mounted, setMounted] = useState(false);
   useEffect(() => setMounted(true), []);
 
   useEffect(() => {
     let alive = true;
-    Promise.all([
-      supabase.from("accounts").select("progress").limit(1),
-      supabase.from("accounts").select("group_name").limit(1),
-    ]).then(([progressResult, groupResult]) => {
+    supabase.from("accounts").select("progress").limit(1).then((progressResult) => {
       if (!alive) return;
       setHasProgressCol(!progressResult.error);
-      setHasGroupColumn(!groupResult.error);
     });
     return () => { alive = false; };
   }, [supabase]);
@@ -159,7 +153,6 @@ export default function AccountWizard({ onClose, onCreated }) {
       trailing_drawdown: dd !== "static",
       trailing_lock_offset: dd === "static" ? 0 : num(rules.lock) ?? 0,
     };
-    if (hasGroupColumn) payload.group_name = groupName.trim() || "Principal";
     if (hasProgressCol && withProgress) {
       payload.progress = {
         existing_profit: num(progress.existing) || 0,
@@ -293,7 +286,6 @@ export default function AccountWizard({ onClose, onCreated }) {
           {step === 4 && (
             <>
               <Field label={T.name}><input autoFocus className={`${INPUT} font-sans text-sm`} value={name} onChange={(e) => setName(e.target.value)} /></Field>
-              {hasGroupColumn && <Field label={lang === "en" ? "Workspace group" : "Groupe de comptes"}><input className={`${INPUT} font-sans text-sm`} value={groupName} onChange={(e) => setGroupName(e.target.value)} list="account-groups" placeholder={lang === "en" ? "Primary, Copier, Apex..." : "Principal, Copier, Apex..."} /><datalist id="account-groups">{[...new Set((accounts || []).map((account) => account.group_name).filter(Boolean))].map((group) => <option key={group} value={group} />)}</datalist></Field>}
               <div className="border-t border-prism-line pt-4">
                 <button type="button" disabled={!hasProgressCol} onClick={() => setWithProgress((v) => !v)} className="flex items-center gap-3 text-sm disabled:opacity-50">
                   <span className={`relative h-6 w-10 rounded-full transition ${withProgress ? "bg-prism-accent" : "bg-prism-panel2 border border-prism-line"}`}>
