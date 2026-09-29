@@ -114,7 +114,7 @@ export default function ReportsPage() {
   const [tab, setTab] = useState("overview");
   const [period, setPeriod] = useState("month");
   const [custom, setCustom] = useState({ from: "", to: "" });
-  const [f, setF] = useState({ account: activeAccountId === "all" ? "" : activeAccountId || "", symbol: "", dir: "", setup: "", session: "", outcome: "" });
+  const [f, setF] = useState({ account: "", symbol: "", dir: "", setup: "", session: "", outcome: "" });
   const setFilter = (k, v) => setF((s) => ({ ...s, [k]: v }));
   const reset = () => { setPeriod("month"); setCustom({ from: "", to: "" }); setF({ account: "", symbol: "", dir: "", setup: "", session: "", outcome: "" }); };
 
