@@ -7,6 +7,7 @@ import { Area } from "@/components/charts";
 import { useBook } from "@/components/BookProvider";
 import { Card, EmptyState, ProgressBar, StatCard } from "@/components/prism/TerminalPrimitives";
 import { fmtMoney, fmtR, frDate } from "@/lib/format";
+import { accountHealth } from "@/lib/accountHealth";
 import { computeStats } from "@/lib/stats";
 
 const average = (values) => values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
@@ -67,7 +68,7 @@ const rangeOptions = (lang) => [
 ];
 
 export default function DashboardPage() {
-  const { scopedTrades, activeAccount, profile, lang } = useBook();
+  const { scopedTrades, accounts, certificates, profile, lang } = useBook();
   const [range, setRange] = useState("all");
   const isEnglish = lang === "en";
   const copy = isEnglish ? {
@@ -88,12 +89,12 @@ export default function DashboardPage() {
     cutoff.setDate(cutoff.getDate() - Number(range));
     return scopedTrades.filter((trade) => new Date(`${trade.date}T00:00:00`) >= cutoff);
   }, [range, scopedTrades]);
-  const stats = useMemo(() => computeStats(trades, Number(activeAccount?.size) || Number(profile?.starting_balance) || 0), [trades, activeAccount, profile]);
+  const stats = useMemo(() => computeStats(trades, Number(profile?.starting_balance) || 0), [trades, profile]);
   const threshold = Number(profile?.be_threshold) || 0;
   const metrics = useMemo(() => calculateMetrics(trades, threshold), [trades, threshold]);
   const deltas = useMemo(() => calculateDeltas(trades, threshold, lang), [trades, threshold, lang]);
   const planRate = trades.length ? Math.round(trades.filter((trade) => trade.plan).length / trades.length * 100) : 0;
-  const scopeName = activeAccount?.note || activeAccount?.firm || copy.all;
+  const propAccounts = useMemo(() => accounts.filter((account) => account.status === "active").map((account) => ({ account, health: accountHealth(account, scopedTrades, certificates, lang) })), [accounts, certificates, lang, scopedTrades]);
   const sessionRows = ["Asia", "London", "NY AM", "NY PM"].map((session) => ({
     session,
     pnl: trades.filter((trade) => trade.session === session).reduce((sum, trade) => sum + (Number(trade.pnl) || 0), 0),
@@ -120,7 +121,6 @@ export default function DashboardPage() {
             <p className="mt-2 max-w-xl text-sm text-prism-muted">{copy.subtitle}</p>
           </div>
           <div className="flex flex-wrap items-center gap-2">
-            <span className="rounded-full border border-prism-line bg-prism-panel px-3 py-2 text-xs font-semibold text-prism-text">{scopeName}</span>
             <div className="grid grid-cols-4 gap-1 rounded-lg border border-prism-line bg-prism-panel p-1">{rangeOptions(lang).map(([value, label]) => <button key={value} type="button" onClick={() => setRange(value)} className={`rounded-md px-3 py-2 text-[10px] font-bold uppercase tracking-[.1em] transition ${range === value ? "bg-prism-accent text-black shadow-[0_0_22px_rgba(6,182,212,.2)]" : "text-prism-muted hover:bg-prism-panel2 hover:text-prism-text"}`}>{label}</button>)}</div>
           </div>
         </header>
@@ -152,11 +152,17 @@ export default function DashboardPage() {
         <section className="mt-4 grid gap-4 lg:grid-cols-3">
           <Card padding="p-5" className="transition hover:border-prism-line2"><p className="mb-4 text-[10px] font-bold tracking-[.16em] text-prism-accent">{copy.recent}</p>{trades.length ? trades.slice(0, 5).map((trade) => <Link key={trade.id} href={`/journal?edit=${trade.id}`} className="group flex items-center justify-between border-b border-prism-line py-3 text-xs last:border-0"><span><b className="text-prism-text">{trade.symbol || "—"} · {String(trade.dir || "—").toUpperCase()}</b><small className="ml-2 text-prism-muted">{frDate(trade.date)}</small></span><b className={`${Number(trade.pnl) < 0 ? "text-prism-loss" : "text-prism-win"} group-hover:underline`}>{fmtMoney(Number(trade.pnl) || 0)}</b></Link>) : <p className="text-sm text-prism-muted">{copy.noTrades}</p>}</Card>
           <Card padding="p-5" className="transition hover:border-prism-line2"><p className="mb-4 flex items-center gap-2 text-[10px] font-bold tracking-[.16em] text-prism-accent"><Crosshair className="h-3.5 w-3.5" />{copy.sessions}</p><div className="space-y-4">{sessionRows.map((row) => <div key={row.session}><div className="mb-1.5 flex justify-between text-xs"><span className="text-prism-muted">{row.session}</span><b className={row.pnl < 0 ? "text-prism-loss" : "text-prism-win"}>{fmtMoney(row.pnl)}</b></div><div className="h-1.5 overflow-hidden rounded-full bg-prism-panel2"><div className={row.pnl < 0 ? "h-full bg-prism-loss" : "h-full bg-prism-accent"} style={{ width: `${Math.max(3, Math.abs(row.pnl) / largestSession * 100)}%` }} /></div></div>)}</div></Card>
-          <Card padding="p-5" className="relative overflow-hidden transition hover:border-prism-line2"><div className="absolute -right-6 bottom-0 h-24 w-24 rounded-full bg-prism-accent/10 blur-xl" /><p className="flex items-center gap-2 text-[10px] font-bold tracking-[.16em] text-prism-accent"><Target className="h-3.5 w-3.5" />{copy.objective}</p>{activeAccount ? <><p className="mt-6 font-mono text-3xl font-bold">{fmtMoney(Number(activeAccount.profit_target) || 0)}</p><p className="mt-2 text-xs text-prism-muted">{activeAccount.note || activeAccount.firm}</p><Link href={`/accounts/${activeAccount.id}`} className="mt-6 inline-flex items-center gap-1 text-xs font-bold text-prism-accent hover:underline">{copy.viewAccount}<ArrowUpRight className="h-3.5 w-3.5" /></Link></> : <p className="mt-6 text-sm leading-6 text-prism-muted">{isEnglish ? "Choose an account in the sidebar to track its rules and target." : "Sélectionne un compte dans la sidebar pour suivre ses règles et son objectif."}</p>}</Card>
+          <PropAccountsCard accounts={propAccounts} isEnglish={isEnglish} />
         </section>
       </div>
     </main>
   );
+}
+
+function PropAccountsCard({ accounts, isEnglish }) {
+  const title = isEnglish ? "ACTIVE PROP ACCOUNTS" : "COMPTES PROP ACTIFS";
+  if (!accounts.length) return <Card padding="p-5" className="relative overflow-hidden transition hover:border-prism-line2"><p className="flex items-center gap-2 text-[10px] font-bold tracking-[.16em] text-prism-accent"><Target className="h-3.5 w-3.5" />{title}</p><p className="mt-5 text-sm text-prism-muted">{isEnglish ? "No active prop account yet." : "Aucun compte prop actif."}</p><Link href="/accounts" className="mt-4 inline-flex items-center gap-1 text-xs font-bold text-prism-accent hover:underline">{isEnglish ? "Create an account" : "Créer un compte"}<ArrowUpRight className="h-3.5 w-3.5" /></Link></Card>;
+  return <Card padding="p-5" className="relative overflow-hidden transition hover:border-prism-line2"><p className="mb-4 flex items-center gap-2 text-[10px] font-bold tracking-[.16em] text-prism-accent"><Target className="h-3.5 w-3.5" />{title}</p><div className="max-h-64 space-y-3 overflow-y-auto pr-1">{accounts.map(({ account, health }) => { const pnl = Number(health.cum) || 0; const target = Number(account.profit_target) || 0; const targetPct = target > 0 ? Math.max(0, Math.min(100, pnl / target * 100)) : 0; const margin = Number(health.ddMargin); return <Link key={account.id} href={`/accounts/${account.id}`} className="block rounded-lg border border-prism-line bg-prism-surface p-3 transition hover:border-prism-accent/60 hover:bg-prism-panel2"><div className="flex items-center justify-between gap-3"><b className="truncate text-xs">{account.note || account.firm}</b><span className={`font-mono text-xs font-bold ${pnl < 0 ? "text-prism-loss" : "text-prism-win"}`}>{fmtMoney(pnl)}</span></div>{target > 0 && <div className="mt-2"><div className="mb-1 flex justify-between text-[9px] text-prism-muted"><span>{isEnglish ? "Target" : "Objectif"}</span><span>{Math.round(targetPct)}%</span></div><ProgressBar value={targetPct} tone={pnl >= 0 ? "gain" : "loss"} /></div>}<div className="mt-2 flex justify-between text-[9px] text-prism-muted"><span>{isEnglish ? "Drawdown margin" : "Marge drawdown"}</span><b className={margin <= 0 ? "text-prism-loss" : "text-prism-text"}>{Number.isFinite(margin) ? fmtMoney(margin) : "—"}</b></div></Link>; })}</div></Card>;
 }
 
 function CurvePanel({ label, value, values, labels, color, empty }) {
