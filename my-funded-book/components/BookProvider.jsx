@@ -90,6 +90,9 @@ export function BookProvider({ user, children }) {
       if (activeAccountId) setActiveAccountId(null);
       return;
     }
+    // "all" is a deliberate global workspace, not a missing account id.
+    // It lets Dashboard, Journal and Reports aggregate every account.
+    if (activeAccountId === "all") return;
     if (activeAccountId && accounts.some((account) => account.id === activeAccountId)) return;
     const preferred = accounts.find((account) => account.type === "funded" && account.status === "active")
       || accounts.find((account) => account.status === "active")
