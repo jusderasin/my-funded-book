@@ -51,7 +51,10 @@ export function BookProvider({ user, children }) {
   const [accounts, setAccounts] = useState([]);
   // Un seul contexte de trading à la fois : les métriques et le journal ne
   // peuvent donc jamais agréger par erreur deux comptes prop firm différents.
-  const [activeAccountId, setActiveAccountIdState] = useState(null);
+  // Account selection is now local to the account detail route. Keeping these
+  // keys at null preserves the public context API for older consumers.
+  const activeAccountId = null;
+  const activeAccount = null;
   const [certificates, setCertificates] = useState([]);
   const [expenses, setExpenses] = useState([]);
   const [playbooks, setPlaybooks] = useState([]);
@@ -70,35 +73,10 @@ export function BookProvider({ user, children }) {
   }, []);
 
   useEffect(() => {
-    try {
-      const saved = localStorage.getItem("mfb.activeAccountId");
-      if (saved) setActiveAccountIdState(saved);
-    } catch {}
+    try { localStorage.removeItem("mfb.activeAccountId"); } catch {}
   }, []);
 
-  const setActiveAccountId = useCallback((id) => {
-    const next = id || null;
-    setActiveAccountIdState(next);
-    try {
-      if (next) localStorage.setItem("mfb.activeAccountId", next);
-      else localStorage.removeItem("mfb.activeAccountId");
-    } catch {}
-  }, []);
-
-  useEffect(() => {
-    if (!accounts.length) {
-      if (activeAccountId) setActiveAccountId(null);
-      return;
-    }
-    // "all" is a deliberate global workspace, not a missing account id.
-    // It lets Dashboard, Journal and Reports aggregate every account.
-    if (activeAccountId === "all") return;
-    if (activeAccountId && accounts.some((account) => account.id === activeAccountId)) return;
-    const preferred = accounts.find((account) => account.type === "funded" && account.status === "active")
-      || accounts.find((account) => account.status === "active")
-      || accounts[0];
-    setActiveAccountId(preferred.id);
-  }, [accounts, activeAccountId, setActiveAccountId]);
+  const setActiveAccountId = useCallback(() => {}, []);
 
   const setLang = useCallback((l) => {
     setLangState(l);
@@ -285,22 +263,18 @@ export function BookProvider({ user, children }) {
     [trades, profile.starting_balance]
   );
 
-  const activeAccount = useMemo(
-    () => accounts.find((account) => account.id === activeAccountId) || null,
-    [accounts, activeAccountId]
-  );
   const scopedTrades = useMemo(
-    () => (activeAccount ? trades.filter((trade) => trade.account_id === activeAccount.id) : trades)
+    () => trades
       .slice()
       .sort((a, b) => {
         const dateOrder = String(b.date || "").localeCompare(String(a.date || ""));
         return dateOrder || String(b.created_at || "").localeCompare(String(a.created_at || ""));
       }),
-    [trades, activeAccount]
+    [trades]
   );
   const scopedStats = useMemo(
-    () => computeStats(scopedTrades, Number(activeAccount?.size) || Number(profile.starting_balance) || 0),
-    [scopedTrades, activeAccount, profile.starting_balance]
+    () => computeStats(scopedTrades, Number(profile.starting_balance) || 0),
+    [scopedTrades, profile.starting_balance]
   );
 
   // Trades toujours triés par DATE du trade (récent en haut), puis par date d'ajout.
