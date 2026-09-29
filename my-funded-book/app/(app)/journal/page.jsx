@@ -9,7 +9,7 @@
 // JSONB `execution` (migration 004). Tant que cette colonne n'existe pas, la
 // page le détecte et masque ces champs au lieu de faire échouer l'insertion.
 
-import { useEffect, useMemo, useState } from "react";
+import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import {
@@ -133,12 +133,12 @@ const WIN_BG = "bg-[rgba(34,197,94,0.12)]";
 const emptyForm = () => ({
   mode: "day", end_date: "", entry_time: "", exit_time: "", symbol: "", dir: "long",
   entry_price: "", exit_price: "", size: "1", r: "", planned: "", pnl: "", outcome: null,
-  setup: "", tags: [], rating: 0, followed: "", emotions: "", why: "",
+  setup: "", tags: [], rating: 0, followed: "", emotions: "", why: "", account_id: "",
 });
 
 export default function JournalPage() {
   const {
-    lang, profile, scopedTrades, trades, playbooks, accounts, activeAccountId,
+    lang, profile, scopedTrades, trades, playbooks, accounts,
     addTrade, updateTrade, deleteTrade, dailyReviews, saveDailyReview, notify,
   } = useBook();
   const T = TXT[lang === "en" ? "en" : "fr"];
@@ -147,6 +147,7 @@ export default function JournalPage() {
   const [date, setDate] = useState(localToday);
   const [viewMonth, setViewMonth] = useState(() => localToday().slice(0, 7));
   const [f, setF] = useState(emptyForm);
+  const accountDefaulted = useRef(false);
   const [tagInput, setTagInput] = useState("");
   const [files, setFiles] = useState([]);
   const [quickR, setQuickR] = useState({ TP: 2, SL: -1, BE: 0 });
@@ -183,6 +184,13 @@ export default function JournalPage() {
     });
     return () => { alive = false; };
   }, [supabase]);
+
+  useEffect(() => {
+    if (accountDefaulted.current || (!trades.length && !accounts.length)) return;
+    const defaultAccountId = trades[0]?.account_id || accounts.find((account) => account.status === "active")?.id || "";
+    setF((current) => ({ ...current, account_id: current.account_id || defaultAccountId }));
+    accountDefaulted.current = true;
+  }, [accounts, trades]);
 
   useEffect(() => {
     const onPaste = (event) => {
@@ -337,7 +345,7 @@ export default function JournalPage() {
       grade: RATING_TO_GRADE[f.rating] || null,
       screenshot_url: urls[0],
       screenshot_url_2: urls[1],
-      account_id: activeAccountId || null,
+      account_id: f.account_id || null,
       outcome: f.outcome || (pnl === 0 ? "BE" : null),
       strategy_checks: [],
     };
@@ -360,7 +368,7 @@ export default function JournalPage() {
     const created = await addTrade(row);
     setSaving(false);
     if (!created) return; // erreur déjà affichée par BookProvider : on garde la saisie
-    setF((cur) => ({ ...emptyForm(), symbol: cur.symbol, dir: cur.dir, mode: cur.mode }));
+    setF((cur) => ({ ...emptyForm(), symbol: cur.symbol, dir: cur.dir, mode: cur.mode, account_id: cur.account_id }));
     setFiles([]);
     setNotesOpen(false);
   }
@@ -542,6 +550,14 @@ export default function JournalPage() {
               ) : (
                 <Field label={T.date}><input type="date" className={INPUT} value={date} onChange={(e) => e.target.value && pickDate(e.target.value)} /></Field>
               )}
+              <div className="mt-4">
+                <Field label={lang === "en" ? "ACCOUNT" : "COMPTE"}>
+                  <select className={INPUT} value={f.account_id || ""} onChange={(e) => put("account_id", e.target.value)}>
+                    <option value="">{lang === "en" ? "No account" : "Aucun compte"}</option>
+                    {accounts.map((account) => <option key={account.id} value={account.id}>{account.note || account.firm}</option>)}
+                  </select>
+                </Field>
+              </div>
               {hasExecution && (
                 <div className="mt-4 grid grid-cols-2 gap-3">
                   <Field label={T.entryTime}><input className={INPUT} placeholder="09:30:15" value={f.entry_time} onChange={(e) => put("entry_time", e.target.value)} /></Field>
