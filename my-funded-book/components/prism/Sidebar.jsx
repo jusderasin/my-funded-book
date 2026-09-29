@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { BadgeCheck, BarChart3, Bell, Building2, Calendar, Check, ChevronDown, ClipboardList, DollarSign, FlaskConical, Gauge, Gift, Handshake, History, LayoutDashboard, List, Moon, Pencil, Plus, Settings, Sparkles, Sun, Trash2, Trophy, X } from "lucide-react";
+import { BadgeCheck, BarChart3, Bell, Building2, Calendar, Check, ChevronDown, ClipboardList, DollarSign, FlaskConical, Gauge, Gift, Handshake, History, LayoutDashboard, List, Moon, Pencil, Plus, Settings, Sparkles, Sun, Target, Trash2, Trophy, X } from "lucide-react";
 import BrandMark from "@/components/BrandMark";
 import { useBook } from "@/components/BookProvider";
 import { useEffect, useState } from "react";
@@ -15,6 +15,7 @@ export const NAV_ITEMS = [
   { icon: ClipboardList, label: "Trades", href: "/journal" },
   { icon: Building2, label: "Comptes", href: "/accounts" },
   { icon: BarChart3, label: "Rapports", href: "/reports" },
+  { icon: Target, label: "Stratégies", href: "/playbook" },
   { icon: Trophy, label: "Classement", href: "/leaderboard" },
   { icon: Settings, label: "Réglages", href: "/settings" },
 ];

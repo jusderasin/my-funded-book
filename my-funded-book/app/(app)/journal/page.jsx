@@ -11,6 +11,7 @@
 
 import { useEffect, useMemo, useState } from "react";
 import { createPortal } from "react-dom";
+import Link from "next/link";
 import {
   AlertCircle, ArrowDownRight, ArrowUpRight, Check, ChevronDown, ChevronLeft, ChevronRight,
   FileText, Filter, ImagePlus, ListChecks, Plus, Star, Trash2, Upload, X,
@@ -583,10 +584,10 @@ export default function JournalPage() {
             <Card title={T.context}>
               <div className="grid grid-cols-2 gap-3">
                 <Field label={T.strategy}>
-                  <select className={INPUT} value={f.setup} onChange={(e) => put("setup", e.target.value)}>
+                  <div className="flex gap-2"><select className={INPUT} value={f.setup} onChange={(e) => put("setup", e.target.value)}>
                     <option value="">{T.setupPh}</option>
                     {playbooks.map((p) => <option key={p.id} value={p.name}>{p.name}</option>)}
-                  </select>
+                  </select><Link href="/playbook" className="grid h-10 w-10 shrink-0 place-items-center rounded-md border border-prism-line text-prism-accent hover:border-prism-accent" aria-label={lang === "en" ? "Manage strategies" : "Gérer les stratégies"}><Plus className="h-4 w-4" /></Link></div>
                 </Field>
                 <Field label={T.rating}>
                   <div className="flex h-10 items-center justify-center gap-1 rounded-md border border-prism-line bg-prism-surface">
