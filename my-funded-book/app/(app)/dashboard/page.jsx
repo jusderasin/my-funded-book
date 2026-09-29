@@ -48,13 +48,14 @@ function deltas(trades, threshold, lang) {
     const value = latest[key];
     const currentDay = trades.filter((trade) => trade.date === dates.at(-1));
     const previousDay = trades.filter((trade) => trade.date === dates.at(-2));
-    const unavailable = currentDay.length < 2 || previousDay.length < 2 || !Number.isFinite(value) || !Number.isFinite(oldValue) || ((key === "profitFactor" || key === "sharpe" || key === "sortino") && (!oldValue || !value));
+    const requiresTwoTrades = ["profitFactor", "gainLossRatio", "sharpe", "sortino"].includes(key);
+    const unavailable = !Number.isFinite(value) || !Number.isFinite(oldValue) || (requiresTwoTrades && (currentDay.length < 2 || previousDay.length < 2)) || ((key === "profitFactor" || key === "sharpe" || key === "sortino") && (!oldValue || !value));
     if (unavailable) return [key, { text: "—", tone: "neutral" }];
     const difference = value - oldValue;
     const tone = difference > 0 ? "gain" : difference < 0 ? "loss" : "neutral";
     const sign = difference > 0 ? "+" : "";
     const display = key === "net"
-      ? fmtMoney(difference)
+      ? `${difference > 0 ? "+" : ""}${fmtMoney(difference)}`
       : key === "winRate"
         ? `${sign}${difference.toFixed(0)} pts`
         : `${sign}${difference.toFixed(2)}`;
@@ -76,8 +77,7 @@ export default function DashboardPage() {
   const changes = useMemo(() => deltas(trades, threshold, lang), [trades, threshold, lang]);
   const L = lang === "en"
     ? { title: "Dashboard", subtitle: "Performance and trading metrics.", empty: "No trades yet", equity: "EQUITY CURVE", drawdown: "DRAWDOWN CURVE", chart: "NOT ENOUGH DATA FOR THE CHART", none: "No data for this period", ratio: "WIN / LOSS RATIO", avgR: "AVERAGE R:R" }
-    : { title: "Détails du compte", subtitle: "Performance et métriques de trading.", empty: "Pas encore de trade", equity: "COURBE D'ÉQUITY", drawdown: "COURBE DE DRAWDOWN", chart: "PAS ASSEZ DE DONNÉES POUR LE GRAPHIQUE", none: "Aucune donnée sur cette période", ratio: "RATIO GAIN / PERTE", avgR: "R:R MOYEN" };
-  L.title = "Dashboard";
+    : { title: "Dashboard", subtitle: "Performance et métriques de trading.", empty: "Pas encore de trade", equity: "COURBE D'ÉQUITY", drawdown: "COURBE DE DRAWDOWN", chart: "PAS ASSEZ DE DONNÉES POUR LE GRAPHIQUE", none: "Aucune donnée sur cette période", ratio: "RATIO GAIN / PERTE", avgR: "R:R MOYEN" };
 
   const cards = [
     ["net", "NET P&L", fmtMoney(values.net), null, values.net < 0 ? "loss" : "gain"],
