@@ -7,7 +7,7 @@ import { X } from "lucide-react";
 export const inputCls = "h-10 w-full rounded-md border border-prism-line bg-prism-surface px-3 font-mono text-xs text-prism-text outline-none focus:border-prism-accent";
 
 export function Card({ children, className = "", padding = "p-6" }) {
-  return <section className={`rounded-xl border border-prism-line bg-prism-panel ${padding} ${className}`}>{children}</section>;
+  return <section className={`prism-surface rounded-xl border border-prism-line bg-prism-panel ${padding} ${className}`}>{children}</section>;
 }
 
 export function Field({ label, children, hint }) {
@@ -47,7 +47,7 @@ export function Badge({ tone = "neutral", children }) {
 
 export function ProgressBar({ value = 0, tone = "accent" }) {
   const colors = { accent: "bg-prism-accent", gain: "bg-prism-win", loss: "bg-prism-loss", warn: "bg-amber-400" };
-  return <div className="h-1.5 overflow-hidden rounded-full bg-prism-panel2"><div className={`h-full rounded-full ${colors[tone] || colors.accent}`} style={{ width: `${Math.max(0, Math.min(100, value))}%` }} /></div>;
+  return <div className="prism-progress h-1.5 overflow-hidden rounded-full bg-prism-panel2"><div className={`h-full rounded-full ${colors[tone] || colors.accent}`} style={{ width: `${Math.max(0, Math.min(100, value))}%` }} /></div>;
 }
 
 export function EmptyState({ icon, title, children }) {

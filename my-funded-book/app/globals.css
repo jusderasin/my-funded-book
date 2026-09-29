@@ -2,6 +2,97 @@
 @tailwind components;
 @tailwind utilities;
 
+/* Product polish: visual depth and motion stay deliberately lightweight. */
+html {
+  scroll-behavior: smooth;
+  background: var(--prism-bg, #050506);
+}
+
+body {
+  overflow-x: hidden;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+::selection {
+  background: rgba(6, 182, 212, .28);
+  color: #fff;
+}
+
+:focus-visible {
+  outline: 2px solid var(--prism-accent, #06b6d4);
+  outline-offset: 3px;
+}
+
+* {
+  scrollbar-color: rgba(6, 182, 212, .4) transparent;
+  scrollbar-width: thin;
+}
+
+*::-webkit-scrollbar { width: 8px; height: 8px; }
+*::-webkit-scrollbar-thumb { border: 2px solid transparent; border-radius: 999px; background: rgba(113, 113, 122, .5); background-clip: padding-box; }
+*::-webkit-scrollbar-thumb:hover { background: rgba(6, 182, 212, .65); background-clip: padding-box; }
+
+.app-shell {
+  isolation: isolate;
+  background:
+    radial-gradient(900px 480px at 76% -14%, rgba(6, 182, 212, .08), transparent 64%),
+    radial-gradient(700px 460px at 16% 108%, rgba(34, 197, 94, .045), transparent 72%),
+    var(--prism-bg, #050506);
+}
+
+.app-content { position: relative; z-index: 0; }
+
+.app-main { animation: app-enter .42s cubic-bezier(.16, 1, .3, 1) both; }
+
+.app-mobile-bar {
+  border-bottom: 1px solid color-mix(in srgb, var(--prism-line, #27272a) 88%, transparent);
+  background: color-mix(in srgb, var(--prism-bg, #050506) 88%, transparent);
+  box-shadow: 0 10px 30px rgba(0, 0, 0, .2);
+  backdrop-filter: blur(18px) saturate(1.1);
+}
+
+.app-mobile-menu {
+  border: 1px solid var(--prism-line, #27272a);
+  background: color-mix(in srgb, var(--prism-panel, #101012) 74%, transparent);
+}
+
+.app-mobile-log {
+  box-shadow: 0 8px 26px rgba(6, 182, 212, .22);
+}
+
+.app-sidebar {
+  background:
+    linear-gradient(180deg, rgba(255, 255, 255, .018), transparent 24%),
+    var(--prism-bg, #050506);
+  box-shadow: 14px 0 40px rgba(0, 0, 0, .14);
+}
+
+.app-sidebar-brand { background: linear-gradient(90deg, rgba(6, 182, 212, .035), transparent 74%); }
+.app-sidebar-footer { background: rgba(255, 255, 255, .009); }
+
+.prism-surface {
+  position: relative;
+  box-shadow: inset 0 1px 0 rgba(255, 255, 255, .028), 0 10px 30px rgba(0, 0, 0, .11);
+  transition: border-color .22s ease, box-shadow .22s ease, background-color .22s ease;
+}
+
+.prism-surface:hover { border-color: color-mix(in srgb, var(--prism-line, #27272a) 72%, var(--prism-accent, #06b6d4)); }
+
+.prism-progress > div { transition: width .7s cubic-bezier(.16, 1, .3, 1); }
+
+.app-splash { background: radial-gradient(ellipse at center, #101218 0%, #050506 44%, #000 78%); }
+
+@keyframes app-enter {
+  from { opacity: 0; transform: translateY(8px); }
+  to { opacity: 1; transform: translateY(0); }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  html { scroll-behavior: auto; }
+  *, *::before, *::after { animation-duration: .01ms !important; animation-iteration-count: 1 !important; scroll-behavior: auto !important; transition-duration: .01ms !important; }
+}
+
 /* Google Fonts — Inter pour tout le look PRISM (300 → 900) */
 @import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&display=swap');
 

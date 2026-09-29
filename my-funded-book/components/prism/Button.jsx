@@ -50,7 +50,7 @@ export default function Button({
     <button
       type="button"
       disabled={disabled || loading}
-      className={`inline-flex items-center justify-center font-semibold uppercase tracking-[.12em] transition-all disabled:opacity-40 disabled:cursor-not-allowed ${iconOnly ? "h-10 w-10 p-0" : sizeCls} ${variantCls} ${radiusCls} ${className}`}
+      className={`inline-flex items-center justify-center font-semibold uppercase tracking-[.12em] transition-all duration-200 active:translate-y-px focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-prism-accent/70 focus-visible:ring-offset-2 focus-visible:ring-offset-prism-bg disabled:opacity-40 disabled:cursor-not-allowed ${iconOnly ? "h-10 w-10 p-0" : sizeCls} ${variantCls} ${radiusCls} ${className}`}
       {...rest}
     >
       {loading ? (
