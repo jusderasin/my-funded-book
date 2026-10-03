@@ -842,7 +842,6 @@ export function CertModal({ onClose, initialAccountId = "", initialFirm = "MFF",
   const set = (k, v) => setF((s) => ({ ...s, [k]: v }));
 
   async function submit() {
-    if (!Number(f.amount)) return;
     let file_url = null;
     if (file) {
       try {
@@ -854,7 +853,7 @@ export function CertModal({ onClose, initialAccountId = "", initialFirm = "MFF",
       }
       setUploading(false);
     }
-    await addCert({ ...f, amount: Number(f.amount), file_url });
+    await addCert({ ...f, amount: Number(f.amount) || 0, file_url });
     onClose();
   }
 
