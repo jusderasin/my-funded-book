@@ -55,7 +55,7 @@ export default function LeaderboardPage() {
   const fmtPnl = (v) => (v > 0 ? "+" : "") + Number(v).toLocaleString(L === "en" ? "en-US" : "fr-FR", { maximumFractionDigits: 0 }) + " $";
 
   return (
-    <div>
+    <div className="mx-auto max-w-[1280px] px-5 py-8 text-prism-text sm:px-10">
       <div className="mb-4 flex flex-wrap items-center justify-between gap-3">
         <div>
           <h2 className="flex items-center gap-2 text-[16px] font-extrabold">
@@ -75,7 +75,7 @@ export default function LeaderboardPage() {
         </div>
       </div>
 
-      <div className="mb-4 flex flex-wrap items-center justify-between gap-3 rounded-2xl border border-line bg-panel p-4">
+      <div className="mb-5 flex flex-wrap items-center justify-between gap-3 rounded-xl border border-prism-line bg-prism-panel p-5">
         <div className="flex items-start gap-2">
           <Trophy size={16} className={optedIn ? "text-accent" : "text-muted2"} />
           <div>
@@ -109,7 +109,7 @@ export default function LeaderboardPage() {
           </div>
         </div>
       ) : (
-        <div className="overflow-hidden rounded-2xl border border-line bg-panel">
+        <div className="overflow-hidden rounded-xl border border-prism-line bg-prism-panel">
           <div className="flex items-center gap-3 border-b border-line px-4 py-2 text-[10px] font-bold uppercase tracking-widest text-muted2">
             <span className="w-8 text-center">#</span>
             <span className="flex-1">Trader</span>

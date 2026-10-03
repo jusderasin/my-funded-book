@@ -145,6 +145,7 @@ export default function AccountWizard({ onClose, onCreated }) {
       type: phase === "eval" ? "eval" : "funded",
       status: phase === "eval" ? "active" : "funded",
       date: (withProgress && progress.startDate) || localToday(),
+      funded_at: phase === "funded" ? ((withProgress && progress.startDate) || localToday()) : null,
       note: name.trim(),
       profit_target: num(rules.target),
       max_drawdown: num(rules.mll),

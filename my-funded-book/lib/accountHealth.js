@@ -48,9 +48,12 @@ export function accountHealth(account, allTrades, certificates = [], L = "fr") {
   // Le passage en funded ne doit jamais transformer les résultats de l'évaluation
   // en profit éligible au payout. Les anciens trades restent affichés dans le
   // journal du compte, mais les métriques funded démarrent à funded_at.
-  const fundedFrom = isFunded ? (account.funded_at || account.date) : null;
+  // Une date explicite est obligatoire en funded. Sans elle (comptes créés
+  // avant la migration), on ne peut pas distinguer l'évaluation du funded :
+  // on affiche donc un solde propre mais jamais un payout disponible.
+  const fundedFrom = isFunded ? account.funded_at : null;
   const at = (allTrades || [])
-    .filter((tr) => tr.account_id === account.id && (!fundedFrom || String(tr.date || "") >= String(fundedFrom)))
+    .filter((tr) => tr.account_id === account.id && (!isFunded || (fundedFrom && String(tr.date || "") >= String(fundedFrom))))
     .slice()
     .sort((a, b) =>
       a.date < b.date ? -1 : a.date > b.date ? 1 : (a.created_at || "") < (b.created_at || "") ? -1 : 1
@@ -154,7 +157,7 @@ export function accountHealth(account, allTrades, certificates = [], L = "fr") {
     profitOkForPayout = payoutMin != null ? cum >= payoutMin : target != null ? cum >= target : cum > 0;
     minDaysLeft = minTradingDays != null ? Math.max(0, minTradingDays - tradingDays) : 0;
     const daysOk = cycleDays != null ? daysSince != null && daysSince >= cycleDays : true;
-    payoutEligible = profitOkForPayout && daysOk && minDaysLeft === 0 && !breached;
+    payoutEligible = Boolean(fundedFrom) && profitOkForPayout && daysOk && minDaysLeft === 0 && !breached;
     if (cycleDays != null && daysSince != null) daysToPayout = Math.max(0, cycleDays - daysSince);
   }
 

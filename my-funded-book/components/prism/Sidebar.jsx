@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Award, BarChart3, Bell, Building2, ClipboardList, FlaskConical, LayoutDashboard, Moon, Settings, Sun, Target, Trophy, X } from "lucide-react";
+import { Award, BarChart3, Bell, Building2, ClipboardList, FlaskConical, Images, LayoutDashboard, Moon, Settings, Sun, Target, Trophy, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import BrandMark from "@/components/BrandMark";
 import { useBook } from "@/components/BookProvider";
@@ -11,6 +11,7 @@ import { useNotifications } from "@/lib/useNotifications";
 export const NAV_ITEMS = [
   { icon: LayoutDashboard, label: "Dashboard", href: "/dashboard" },
   { icon: ClipboardList, label: "Trades", href: "/journal" },
+  { icon: Images, label: "Galerie", href: "/gallery" },
   { icon: Building2, label: "Comptes", href: "/accounts" },
   { icon: Award, label: "Funded", href: "/funded" },
   { icon: BarChart3, label: "Rapports", href: "/reports" },
@@ -20,7 +21,7 @@ export const NAV_ITEMS = [
   { icon: Settings, label: "Réglages", href: "/settings" },
 ];
 
-const MAIN_ROUTES = ["/dashboard", "/journal", "/accounts", "/funded"];
+const MAIN_ROUTES = ["/dashboard", "/journal", "/gallery", "/accounts", "/funded"];
 const SETTINGS_ROUTES = ["/leaderboard", "/settings"];
 
 export default function Sidebar({ open = false, onClose, items = NAV_ITEMS }) {

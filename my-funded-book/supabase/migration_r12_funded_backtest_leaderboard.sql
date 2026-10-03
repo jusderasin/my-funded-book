@@ -14,6 +14,17 @@ create table if not exists public.bt_trades (
   symbol text not null default 'NQ', direction text not null default 'long', result text not null default 'win',
   r numeric not null default 0, pnl numeric, created_at timestamptz not null default now()
 );
+alter table public.bt_sessions add column if not exists name text;
+alter table public.bt_sessions add column if not exists setup text;
+alter table public.bt_sessions add column if not exists created_at timestamptz not null default now();
+alter table public.bt_trades add column if not exists session_id uuid references public.bt_sessions(id) on delete cascade;
+alter table public.bt_trades add column if not exists date date not null default current_date;
+alter table public.bt_trades add column if not exists symbol text not null default 'NQ';
+alter table public.bt_trades add column if not exists direction text not null default 'long';
+alter table public.bt_trades add column if not exists result text not null default 'win';
+alter table public.bt_trades add column if not exists r numeric not null default 0;
+alter table public.bt_trades add column if not exists pnl numeric;
+alter table public.bt_trades add column if not exists created_at timestamptz not null default now();
 alter table public.bt_sessions enable row level security;
 alter table public.bt_trades enable row level security;
 drop policy if exists "bt_sessions_own" on public.bt_sessions;
