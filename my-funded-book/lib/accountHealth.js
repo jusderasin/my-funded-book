@@ -44,8 +44,13 @@ export function accountHealth(account, allTrades, certificates = [], L = "fr") {
   const cycleDays = account.payout_cycle_days != null ? Number(account.payout_cycle_days) : null;
   const minTradingDays = account.min_trading_days != null ? Number(account.min_trading_days) : null;
 
+  const isFunded = account.type === "funded" || account.status === "funded" || account.status === "passed";
+  // Le passage en funded ne doit jamais transformer les résultats de l'évaluation
+  // en profit éligible au payout. Les anciens trades restent affichés dans le
+  // journal du compte, mais les métriques funded démarrent à funded_at.
+  const fundedFrom = isFunded ? (account.funded_at || account.date) : null;
   const at = (allTrades || [])
-    .filter((tr) => tr.account_id === account.id)
+    .filter((tr) => tr.account_id === account.id && (!fundedFrom || String(tr.date || "") >= String(fundedFrom)))
     .slice()
     .sort((a, b) =>
       a.date < b.date ? -1 : a.date > b.date ? 1 : (a.created_at || "") < (b.created_at || "") ? -1 : 1
@@ -139,7 +144,6 @@ export function accountHealth(account, allTrades, certificates = [], L = "fr") {
   const lastPayoutDate = payouts.length ? payouts[0].date : account.date || null;
 
   // ----- Éligibilité / countdown payout (funded uniquement) -----
-  const isFunded = account.type === "funded" || account.status === "funded" || account.status === "passed";
   let daysSince = null;
   let daysToPayout = null;
   let payoutEligible = false;

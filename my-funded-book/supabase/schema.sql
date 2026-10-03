@@ -10,6 +10,7 @@ create table if not exists public.profiles (
   name text not null default 'trader',
   pin text not null default '1234',
   starting_balance numeric not null default 600000,
+  leaderboard_opt_in boolean not null default false,
   created_at timestamptz not null default now()
 );
 
@@ -44,6 +45,7 @@ create table if not exists public.accounts (
   payout_min numeric,
   payout_cycle_days integer,
   min_trading_days integer,
+  funded_at date,
   created_at timestamptz not null default now()
 );
 
@@ -64,6 +66,7 @@ create table if not exists public.trades (
   plan boolean not null default true,
   account_id uuid references public.accounts(id) on delete set null,
   screenshot_url text,
+  screenshot_url_2 text,
   strategy_checks text[] default '{}',
   created_at timestamptz not null default now()
 );

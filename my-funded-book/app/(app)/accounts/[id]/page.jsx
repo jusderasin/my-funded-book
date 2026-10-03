@@ -17,7 +17,7 @@ import { ConfirmModal } from "@/components/prism/TerminalPrimitives";
 import { accountHealth } from "@/lib/accountHealth";
 import { analyzeAccount } from "@/lib/accountAnalytics";
 import { accountRuleSet } from "@/lib/constants";
-import { frDate } from "@/lib/format";
+import { frDate, todayISO } from "@/lib/format";
 import {
   AMBER, Badge, Bar, CYAN, GHOST, GREEN, INPUT, Kpi, OUTLINE_CYAN, PHASE_TONE, RED,
   accountName, firmLabel, money, phaseOf,
@@ -173,7 +173,7 @@ export default function AccountDetailPage() {
     const kind = confirm;
     setConfirm(null);
     if (kind === "delete") { await deleteAccount(account.id); router.push("/accounts"); }
-    if (kind === "promote") await updateAccount(account.id, { type: "funded", status: "funded" });
+    if (kind === "promote") await updateAccount(account.id, { type: "funded", status: "funded", funded_at: todayISO() });
   }
 
   return (

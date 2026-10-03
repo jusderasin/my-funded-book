@@ -12,6 +12,7 @@ import { AccountModal } from "@/components/modals";
 import { ConfirmModal } from "@/components/prism/TerminalPrimitives";
 import AccountWizard from "@/components/accounts/AccountWizard";
 import { accountHealth } from "@/lib/accountHealth";
+import { todayISO } from "@/lib/format";
 import {
   AMBER, Badge, Bar, CYAN, GREEN, INPUT, OUTLINE_CYAN, PHASE_TONE, RED,
   accountName, firmLabel, money, phaseOf,
@@ -78,7 +79,7 @@ export default function AccountsPage() {
     const { kind, account } = confirm;
     setConfirm(null);
     if (kind === "delete") await deleteAccount(account.id);
-    if (kind === "promote") await updateAccount(account.id, { type: "funded", status: "funded" });
+    if (kind === "promote") await updateAccount(account.id, { type: "funded", status: "funded", funded_at: todayISO() });
   }
 
   return (

@@ -654,6 +654,7 @@ export function AccountModal({ editing, onClose }) {
           type: editing.type || "eval",
           status: editing.status || "active",
           date: editing.date || todayISO(),
+          funded_at: editing.funded_at || "",
           note: editing.note || "",
           daily_loss_limit: editing.daily_loss_limit == null ? "" : editing.daily_loss_limit,
           max_drawdown: editing.max_drawdown == null ? "" : editing.max_drawdown,
@@ -668,7 +669,7 @@ export function AccountModal({ editing, onClose }) {
             editing.trailing_lock_offset == null ? "" : editing.trailing_lock_offset,
         }
       : {
-          firm: "MFF", size: 50000, cost: 0, type: "eval", status: "active", date: todayISO(), note: "",
+          firm: "MFF", size: 50000, cost: 0, type: "eval", status: "active", date: todayISO(), funded_at: "", note: "",
           daily_loss_limit: "", max_drawdown: "", profit_target: "",
           payout_min: "", payout_cycle_days: "", min_trading_days: "",
           trailing_type: FIRM_TRAILING_DEFAULTS.MFF.type,
@@ -709,6 +710,7 @@ export function AccountModal({ editing, onClose }) {
       trailing_type: f.trailing_type || "intraday",
       trailing_lock_offset: isStatic ? 0 : (numOrNull(f.trailing_lock_offset) ?? 0),
       trailing_drawdown: f.trailing_type !== "static",
+      funded_at: f.funded_at || null,
     };
     if (isEdit) await updateAccount(editing.id, payload);
     else await addAccount(payload);
@@ -743,7 +745,7 @@ export function AccountModal({ editing, onClose }) {
 
       <div className="grid grid-cols-2 gap-3">
         <PrismField label={t("m_type")}>
-          <select className={PRISM_SELECT} value={f.type} onChange={(e) => set("type", e.target.value)}>
+          <select className={PRISM_SELECT} value={f.type} onChange={(e) => { const type = e.target.value; setF((s) => ({ ...s, type, funded_at: type === "funded" && !s.funded_at ? todayISO() : s.funded_at })); }}>
             <option value="eval">{t("m_eval")}</option>
             <option value="funded">{t("m_funded")}</option>
           </select>
@@ -758,6 +760,8 @@ export function AccountModal({ editing, onClose }) {
           </select>
         </PrismField>
       </div>
+
+      {(f.type === "funded" || f.status === "funded" || f.status === "passed") && <PrismField label={L === "en" ? "Funded start date" : "Date de départ funded"} hint={L === "en" ? "Only trades from this date count toward payout." : "Seuls les trades à partir de cette date comptent pour le payout."}><input type="date" className={PRISM_INPUT} value={f.funded_at} onChange={(e) => set("funded_at", e.target.value)} /></PrismField>}
 
       <PrismSectionLabel>
         {L === "en" ? "Risk rules (optional)" : "Règles de risque (optionnel)"}
@@ -828,9 +832,9 @@ export function AccountModal({ editing, onClose }) {
 /*  CertModal — reskin PRISM                                           */
 /* ================================================================== */
 
-export function CertModal({ onClose }) {
+export function CertModal({ onClose, initialAccountId = "", initialFirm = "MFF", initialAmount = "", initialType = "eval_passed" }) {
   const { addCert, notify, t, accounts } = useBook();
-  const [f, setF] = useState({ firm: "MFF", account_id: "", amount: "", type: "eval_passed", date: todayISO(), note: "" });
+  const [f, setF] = useState({ firm: initialFirm, account_id: initialAccountId, amount: initialAmount, type: initialType, date: todayISO(), note: "" });
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
   const set = (k, v) => setF((s) => ({ ...s, [k]: v }));
@@ -878,6 +882,7 @@ export function CertModal({ onClose }) {
         <PrismField label={t("m_type")}>
           <select className={PRISM_SELECT} value={f.type} onChange={(e) => set("type", e.target.value)}>
             <option value="eval_passed">{t("m_eval_passed")}</option>
+            <option value="funded">{L === "en" ? "Funded account" : "Compte funded"}</option>
             <option value="payout">{t("m_payout")}</option>
           </select>
         </PrismField>
