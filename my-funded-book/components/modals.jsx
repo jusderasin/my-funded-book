@@ -834,6 +834,8 @@ export function AccountModal({ editing, onClose }) {
 
 export function CertModal({ onClose, initialAccountId = "", initialFirm = "MFF", initialAmount = "", initialType = "eval_passed" }) {
   const { addCert, notify, t, accounts } = useBook();
+  const { lang } = useBook();
+  const L = lang === "en" ? "en" : "fr";
   const [f, setF] = useState({ firm: initialFirm, account_id: initialAccountId, amount: initialAmount, type: initialType, date: todayISO(), note: "" });
   const [file, setFile] = useState(null);
   const [uploading, setUploading] = useState(false);
