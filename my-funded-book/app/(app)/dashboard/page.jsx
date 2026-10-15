@@ -2,179 +2,381 @@
 
 import Link from "next/link";
 import { useMemo, useState } from "react";
-import { Activity, ArrowUpRight, CalendarDays, Crosshair, ShieldCheck, Target, TrendingDown, TrendingUp } from "lucide-react";
+import { ArrowUpRight, ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
 import { Area } from "@/components/charts";
 import { useBook } from "@/components/BookProvider";
-import { Card, EmptyState, ProgressBar, StatCard } from "@/components/prism/TerminalPrimitives";
+import { EmptyState, ProgressBar } from "@/components/prism/TerminalPrimitives";
 import { fmtMoney, fmtR, frDate } from "@/lib/format";
 import { accountHealth } from "@/lib/accountHealth";
 import { computeStats } from "@/lib/stats";
 
 const average = (values) => values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
+const pnlOf = (trade) => Number(trade.pnl) || 0;
 
 function calculateMetrics(trades, threshold) {
-  const pnls = trades.map((trade) => Number(trade.pnl) || 0);
+  const pnls = trades.map(pnlOf);
   const winners = pnls.filter((pnl) => pnl > threshold);
   const losers = pnls.filter((pnl) => pnl < -threshold);
-  const dailyMap = new Map();
-  trades.forEach((trade) => dailyMap.set(trade.date, (dailyMap.get(trade.date) || 0) + (Number(trade.pnl) || 0)));
-  const daily = [...dailyMap.values()];
-  const mean = average(daily);
-  const deviation = Math.sqrt(average(daily.map((value) => (value - mean) ** 2)));
-  const negativeDays = daily.filter((value) => value < 0);
-  const downside = Math.sqrt(average(negativeDays.map((value) => (value - mean) ** 2)));
   const grossWin = winners.reduce((sum, value) => sum + value, 0);
   const grossLoss = Math.abs(losers.reduce((sum, value) => sum + value, 0));
-  const avgWin = average(winners);
-  const avgLoss = Math.abs(average(losers));
   return {
     net: pnls.reduce((sum, value) => sum + value, 0),
     winRate: trades.length ? winners.length / trades.length * 100 : 0,
     profitFactor: grossLoss ? grossWin / grossLoss : grossWin ? Infinity : 0,
-    gainLossRatio: avgLoss ? avgWin / avgLoss : 0,
-    sharpe: deviation ? mean / deviation : 0,
-    sortino: downside ? mean / downside : 0,
-    breakEvens: pnls.filter((pnl) => Math.abs(pnl) <= threshold).length,
     averageR: average(trades.map((trade) => Number(trade.r) || 0)),
+    tradingDays: new Set(trades.map((trade) => trade.date)).size,
   };
 }
 
-function calculateDeltas(trades, threshold, lang) {
-  const dates = [...new Set(trades.map((trade) => trade.date).filter(Boolean))].sort();
-  if (dates.length < 2) return null;
-  const currentTrades = trades.filter((trade) => trade.date === dates.at(-1));
-  const previousTrades = trades.filter((trade) => trade.date === dates.at(-2));
-  const current = calculateMetrics(currentTrades, threshold);
-  const previous = calculateMetrics(previousTrades, threshold);
-  const suffix = lang === "en" ? "vs last trading day" : "vs dernier jour tradé";
-  const unstable = ["profitFactor", "gainLossRatio", "sharpe", "sortino"];
-  return Object.fromEntries(Object.keys(current).map((key) => {
-    const value = current[key];
-    const oldValue = previous[key];
-    const unavailable = !Number.isFinite(value) || !Number.isFinite(oldValue)
-      || (unstable.includes(key) && (currentTrades.length < 2 || previousTrades.length < 2))
-      || (["profitFactor", "sharpe", "sortino"].includes(key) && (!value || !oldValue));
-    if (unavailable) return [key, { text: "—", tone: "neutral" }];
-    const difference = value - oldValue;
-    const tone = difference > 0 ? "gain" : difference < 0 ? "loss" : "neutral";
-    const sign = difference > 0 ? "+" : "";
-    const display = key === "net" ? `${sign}${fmtMoney(difference)}` : key === "winRate" ? `${sign}${difference.toFixed(0)} pts` : `${sign}${difference.toFixed(2)}`;
-    return [key, { text: `${display} ${suffix}`, tone }];
-  }));
+// Regroupe les trades par clé (setup, session, tag...) avec P&L et nombre.
+function groupBy(trades, keyOf) {
+  const map = new Map();
+  trades.forEach((trade) => {
+    const keys = [].concat(keyOf(trade) ?? []).filter(Boolean);
+    keys.forEach((key) => {
+      const row = map.get(key) || { key, count: 0, pnl: 0, wins: 0 };
+      row.count += 1;
+      row.pnl += pnlOf(trade);
+      if (pnlOf(trade) > 0) row.wins += 1;
+      map.set(key, row);
+    });
+  });
+  return [...map.values()].sort((a, b) => b.count - a.count);
 }
 
-const rangeOptions = (lang) => [
-  ["7", "7 j"], ["30", "30 j"], ["90", "90 j"], ["all", lang === "en" ? "All" : "Tout"],
-];
+const tagsOf = (trade) => Array.isArray(trade.tags) ? trade.tags : String(trade.tags || "").split(",").map((tag) => tag.trim());
 
 export default function DashboardPage() {
   const { scopedTrades, accounts, certificates, profile, lang } = useBook();
   const [range, setRange] = useState("all");
-  const isEnglish = lang === "en";
-  const copy = isEnglish ? {
-    eyebrow: "TRADING COMMAND CENTER", title: "Dashboard", subtitle: "A clear read on your process, performance and risk.",
-    all: "All accounts", equity: "EQUITY MOMENTUM", drawdown: "DRAWDOWN CONTROL", noTrades: "No trades yet", recent: "LATEST EXECUTIONS",
-    discipline: "PROCESS DISCIPLINE", objective: "ACCOUNT OBJECTIVE", sessions: "SESSION MAP", calendar: "MONTHLY P&L", health: "TODAY'S READ",
-    withinPlan: "of executions followed the plan", openJournal: "Open journal", viewAccount: "Open account", chartEmpty: "Log at least two trades to reveal your curve.",
+  const [dir, setDir] = useState("all");
+  const [session, setSession] = useState("all");
+  const en = lang === "en";
+  const T = en ? {
+    s1: "01 / COMMAND OVERVIEW", title: "DATASET PULSE", intro: "Every module responds to the filters. A research layer on your own executions — what works, what bleeds.",
+    trades: "Logged trades", winRate: "Win rate", net: "Net P&L", pf: "Profit factor", plan: "Plan respected",
+    s2: "02 / PLAYBOOK DISTRIBUTION", title2: "WHERE YOUR EDGE APPEARS", intro2: "Frequency and P&L by setup and direction. Counts describe your sample, not a guarantee.",
+    setups: "SETUP FREQUENCY", split: "DIRECTION SPLIT", curve: "EQUITY OVER TIME",
+    s3: "03 / P&L CALENDAR", title3: "DAY BY DAY", yearly: "YEARLY PERFORMANCE", week: "WEEK",
+    s4: "04 / EXECUTION ANATOMY", title4: "CONTEXT TO EXECUTION", sessions: "SESSION TIMING", tags: "TOP TAGS", symbols: "INSTRUMENTS", accounts: "ACTIVE PROP ACCOUNTS",
+    s5: "05 / TRADE LEDGER", title5: "LATEST EXECUTIONS", empty: "Log at least two trades to reveal this module.", none: "No data yet", openAll: "Open journal",
+    prism: "Ask PRISM where you lose money", prismText: "Your AI coach reads every trade and answers in plain words.",
   } : {
-    eyebrow: "POSTE DE PILOTAGE", title: "Dashboard", subtitle: "Une lecture nette de ton processus, de ta performance et de ton risque.",
-    all: "Tous les comptes", equity: "MOMENTUM D'ÉQUITY", drawdown: "CONTRÔLE DU DRAWDOWN", noTrades: "Pas encore de trade", recent: "DERNIÈRES EXÉCUTIONS",
-    discipline: "DISCIPLINE DU PROCESS", objective: "OBJECTIF DU COMPTE", sessions: "CARTE DES SESSIONS", calendar: "P&L DU MOIS", health: "LECTURE DU JOUR",
-    withinPlan: "des exécutions ont respecté le plan", openJournal: "Ouvrir le journal", viewAccount: "Voir le compte", chartEmpty: "Logue au moins deux trades pour révéler ta courbe.",
+    s1: "01 / VUE D'ENSEMBLE", title: "DATASET PULSE", intro: "Chaque module répond aux filtres. Une couche d'analyse sur tes propres exécutions — ce qui marche, ce qui saigne.",
+    trades: "Trades loggés", winRate: "Win rate", net: "P&L net", pf: "Profit factor", plan: "Plan respecté",
+    s2: "02 / DISTRIBUTION DU PLAYBOOK", title2: "OÙ TON EDGE APPARAÎT", intro2: "Fréquence et P&L par setup et direction. Les chiffres décrivent ton échantillon, pas une garantie.",
+    setups: "FRÉQUENCE DES SETUPS", split: "RÉPARTITION LONG / SHORT", curve: "ÉQUITY DANS LE TEMPS",
+    s3: "03 / CALENDRIER P&L", title3: "JOUR PAR JOUR", yearly: "PERFORMANCE ANNUELLE", week: "SEM.",
+    s4: "04 / ANATOMIE DES TRADES", title4: "DU CONTEXTE À L'EXÉCUTION", sessions: "TIMING DES SESSIONS", tags: "TOP TAGS", symbols: "INSTRUMENTS", accounts: "COMPTES PROP ACTIFS",
+    s5: "05 / REGISTRE", title5: "DERNIÈRES EXÉCUTIONS", empty: "Logue au moins deux trades pour révéler ce module.", none: "Pas encore de données", openAll: "Ouvrir le journal",
+    prism: "Demande à PRISM où tu perds de l'argent", prismText: "Ton coach IA lit chaque trade et te répond en clair.",
   };
 
   const trades = useMemo(() => {
-    if (range === "all") return scopedTrades;
-    const cutoff = new Date();
-    cutoff.setDate(cutoff.getDate() - Number(range));
-    return scopedTrades.filter((trade) => new Date(`${trade.date}T00:00:00`) >= cutoff);
-  }, [range, scopedTrades]);
+    let list = scopedTrades;
+    if (range !== "all") {
+      const cutoff = new Date();
+      cutoff.setDate(cutoff.getDate() - Number(range));
+      list = list.filter((trade) => new Date(`${trade.date}T00:00:00`) >= cutoff);
+    }
+    if (dir !== "all") list = list.filter((trade) => String(trade.dir || "").toLowerCase() === dir);
+    if (session !== "all") list = list.filter((trade) => trade.session === session);
+    return list;
+  }, [range, dir, session, scopedTrades]);
+
   const stats = useMemo(() => computeStats(trades, Number(profile?.starting_balance) || 0), [trades, profile]);
   const threshold = Number(profile?.be_threshold) || 0;
-  const metrics = useMemo(() => calculateMetrics(trades, threshold), [trades, threshold]);
-  const deltas = useMemo(() => calculateDeltas(trades, threshold, lang), [trades, threshold, lang]);
+  const m = useMemo(() => calculateMetrics(trades, threshold), [trades, threshold]);
   const planRate = trades.length ? Math.round(trades.filter((trade) => trade.plan).length / trades.length * 100) : 0;
+  const setups = useMemo(() => groupBy(trades, (trade) => trade.setup || "—").slice(0, 8), [trades]);
+  const sessions = useMemo(() => groupBy(trades, (trade) => trade.session), [trades]);
+  const tags = useMemo(() => groupBy(trades, tagsOf).slice(0, 6), [trades]);
+  const symbols = useMemo(() => groupBy(trades, (trade) => trade.symbol).slice(0, 6), [trades]);
+  const longs = trades.filter((trade) => String(trade.dir || "").toLowerCase() === "long").length;
   const propAccounts = useMemo(() => accounts.filter((account) => account.status === "active").map((account) => ({ account, health: accountHealth(account, scopedTrades, certificates, lang) })), [accounts, certificates, lang, scopedTrades]);
-  const sessionRows = ["Asia", "London", "NY AM", "NY PM"].map((session) => ({
-    session,
-    pnl: trades.filter((trade) => trade.session === session).reduce((sum, trade) => sum + (Number(trade.pnl) || 0), 0),
-  }));
-  const largestSession = Math.max(1, ...sessionRows.map((row) => Math.abs(row.pnl)));
-  const cardRows = [
-    ["net", "NET P&L", fmtMoney(metrics.net), null, metrics.net < 0 ? "loss" : "gain"],
-    ["winRate", "WIN RATE", `${metrics.winRate.toFixed(1)}%`, metrics.winRate],
-    ["profitFactor", "PROFIT FACTOR", metrics.profitFactor === Infinity ? "∞" : metrics.profitFactor.toFixed(2), Math.min(metrics.profitFactor * 25, 100)],
-    ["gainLossRatio", isEnglish ? "WIN / LOSS RATIO" : "RATIO GAIN / PERTE", metrics.gainLossRatio.toFixed(2), Math.min(metrics.gainLossRatio * 40, 100)],
-    ["sharpe", "SHARPE", metrics.sharpe.toFixed(2), Math.min(Math.abs(metrics.sharpe) * 25, 100), metrics.sharpe < 0 ? "loss" : "accent"],
-    ["sortino", "SORTINO", metrics.sortino.toFixed(2), Math.min(Math.abs(metrics.sortino) * 25, 100), metrics.sortino < 0 ? "loss" : "accent"],
-    ["breakEvens", "TRADES BE", String(metrics.breakEvens), trades.length ? metrics.breakEvens / trades.length * 100 : 0],
-    ["averageR", "R:R MOYEN", fmtR(metrics.averageR), Math.min(Math.abs(metrics.averageR) * 25, 100), metrics.averageR < 0 ? "loss" : "accent"],
+  const sessionOptions = [...new Set(scopedTrades.map((trade) => trade.session).filter(Boolean))];
+
+  const kpis = [
+    [String(trades.length), T.trades, `${m.tradingDays} ${en ? "trading days" : "jours tradés"}`, 100],
+    [`${m.winRate.toFixed(0)}%`, T.winRate, `${en ? "avg" : "moy."} ${fmtR(m.averageR)}`, m.winRate],
+    [fmtMoney(m.net), T.net, en ? "filtered sample" : "échantillon filtré", m.net >= 0 ? 100 : 30, m.net < 0],
+    [m.profitFactor === Infinity ? "∞" : m.profitFactor.toFixed(2), T.pf, en ? "gross win / gross loss" : "gains / pertes bruts", Math.min(m.profitFactor * 40, 100)],
+    [`${planRate}%`, T.plan, en ? "of executions" : "des exécutions", planRate],
   ];
 
   return (
-    <main className="min-h-full bg-prism-bg px-4 py-6 sm:px-8 sm:py-10">
-      <div className="mx-auto max-w-[1600px]">
-        <header className="mb-6 flex flex-col justify-between gap-5 border-b border-prism-line pb-6 lg:flex-row lg:items-end">
-          <div>
-            <p className="mb-2 flex items-center gap-2 text-[10px] font-bold tracking-[.2em] text-prism-accent"><Activity className="h-3.5 w-3.5" />{copy.eyebrow}</p>
-            <h1 className="text-3xl font-bold tracking-tight sm:text-4xl">{copy.title}</h1>
-            <p className="mt-2 max-w-xl text-sm text-prism-muted">{copy.subtitle}</p>
+    <main className="min-h-full px-4 py-8 sm:px-8 sm:py-12">
+      <div className="mx-auto max-w-[1180px] space-y-14">
+        <section>
+          <SectionHead eyebrow={T.s1} title={T.title} intro={T.intro} />
+          <div className="mt-6 flex flex-wrap items-center gap-2">
+            <FilterSelect value={range} onChange={setRange} options={[["all", en ? "All time" : "Tout"], ["7", "7 j"], ["30", "30 j"], ["90", "90 j"]]} />
+            <FilterSelect value={dir} onChange={setDir} options={[["all", "Long + Short"], ["long", "Long"], ["short", "Short"]]} />
+            <FilterSelect value={session} onChange={setSession} options={[["all", en ? "All sessions" : "Toutes sessions"], ...sessionOptions.map((value) => [value, value])]} />
+            {(range !== "all" || dir !== "all" || session !== "all") && <button type="button" onClick={() => { setRange("all"); setDir("all"); setSession("all"); }} className="term-tag h-8 px-3">{en ? "Reset filters" : "Réinitialiser"}</button>}
           </div>
-          <div className="flex flex-wrap items-center gap-2">
-            <div className="grid grid-cols-4 gap-1 rounded-lg border border-prism-line bg-prism-panel p-1">{rangeOptions(lang).map(([value, label]) => <button key={value} type="button" onClick={() => setRange(value)} className={`rounded-md px-3 py-2 text-[10px] font-bold uppercase tracking-[.1em] transition ${range === value ? "bg-prism-accent text-black shadow-[0_0_22px_rgba(6,182,212,.2)]" : "text-prism-muted hover:bg-prism-panel2 hover:text-prism-text"}`}>{label}</button>)}</div>
+          <div className="term-panel mt-4 grid grid-cols-2 divide-prism-line sm:grid-cols-5 sm:divide-x">
+            {kpis.map(([value, label, sub, bar, negative], index) => (
+              <div key={label} className={`p-4 ${index === 0 ? "col-span-2 sm:col-span-1" : ""}`}>
+                <p className={`term-title text-3xl ${negative ? "text-prism-loss" : index === 0 ? "text-prism-accent" : "text-prism-text"}`}>{trades.length ? value : "—"}</p>
+                <p className="mt-2 text-[10px] font-bold uppercase tracking-[.12em] text-prism-muted">{label}</p>
+                <p className="text-[10px] text-prism-muted2">{sub}</p>
+                <div className="mt-3 h-[3px] w-16 bg-prism-panel2"><div className="h-full bg-prism-accent" style={{ width: `${trades.length ? Math.max(4, Math.min(100, bar)) : 0}%` }} /></div>
+              </div>
+            ))}
           </div>
-        </header>
-
-        <section className="grid gap-4 xl:grid-cols-[1.7fr_.8fr]">
-          <Card padding="p-0" className="group relative overflow-hidden border-prism-line bg-[radial-gradient(circle_at_80%_0%,rgba(34,197,94,.14),transparent_36%),var(--prism-panel)] transition duration-300 hover:-translate-y-0.5 hover:border-prism-win/50">
-            <div className="flex items-start justify-between gap-4 p-5 sm:p-6"><div><p className="text-[10px] font-bold tracking-[.16em] text-prism-win">{copy.equity}</p><p className="mt-3 font-mono text-3xl font-bold sm:text-4xl">{fmtMoney(metrics.net)}</p><p className="mt-2 text-xs text-prism-muted">{trades.length} {isEnglish ? "executions in scope" : "exécutions dans ce contexte"}</p></div><span className="grid h-10 w-10 place-items-center rounded-xl border border-prism-win/30 bg-prism-win/10 text-prism-win"><TrendingUp className="h-5 w-5" /></span></div>
-            <div className="px-3 pb-3 sm:px-6 sm:pb-5">{stats.curve.length > 2 ? <Area values={stats.curve.map((point) => point.eq)} labels={stats.curve.map((point) => frDate(point.d))} color="#22c55e" fill="#22c55e" fmt={fmtMoney} /> : <EmptyState title={copy.noTrades}>{copy.chartEmpty}</EmptyState>}</div>
-          </Card>
-          <Card padding="p-6" className="relative overflow-hidden transition duration-300 hover:-translate-y-0.5 hover:border-prism-accent/50">
-            <div className="absolute -right-8 -top-8 h-32 w-32 rounded-full bg-prism-accent/10 blur-2xl" />
-            <p className="text-[10px] font-bold tracking-[.16em] text-prism-accent">{copy.health}</p>
-            <div className="mt-7 flex items-end justify-between"><div><p className="font-mono text-5xl font-bold">{planRate}<span className="text-xl text-prism-muted">%</span></p><p className="mt-2 max-w-[14rem] text-xs leading-5 text-prism-muted">{copy.withinPlan}</p></div><ShieldCheck className={`h-12 w-12 ${planRate >= 80 ? "text-prism-win" : "text-amber-300"}`} /></div>
-            <div className="mt-7"><ProgressBar value={planRate} tone={planRate >= 80 ? "gain" : "warn"} /></div>
-            <Link href="/journal" className="mt-6 inline-flex items-center gap-1 text-xs font-bold text-prism-accent hover:underline">{copy.openJournal}<ArrowUpRight className="h-3.5 w-3.5" /></Link>
-          </Card>
+          <Link href="/prism" className="term-panel group mt-4 flex items-center gap-4 p-4 transition hover:border-prism-accent/60">
+            <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-prism-accent text-black"><Sparkles className="h-5 w-5" /></span>
+            <span className="flex-1"><b className="term-title block text-lg">{T.prism}</b><span className="text-xs text-prism-muted">{T.prismText}</span></span>
+            <ArrowUpRight className="h-5 w-5 text-prism-accent transition group-hover:translate-x-0.5" />
+          </Link>
         </section>
 
-        <section className="mt-4 grid grid-cols-2 gap-3 lg:grid-cols-4">{cardRows.map(([key, label, value, ring, tone]) => <div key={key} className="transition duration-200 hover:-translate-y-1"><StatCard label={label} value={trades.length ? value : "—"} ring={trades.length ? ring : null} sublabel={trades.length ? deltas?.[key] : copy.noTrades} tone={tone} /></div>)}</section>
-
-        <section className="mt-7 grid gap-4 xl:grid-cols-[1.2fr_.8fr]">
-          <CurvePanel label={copy.drawdown} value={-(Number(stats.maxDD) || 0)} values={stats.ddSeries} labels={stats.curve.map((point) => frDate(point.d))} color="#ef4444" empty={copy.chartEmpty} />
-          <Card padding="p-5" className="transition hover:border-prism-line2">
-            <p className="mb-5 flex items-center gap-2 text-[10px] font-bold tracking-[.16em] text-prism-accent"><CalendarDays className="h-3.5 w-3.5" />{copy.calendar}</p>
-            <MonthGrid byDay={stats.byDay || {}} />
-          </Card>
+        <section>
+          <SectionHead eyebrow={T.s2} title={T.title2} intro={T.intro2} />
+          <div className="mt-6 grid gap-3 lg:grid-cols-[1.6fr_1fr]">
+            <Panel title={T.setups} tag={`${setups.length}`}>
+              {setups.length ? <SetupBars rows={setups} /> : <EmptyState title={T.none}>{T.empty}</EmptyState>}
+            </Panel>
+            <Panel title={T.split} tag={dir === "all" ? "ALL" : dir.toUpperCase()}>
+              <Donut total={trades.length} part={longs} labelA="Long" labelB="Short" />
+            </Panel>
+          </div>
+          <Panel className="mt-3" title={T.curve} tag={fmtMoney(m.net)}>
+            {stats.curve.length > 2 ? <Area values={stats.curve.map((point) => point.eq)} labels={stats.curve.map((point) => frDate(point.d))} color="#c6f432" fill="#c6f432" fmt={fmtMoney} /> : <EmptyState title={T.none}>{T.empty}</EmptyState>}
+          </Panel>
         </section>
 
-        <section className="mt-4 grid gap-4 lg:grid-cols-3">
-          <Card padding="p-5" className="transition hover:border-prism-line2"><p className="mb-4 text-[10px] font-bold tracking-[.16em] text-prism-accent">{copy.recent}</p>{trades.length ? trades.slice(0, 5).map((trade) => <Link key={trade.id} href={`/journal?edit=${trade.id}`} className="group flex items-center justify-between border-b border-prism-line py-3 text-xs last:border-0"><span><b className="text-prism-text">{trade.symbol || "—"} · {String(trade.dir || "—").toUpperCase()}</b><small className="ml-2 text-prism-muted">{frDate(trade.date)}</small></span><b className={`${Number(trade.pnl) < 0 ? "text-prism-loss" : "text-prism-win"} group-hover:underline`}>{fmtMoney(Number(trade.pnl) || 0)}</b></Link>) : <p className="text-sm text-prism-muted">{copy.noTrades}</p>}</Card>
-          <Card padding="p-5" className="transition hover:border-prism-line2"><p className="mb-4 flex items-center gap-2 text-[10px] font-bold tracking-[.16em] text-prism-accent"><Crosshair className="h-3.5 w-3.5" />{copy.sessions}</p><div className="space-y-4">{sessionRows.map((row) => <div key={row.session}><div className="mb-1.5 flex justify-between text-xs"><span className="text-prism-muted">{row.session}</span><b className={row.pnl < 0 ? "text-prism-loss" : "text-prism-win"}>{fmtMoney(row.pnl)}</b></div><div className="h-1.5 overflow-hidden rounded-full bg-prism-panel2"><div className={row.pnl < 0 ? "h-full bg-prism-loss" : "h-full bg-prism-accent"} style={{ width: `${Math.max(3, Math.abs(row.pnl) / largestSession * 100)}%` }} /></div></div>)}</div></Card>
-          <PropAccountsCard accounts={propAccounts} isEnglish={isEnglish} />
+        <section>
+          <SectionHead eyebrow={T.s3} title={T.title3} />
+          <PnlCalendar byDay={stats.byDay || {}} trades={trades} T={T} lang={lang} />
+        </section>
+
+        <section>
+          <SectionHead eyebrow={T.s4} title={T.title4} />
+          <div className="mt-6 grid gap-3 lg:grid-cols-2">
+            <Panel title={T.sessions} tag={`${sessions.length}`}><HBars rows={sessions} /></Panel>
+            <Panel title={T.tags} tag={`${tags.length}`}><HBars rows={tags} /></Panel>
+            <Panel title={T.symbols} tag={`${symbols.length}`}><HBars rows={symbols} /></Panel>
+            <PropAccounts accounts={propAccounts} title={T.accounts} en={en} />
+          </div>
+        </section>
+
+        <section>
+          <SectionHead eyebrow={T.s5} title={T.title5} action={<Link href="/journal" className="term-tag h-7 px-3">{T.openAll} →</Link>} />
+          <Ledger trades={trades.slice(0, 15)} en={en} />
         </section>
       </div>
     </main>
   );
 }
 
-function PropAccountsCard({ accounts, isEnglish }) {
-  const title = isEnglish ? "ACTIVE PROP ACCOUNTS" : "COMPTES PROP ACTIFS";
-  if (!accounts.length) return <Card padding="p-5" className="relative overflow-hidden transition hover:border-prism-line2"><p className="flex items-center gap-2 text-[10px] font-bold tracking-[.16em] text-prism-accent"><Target className="h-3.5 w-3.5" />{title}</p><p className="mt-5 text-sm text-prism-muted">{isEnglish ? "No active prop account yet." : "Aucun compte prop actif."}</p><Link href="/accounts" className="mt-4 inline-flex items-center gap-1 text-xs font-bold text-prism-accent hover:underline">{isEnglish ? "Create an account" : "Créer un compte"}<ArrowUpRight className="h-3.5 w-3.5" /></Link></Card>;
-  return <Card padding="p-5" className="relative overflow-hidden transition hover:border-prism-line2"><p className="mb-4 flex items-center gap-2 text-[10px] font-bold tracking-[.16em] text-prism-accent"><Target className="h-3.5 w-3.5" />{title}</p><div className="max-h-64 space-y-3 overflow-y-auto pr-1">{accounts.map(({ account, health }) => { const pnl = Number(health.cum) || 0; const target = Number(account.profit_target) || 0; const targetPct = target > 0 ? Math.max(0, Math.min(100, pnl / target * 100)) : 0; const margin = Number(health.ddMargin); return <Link key={account.id} href={`/accounts/${account.id}`} className="block rounded-lg border border-prism-line bg-prism-surface p-3 transition hover:border-prism-accent/60 hover:bg-prism-panel2"><div className="flex items-center justify-between gap-3"><b className="truncate text-xs">{account.note || account.firm}</b><span className={`font-mono text-xs font-bold ${pnl < 0 ? "text-prism-loss" : "text-prism-win"}`}>{fmtMoney(pnl)}</span></div>{target > 0 && <div className="mt-2"><div className="mb-1 flex justify-between text-[9px] text-prism-muted"><span>{isEnglish ? "Target" : "Objectif"}</span><span>{Math.round(targetPct)}%</span></div><ProgressBar value={targetPct} tone={pnl >= 0 ? "gain" : "loss"} /></div>}<div className="mt-2 flex justify-between text-[9px] text-prism-muted"><span>{isEnglish ? "Drawdown margin" : "Marge drawdown"}</span><b className={margin <= 0 ? "text-prism-loss" : "text-prism-text"}>{Number.isFinite(margin) ? fmtMoney(margin) : "—"}</b></div></Link>; })}</div></Card>;
+function SectionHead({ eyebrow, title, intro, action }) {
+  return (
+    <div className="flex flex-col justify-between gap-3 sm:flex-row sm:items-end">
+      <div><p className="term-eyebrow">{eyebrow}</p><h1 className="term-title mt-2 text-4xl sm:text-5xl">{title}</h1></div>
+      {intro && <p className="max-w-sm text-xs leading-5 text-prism-muted">{intro}</p>}
+      {action}
+    </div>
+  );
 }
 
-function CurvePanel({ label, value, values, labels, color, empty }) {
-  return <Card padding="p-5 sm:p-6" className="group overflow-hidden transition duration-300 hover:border-prism-loss/50"><div className="mb-5 flex items-center justify-between"><p className="flex items-center gap-2 text-[10px] font-bold tracking-[.16em]" style={{ color }}><TrendingDown className="h-3.5 w-3.5" />{label}</p><b className="font-mono text-sm" style={{ color }}>{fmtMoney(value)}</b></div>{values.length > 2 ? <Area values={values} labels={labels} color={color} fill={color} fmt={fmtMoney} /> : <EmptyState title="DRAWNDOWN">{empty}</EmptyState>}</Card>;
+function FilterSelect({ value, onChange, options }) {
+  return <select value={value} onChange={(event) => onChange(event.target.value)} className="h-8 rounded-md border border-prism-line bg-prism-panel px-3 font-mono text-[11px] text-prism-text outline-none focus:border-prism-accent">{options.map(([optionValue, label]) => <option key={optionValue} value={optionValue}>{label}</option>)}</select>;
 }
 
-function MonthGrid({ byDay }) {
-  const today = new Date();
-  const year = today.getFullYear();
-  const month = today.getMonth();
-  const first = new Date(year, month, 1).getDay();
+function Panel({ title, tag, children, className = "" }) {
+  return (
+    <div className={`term-panel p-4 sm:p-5 ${className}`}>
+      <div className="mb-4 flex items-center justify-between gap-3"><p className="term-title text-sm tracking-wide">{title}</p>{tag != null && <span className="term-tag">{tag}</span>}</div>
+      {children}
+    </div>
+  );
+}
+
+function SetupBars({ rows }) {
+  const max = Math.max(1, ...rows.map((row) => row.count));
+  return (
+    <div className="flex h-56 items-end gap-2 sm:gap-3">
+      {rows.map((row) => (
+        <div key={row.key} className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1" title={`${row.key} · ${row.count} trades · ${fmtMoney(row.pnl)}`}>
+          <span className="font-mono text-[10px] text-prism-muted">{row.count}</span>
+          <div className="w-full rounded-t-sm bg-gradient-to-t from-[#7a9a10] to-prism-accent transition-all duration-700" style={{ height: `${Math.max(4, row.count / max * 100)}%` }} />
+          <span className={`font-mono text-[9px] font-bold ${row.pnl < 0 ? "text-prism-loss" : "text-prism-win"}`}>{Math.round(row.pnl)}</span>
+          <span className="w-full truncate text-center text-[9px] uppercase text-prism-muted2">{row.key}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function Donut({ total, part, labelA, labelB }) {
+  const radius = 54;
+  const length = 2 * Math.PI * radius;
+  const share = total ? part / total : 0;
+  return (
+    <div className="flex flex-col items-center justify-center py-2">
+      <div className="relative h-44 w-44">
+      <svg viewBox="0 0 140 140" className="h-44 w-44 -rotate-90">
+        <circle cx="70" cy="70" r={radius} fill="none" stroke="rgba(255,255,255,.12)" strokeWidth="16" />
+        <circle cx="70" cy="70" r={radius} fill="none" stroke="var(--prism-accent)" strokeWidth="16" strokeDasharray={`${share * length} ${length}`} className="transition-all duration-700" />
+      </svg>
+      <div className="absolute inset-0 grid place-content-center text-center"><p className="term-title text-3xl">{total}</p><p className="text-[9px] uppercase tracking-[.14em] text-prism-muted">trades</p></div>
+      </div>
+      <div className="mt-3 flex gap-4 text-[10px] text-prism-muted"><span><i className="mr-1 inline-block h-2 w-2 rounded-full bg-prism-accent" />{labelA} {part}</span><span><i className="mr-1 inline-block h-2 w-2 rounded-full bg-white/20" />{labelB} {total - part}</span></div>
+    </div>
+  );
+}
+
+function HBars({ rows }) {
+  if (!rows.length) return <p className="text-xs text-prism-muted">—</p>;
+  const max = Math.max(1, ...rows.map((row) => row.count));
+  return (
+    <div className="space-y-2.5">
+      {rows.map((row) => (
+        <div key={row.key} className="grid grid-cols-[6.5rem_1fr_4.5rem] items-center gap-3 text-[11px]">
+          <span className="truncate text-prism-muted">{row.key}</span>
+          <div className="h-1.5 bg-prism-panel2"><div className="h-full bg-prism-accent transition-all duration-700" style={{ width: `${Math.max(3, row.count / max * 100)}%` }} /></div>
+          <span className={`text-right font-mono font-bold ${row.pnl < 0 ? "text-prism-loss" : "text-prism-win"}`}>{Math.round(row.pnl)}</span>
+        </div>
+      ))}
+    </div>
+  );
+}
+
+function tradingKey(year, month, day) {
+  return `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`;
+}
+
+// Calendrier façon heatmap : tuiles vertes/rouges, total hebdo et bandeau annuel.
+function PnlCalendar({ byDay, trades, T, lang }) {
+  const now = new Date();
+  const [cursor, setCursor] = useState({ year: now.getFullYear(), month: now.getMonth() });
+  const { year, month } = cursor;
+  const counts = useMemo(() => {
+    const map = {};
+    trades.forEach((trade) => { map[trade.date] = (map[trade.date] || 0) + 1; });
+    return map;
+  }, [trades]);
+  const maxAbs = Math.max(1, ...Object.values(byDay).map((value) => Math.abs(value)));
+  const offset = (new Date(year, month, 1).getDay() + 6) % 7; // lundi en premier
   const dayCount = new Date(year, month + 1, 0).getDate();
-  const cells = Array.from({ length: first + dayCount }, (_, index) => index < first ? null : index - first + 1);
-  return <div className="grid grid-cols-7 gap-1.5">{["D", "L", "M", "M", "J", "V", "S"].map((day, index) => <span key={`${day}-${index}`} className="pb-1 text-center text-[9px] font-bold text-prism-muted2">{day}</span>)}{cells.map((day, index) => { if (!day) return <i key={`empty-${index}`} />; const key = `${year}-${String(month + 1).padStart(2, "0")}-${String(day).padStart(2, "0")}`; const pnl = byDay[key]; const style = pnl > 0 ? "border-prism-win/30 bg-prism-win/10 text-prism-win" : pnl < 0 ? "border-prism-loss/30 bg-prism-loss/10 text-prism-loss" : "border-prism-line bg-prism-panel2 text-prism-muted"; return <Link key={key} href={`/journal?date=${key}`} className={`min-h-11 rounded-md border p-1 text-center text-[9px] transition hover:-translate-y-0.5 ${style}`}><span>{day}</span>{pnl != null && <b className="mt-1 block font-mono text-[8px]">{Math.round(pnl)}</b>}</Link>; })}</div>;
+  const cells = Array.from({ length: Math.ceil((offset + dayCount) / 7) * 7 }, (_, index) => {
+    const day = index - offset + 1;
+    return day >= 1 && day <= dayCount ? day : null;
+  });
+  const weeks = Array.from({ length: cells.length / 7 }, (_, index) => cells.slice(index * 7, index * 7 + 7));
+  const locale = lang === "en" ? "en-US" : "fr-FR";
+  const monthLabel = new Intl.DateTimeFormat(locale, { month: "long", year: "numeric" }).format(new Date(year, month, 1));
+  const weekdays = lang === "en" ? ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"] : ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
+  const move = (delta) => setCursor(({ year: y, month: mo }) => { const date = new Date(y, mo + delta, 1); return { year: date.getFullYear(), month: date.getMonth() }; });
+  const monthly = Array.from({ length: 12 }, (_, mo) => {
+    const prefix = `${year}-${String(mo + 1).padStart(2, "0")}`;
+    const keys = Object.keys(byDay).filter((key) => key.startsWith(prefix));
+    return { mo, pnl: keys.reduce((sum, key) => sum + byDay[key], 0), n: trades.filter((trade) => String(trade.date).startsWith(prefix)).length };
+  });
+  const tone = (pnl) => {
+    if (pnl == null) return { className: "border-prism-line bg-prism-panel2/50 text-prism-muted2", style: {} };
+    const alpha = 0.18 + Math.min(1, Math.abs(pnl) / maxAbs) * 0.5;
+    return pnl >= 0
+      ? { className: "border-[#c6f432]/60 text-[#eaffb0] shadow-[0_0_18px_-6px_rgba(198,244,50,.6)]", style: { background: `rgba(140,190,30,${alpha})` } }
+      : { className: "border-red-500/60 text-red-200", style: { background: `rgba(220,38,38,${alpha})` } };
+  };
+
+  return (
+    <div className="term-panel mt-6 p-3 sm:p-5">
+      <div className="mb-4 flex items-center justify-between">
+        <button type="button" onClick={() => move(-1)} className="grid h-8 w-8 place-items-center rounded-md border border-prism-line hover:border-prism-accent" aria-label="previous"><ChevronLeft className="h-4 w-4" /></button>
+        <p className="term-title text-xl capitalize">{monthLabel}</p>
+        <button type="button" onClick={() => move(1)} className="grid h-8 w-8 place-items-center rounded-md border border-prism-line hover:border-prism-accent" aria-label="next"><ChevronRight className="h-4 w-4" /></button>
+      </div>
+      <div className="grid grid-cols-[repeat(7,1fr)_minmax(3.5rem,.8fr)] gap-1 sm:gap-1.5">
+        {weekdays.map((day) => <span key={day} className="pb-1 text-center text-[9px] font-bold uppercase text-prism-muted2">{day}</span>)}
+        <span className="pb-1 text-center text-[9px] font-bold uppercase text-prism-muted2">{T.week}</span>
+        {weeks.map((week, weekIndex) => {
+          const weekTotal = week.reduce((sum, day) => sum + (day ? byDay[tradingKey(year, month, day)] || 0 : 0), 0);
+          const weekTrades = week.reduce((sum, day) => sum + (day ? counts[tradingKey(year, month, day)] || 0 : 0), 0);
+          return [
+            ...week.map((day, index) => {
+              if (!day) return <i key={`e-${weekIndex}-${index}`} className="min-h-[3.25rem] rounded-md bg-prism-panel2/20 sm:min-h-[4.5rem]" />;
+              const key = tradingKey(year, month, day);
+              const pnl = byDay[key];
+              const { className, style } = tone(pnl);
+              return (
+                <Link key={key} href={`/journal?date=${key}`} style={style} className={`flex min-h-[3.25rem] flex-col justify-between rounded-md border p-1 transition hover:-translate-y-0.5 sm:min-h-[4.5rem] sm:p-1.5 ${className}`}>
+                  <span className="text-[9px] opacity-70">{day}</span>
+                  {pnl != null && <span className="text-center"><b className="block font-mono text-[9px] sm:text-xs">{Math.round(pnl)}</b><small className="hidden text-[8px] opacity-70 sm:block">{counts[key] || 0} trades</small></span>}
+                </Link>
+              );
+            }),
+            <div key={`w-${weekIndex}`} className={`flex min-h-[3.25rem] flex-col items-center justify-center rounded-md border text-center sm:min-h-[4.5rem] ${weekTrades ? (weekTotal >= 0 ? "border-[#c6f432]/40 text-prism-win" : "border-red-500/40 text-prism-loss") : "border-prism-line text-prism-muted2"}`}>
+              <b className="font-mono text-[10px] sm:text-xs">{weekTrades ? Math.round(weekTotal) : "—"}</b>
+              {weekTrades > 0 && <small className="text-[8px] text-prism-muted">{weekTrades}t</small>}
+            </div>,
+          ];
+        })}
+      </div>
+      <p className="term-title mb-2 mt-6 text-sm">{T.yearly} · {year}</p>
+      <div className="grid grid-cols-6 gap-1.5 sm:grid-cols-12">
+        {monthly.map(({ mo, pnl, n }) => (
+          <button key={mo} type="button" onClick={() => setCursor({ year, month: mo })} className={`rounded-md border p-1.5 text-center transition hover:-translate-y-0.5 ${n ? (pnl >= 0 ? "border-[#c6f432]/60 bg-[#8cbe1e]/25 text-[#eaffb0]" : "border-red-500/60 bg-red-600/25 text-red-200") : "border-prism-line text-prism-muted2"} ${mo === month ? "ring-1 ring-prism-accent" : ""}`}>
+            <span className="block text-[9px] uppercase">{new Intl.DateTimeFormat(locale, { month: "short" }).format(new Date(year, mo, 1))}</span>
+            <b className="block font-mono text-[10px]">{n ? Math.round(pnl) : "—"}</b>
+            {n > 0 && <small className="block text-[8px] opacity-70">{n}t</small>}
+          </button>
+        ))}
+      </div>
+    </div>
+  );
+}
+
+function PropAccounts({ accounts, title, en }) {
+  return (
+    <Panel title={title} tag={`${accounts.length}`}>
+      {!accounts.length ? <Link href="/accounts" className="text-xs font-bold text-prism-accent hover:underline">{en ? "Create an account" : "Créer un compte"} →</Link> : (
+        <div className="max-h-56 space-y-2 overflow-y-auto pr-1">
+          {accounts.map(({ account, health }) => {
+            const pnl = Number(health.cum) || 0;
+            const target = Number(account.profit_target) || 0;
+            const pct = target > 0 ? Math.max(0, Math.min(100, pnl / target * 100)) : 0;
+            return (
+              <Link key={account.id} href={`/accounts/${account.id}`} className="block rounded-md border border-prism-line p-2.5 transition hover:border-prism-accent/60">
+                <div className="flex justify-between text-[11px]"><b className="truncate">{account.note || account.firm}</b><span className={`font-mono font-bold ${pnl < 0 ? "text-prism-loss" : "text-prism-win"}`}>{fmtMoney(pnl)}</span></div>
+                {target > 0 && <div className="mt-2"><ProgressBar value={pct} tone={pnl >= 0 ? "gain" : "loss"} /></div>}
+              </Link>
+            );
+          })}
+        </div>
+      )}
+    </Panel>
+  );
+}
+
+function Ledger({ trades, en }) {
+  const head = en ? ["Date", "Session", "Dir", "Instrument", "Setup", "R", "P&L", ""] : ["Date", "Session", "Sens", "Instrument", "Setup", "R", "P&L", ""];
+  if (!trades.length) return <div className="term-panel mt-6 p-6 text-sm text-prism-muted">—</div>;
+  return (
+    <div className="term-panel mt-6 overflow-x-auto">
+      <table className="w-full min-w-[640px] text-left text-[11px]">
+        <thead><tr className="border-b border-prism-line text-[9px] uppercase tracking-[.14em] text-prism-muted2">{head.map((cell, index) => <th key={index} className="px-4 py-3 font-bold">{cell}</th>)}</tr></thead>
+        <tbody>
+          {trades.map((trade) => {
+            const long = String(trade.dir || "").toLowerCase() === "long";
+            return (
+              <tr key={trade.id} className="border-b border-prism-line/60 transition last:border-0 hover:bg-prism-panel2/60">
+                <td className="px-4 py-2.5 font-mono">{frDate(trade.date)}</td>
+                <td className="px-4 py-2.5 text-prism-muted">{trade.session || "—"}</td>
+                <td className={`px-4 py-2.5 font-bold ${long ? "text-prism-accent" : "text-prism-loss"}`}>{long ? "Long" : "Short"}</td>
+                <td className="px-4 py-2.5">{trade.symbol || "—"}</td>
+                <td className="px-4 py-2.5 text-prism-muted">{trade.setup || "—"}</td>
+                <td className="px-4 py-2.5 font-mono">{fmtR(Number(trade.r) || 0)}</td>
+                <td className={`px-4 py-2.5 font-mono font-bold ${pnlOf(trade) < 0 ? "text-prism-loss" : "text-prism-win"}`}>{fmtMoney(pnlOf(trade))}</td>
+                <td className="px-4 py-2.5 text-right"><Link href={`/journal?edit=${trade.id}`} className="term-tag">{en ? "Inspect" : "Voir"} →</Link></td>
+              </tr>
+            );
+          })}
+        </tbody>
+      </table>
+    </div>
+  );
 }

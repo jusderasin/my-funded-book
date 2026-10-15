@@ -8,7 +8,7 @@ export const FIRMS = {
   Apex: { n: "Apex Trader Funding", c: "#8b5cf6" },
   Alpha: { n: "Alpha Futures", c: "#4ea1ff" },
   Tradeify: { n: "Tradeify", c: "#00d4a0" },
-  TPT: { n: "Take Profit Trader", c: "#22d3ee" },
+  TPT: { n: "Take Profit Trader", c: "#e2ff6b" },
   Autre: { n: "Autre", c: "#8a93a6" },
 };
 
