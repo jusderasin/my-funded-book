@@ -17,13 +17,11 @@ import { LogTradeModal } from "@/components/modals";
  *   children : Contenu des pages
  */
 export default function AppShellPrism({ user, children }) {
-  const appVersion = "2026.10";
   const [sidebarOpen, setSidebarOpen] = useState(false);
   const [quickLogOpen, setQuickLogOpen] = useState(false);
   const { profile } = useBook();
   const [splash, setSplash] = useState(true);
   const [splashOut, setSplashOut] = useState(false);
-  const [showWhatsNew, setShowWhatsNew] = useState(false);
   const [showCookies, setShowCookies] = useState(false);
   useEffect(() => {
     const out = setTimeout(() => setSplashOut(true), 650);
@@ -32,7 +30,6 @@ export default function AppShellPrism({ user, children }) {
   }, []);
 
   useEffect(() => {
-    if (localStorage.getItem("mtb.whats-new") !== appVersion) setShowWhatsNew(true);
     if (!localStorage.getItem("mtb.cookies")) setShowCookies(true);
   }, []);
 
@@ -54,7 +51,6 @@ export default function AppShellPrism({ user, children }) {
         </main>
       </div>
       {quickLogOpen && <LogTradeModal onClose={() => setQuickLogOpen(false)} />}
-      {showWhatsNew && <div className="fixed inset-0 z-[115] grid place-items-center bg-black/75 p-4"><section className="w-full max-w-md rounded-xl border border-prism-line bg-prism-panel p-6"><p className="text-[10px] font-bold tracking-[.18em] text-prism-accent">NOUVEAUTÉS</p><h2 className="mt-2 text-xl font-bold">MyTradeBook évolue.</h2><p className="mt-3 text-sm text-prism-muted">Nouvelle navigation, identité simplifiée et espaces d’analyse unifiés.</p><button onClick={() => { localStorage.setItem("mtb.whats-new", "2026.09"); setShowWhatsNew(false); }} className="mt-5 rounded bg-prism-accent px-4 py-2 text-xs font-bold text-black">Compris</button></section></div>}
       {showCookies && <div className="fixed bottom-4 left-4 z-[110] max-w-sm rounded-xl border border-prism-line bg-prism-panel p-4 shadow-2xl"><b className="text-sm">Cookies essentiels</b><p className="mt-1 text-xs leading-5 text-prism-muted">Nous utilisons le stockage local nécessaire au fonctionnement de l’application.</p><div className="mt-3 flex gap-2"><button onClick={() => { localStorage.setItem("mtb.cookies", "accepted"); setShowCookies(false); }} className="rounded bg-prism-accent px-3 py-2 text-xs font-bold text-black">Accepter</button><button onClick={() => { localStorage.setItem("mtb.cookies", "essential"); setShowCookies(false); }} className="rounded border border-prism-line px-3 py-2 text-xs">Essentiels</button></div></div>}
       {splash && <div className={`app-splash fixed inset-0 z-[120] flex items-center justify-center overflow-hidden bg-prism-bg transition-opacity duration-300 ${splashOut ? "opacity-0" : "opacity-100"}`}>
         <div className="absolute inset-0 bg-[radial-gradient(ellipse_at_center,#151515_0%,#050505_42%,#000_72%)]" />

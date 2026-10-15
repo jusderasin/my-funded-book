@@ -3,7 +3,9 @@ import { createServerSupabase } from "@/lib/supabase/server";
 
 // PRISM — coach IA. Lit les trades de l'utilisateur (RLS : uniquement les siens),
 // en fait un résumé chiffré, et demande au modèle Groq une réponse en clair.
-const MODEL = process.env.GROQ_MODEL || "llama-3.3-70b-versatile";
+// Groq retire régulièrement des modèles : on essaie une liste ordonnée et on
+// passe au suivant si le modèle n'existe plus.
+const MODELS = [process.env.GROQ_MODEL, "openai/gpt-oss-120b", "llama-3.3-70b-versatile", "openai/gpt-oss-20b", "llama-3.1-8b-instant"].filter(Boolean);
 const MAX_TURNS = 12;
 
 const num = (value) => Number(value) || 0;
@@ -90,14 +92,19 @@ export async function POST(request) {
     `DATA: ${JSON.stringify(summarize(trades || []))}`,
   ].join("\n");
 
-  const response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
-    method: "POST",
-    headers: { Authorization: `Bearer ${process.env.GROQ_API_KEY}`, "Content-Type": "application/json" },
-    body: JSON.stringify({ model: MODEL, temperature: 0.3, max_tokens: 700, messages: [{ role: "system", content: system }, ...messages] }),
-  });
-  if (!response.ok) {
+  let response;
+  for (const model of MODELS) {
+    response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
+      method: "POST",
+      headers: { Authorization: `Bearer ${process.env.GROQ_API_KEY}`, "Content-Type": "application/json" },
+      body: JSON.stringify({ model, temperature: 0.3, max_tokens: 900, messages: [{ role: "system", content: system }, ...messages] }),
+    });
+    if (response.ok) break;
     const detail = await response.text().catch(() => "");
-    console.error("PRISM groq error", response.status, detail.slice(0, 300));
+    console.error("PRISM groq error", model, response.status, detail.slice(0, 300));
+    if (!/model_not_found|decommissioned|does not exist/i.test(detail)) break;
+  }
+  if (!response.ok) {
     return NextResponse.json({ error: response.status === 429 ? "PRISM est très sollicité, réessaie dans une minute." : "PRISM est indisponible pour le moment." }, { status: 502 });
   }
   const json = await response.json();
