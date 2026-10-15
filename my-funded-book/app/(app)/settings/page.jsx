@@ -6,9 +6,10 @@ import { useBook } from "@/components/BookProvider";
 import { AccentPicker } from "@/components/AccentPicker";
 import { ThemePicker } from "@/components/ThemePicker";
 import { PushNotifications } from "@/components/PushNotifications";
+import { ApiTokens } from "@/components/ApiTokens";
 import { createClient } from "@/lib/supabase/client";
 import { Field, inputCls, Chip, PrimaryBtn, GhostBtn } from "@/components/ui";
-import { User, CreditCard, Lock, Eye, SlidersHorizontal } from "lucide-react";
+import { User, CreditCard, Lock, Eye, SlidersHorizontal, Plug } from "lucide-react";
 
 const DEFAULT_QUICK_R = { TP: 2, SL: -1, BE: 0 };
 
@@ -259,6 +260,7 @@ export default function SettingsPage() {
     { id: "profile", label: lang === "en" ? "Profile" : "Profil", icon: User },
     { id: "subscription", label: lang === "en" ? "Subscription" : "Abonnement", icon: CreditCard },
     { id: "account", label: lang === "en" ? "Account" : "Compte", icon: Lock },
+    { id: "connectors", label: lang === "en" ? "Connectors" : "Connecteurs", icon: Plug },
   ];
 
   const cardCls = "rounded-2xl border border-line bg-panel p-[18px]";
@@ -417,6 +419,8 @@ export default function SettingsPage() {
           )}
         </div>
       )}
+
+      {tab === "connectors" && <ApiTokens lang={lang} />}
 
       {tab === "account" && (
         <div className="space-y-3.5">

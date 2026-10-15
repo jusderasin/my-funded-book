@@ -1,8 +1,9 @@
 "use client";
 
 import { useEffect, useRef, useState } from "react";
-import { ArrowUp, Check, ClipboardCopy, Cpu, Download, KeyRound, Network, Settings2, Sparkles, Trash2 } from "lucide-react";
+import { ArrowUp, Check, ClipboardCopy, Cpu, Download, KeyRound, Network, Plug, Settings2, Sparkles, Trash2 } from "lucide-react";
 import { useBook } from "@/components/BookProvider";
+import Link from "next/link";
 import TradeGalaxy from "@/components/TradeGalaxy";
 import { buildSystemPrompt, summarize } from "@/lib/prismPrompt";
 import { PROVIDERS, callProvider, loadAiConfig, saveAiConfig } from "@/lib/aiProviders";
@@ -178,6 +179,19 @@ export default function PrismPage() {
                 {copied ? <Check className="h-4 w-4 shrink-0 text-prism-accent" /> : <ClipboardCopy className="h-4 w-4 shrink-0 text-prism-accent" />}
                 <span><b className="block text-prism-text">{copied ? (en ? "Copied!" : "Copié !") : (en ? "Copy for Claude / ChatGPT" : "Copier pour Claude / ChatGPT")}</b><span className="text-[10px] text-prism-muted">{en ? "Your journal summary, ready to paste into any AI." : "Le résumé de ton journal, prêt à coller dans n'importe quelle IA."}</span></span>
               </button>
+              <details className="mt-2 rounded-md border border-prism-line px-3 py-2.5 text-xs">
+                <summary className="flex cursor-pointer list-none items-center gap-3">
+                  <Plug className="h-4 w-4 shrink-0 text-prism-accent" />
+                  <span><b className="block text-prism-text">{en ? "Connect your own Claude" : "Connecter ton propre Claude"}</b><span className="text-[10px] text-prism-muted">{en ? "Claude reads your journal, logs and annotates trades." : "Claude lit ton journal, enregistre et annote tes trades."}</span></span>
+                </summary>
+                <ol className="mt-2 list-decimal space-y-1.5 pl-4 text-[10px] leading-4 text-prism-muted">
+                  <li>{en ? "Create a token in " : "Crée un jeton dans "}<Link href="/settings" className="text-prism-accent hover:underline">{en ? "Settings → Connectors" : "Réglages → Connecteurs"}</Link>{en ? " (shown once)." : " (affiché une seule fois)."}</li>
+                  <li>{en ? "In Claude: Settings → Connectors → Add custom connector." : "Dans Claude : Paramètres → Connecteurs → Ajouter un connecteur personnalisé."}</li>
+                  <li>{en ? "URL: " : "URL : "}<code className="break-all font-mono text-prism-text">{typeof window === "undefined" ? "/api/mcp" : `${window.location.origin}/api/mcp`}</code>{en ? " — header Authorization: Bearer <your token>." : " — en-tête Authorization: Bearer <ton jeton>."}</li>
+                  <li>{en ? "Claude Desktop (config file): use npx mcp-remote <URL> --header \"Authorization: Bearer <token>\"." : "Claude Desktop (fichier de config) : utilise npx mcp-remote <URL> --header \"Authorization: Bearer <jeton>\"."}</li>
+                  <li>{en ? "Then ask: “log this trade: MNQ long NY AM, +2R, $180” or “add notes to yesterday's trades”." : "Puis demande : « enregistre ce trade : MNQ long NY AM, +2R, 180 $ » ou « ajoute des notes aux trades d'hier »."}</li>
+                </ol>
+              </details>
             </div>
           </aside>
         </div>
