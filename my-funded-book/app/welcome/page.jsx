@@ -82,6 +82,7 @@ export default function WelcomePage() {
           <a href="#method">Méthode</a>
           <a href="#prism">PRISM</a>
           <a href="#prop">Prop cockpit</a>
+          <a href="#pricing">Tarifs</a>
         </div>
         <Link href="/login" className="landing-login">Se connecter <ArrowRight size={15} /></Link>
       </nav>
@@ -117,6 +118,12 @@ export default function WelcomePage() {
         </div>
       </section>
 
+      <section className="landing-firms" aria-label="Prop firms prises en charge">
+        <span>RÈGLES PRÉ-CONFIGURÉES POUR</span>
+        <div>{["Topstep", "Apex Trader Funding", "My Funded Futures", "Lucid Trading", "Alpha Futures", "Tradeify"].map((f) => <b key={f}>{f}</b>)}</div>
+        <p>Import CSV depuis Tradovate, NinjaTrader, TradingView ou n&apos;importe quel export.</p>
+      </section>
+
       <section id="method" className="landing-section">
         <div className="landing-section-heading"><span>01 / LA MÉTHODE</span><h2>La performance commence<br />par un process visible.</h2><p>Pas plus de bruit. Juste les repères qui rendent chaque décision plus intentionnelle.</p></div>
         <div className="landing-feature-grid">
@@ -136,6 +143,26 @@ export default function WelcomePage() {
         <div><span>02 / PROP FIRM COCKPIT</span><h2>Ne découvre plus tes limites trop tard.</h2></div>
         <div className="landing-prop-stats"><Metric label="DRAWDOWN RESTANT" value="$2 460" tone="gain" /><Metric label="JOURS REQUIS" value="7 / 10" /><Metric label="PAYOUTS" value="04" /></div>
         <Link href="/login" className="landing-arrow-link" aria-label="Découvrir le cockpit prop"><ArrowRight /></Link>
+      </section>
+
+      <section id="pricing" className="landing-section landing-pricing">
+        <div className="landing-section-heading"><span>03 / TARIFS</span><h2>Un prix.<br />Tout inclus.</h2><p>14 jours d&apos;essai gratuit, sans engagement. Annulable en un clic depuis tes réglages.</p></div>
+        <div className="landing-price-grid">
+          <div className="landing-price"><small>MENSUEL</small><p><strong>$19</strong> / mois</p><Link href="/login" className="landing-secondary-btn">Essayer 14 jours <ArrowRight size={16} /></Link></div>
+          <div className="landing-price landing-price-best"><small>ANNUEL <em>2 MOIS OFFERTS</em></small><p><strong>$149</strong> / an</p><Link href="/login" className="landing-primary">Essayer 14 jours <ArrowRight size={16} /></Link></div>
+          <ul className="landing-price-list">{["Trades, comptes et journal illimités", "Suivi drawdown, perte journalière et objectifs par prop firm", "Playbook de setups avec stats en direct", "Payouts, certificats et dépenses d'évaluation", "Import CSV et export", "Mobile et ordinateur, synchronisé"].map((x) => <li key={x}><Check /> {x}</li>)}</ul>
+        </div>
+      </section>
+
+      <section className="landing-section landing-faq">
+        <div className="landing-section-heading"><span>04 / QUESTIONS</span><h2>Avant de te lancer.</h2></div>
+        {[
+          ["Est-ce que je paie pendant l'essai ?", "Non. Tu as 14 jours gratuits. Si tu annules avant la fin, tu n'es jamais débité."],
+          ["Comment j'importe mes trades ?", "Exporte ton historique en CSV depuis Tradovate, NinjaTrader ou TradingView, puis glisse le fichier dans MyTradeBook. Tu peux aussi saisir un trade à la main en quelques secondes."],
+          ["Ma prop firm n'est pas dans la liste.", "Crée un compte personnalisé et renseigne toi-même le drawdown, la perte journalière et l'objectif. Le suivi fonctionne pareil."],
+          ["Mes données sont-elles privées ?", "Oui. Chaque journal est isolé au niveau de la base de données. Personne d'autre ne voit tes trades, sauf si tu choisis de rejoindre le classement."],
+          ["Je peux annuler quand je veux ?", "Oui, en un clic depuis Réglages → Abonnement. Tu gardes l'accès jusqu'à la fin de la période payée."],
+        ].map(([q, a]) => <details key={q}><summary>{q}</summary><p>{a}</p></details>)}
       </section>
 
       <section className="landing-final"><div className="landing-kicker"><Zap size={14} /> PRÊT QUAND TU L&apos;ES</div><h2>Le marché ne donne rien.<br /><em>Ton process, si.</em></h2><p>Crée un journal qui travaille autant que toi.</p><Link href="/login" className="landing-primary">Commencer maintenant <ArrowRight size={18} /></Link></section>
