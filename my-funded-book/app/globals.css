@@ -1,3 +1,4 @@
+@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Oswald:wght@500;600;700&display=swap');
 @tailwind base;
 @tailwind components;
 @tailwind utilities;
@@ -94,7 +95,6 @@ body {
 }
 
 /* Google Fonts — Inter pour tout le look PRISM (300 → 900) */
-@import url('https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700;800;900&family=Oswald:wght@500;600;700&display=swap');
 
 @layer components {
   .journal-icon-button { @apply inline-flex h-10 w-10 items-center justify-center rounded-xl border border-prism-line bg-prism-panel text-prism-muted transition hover:border-prism-line2 hover:text-white; }
