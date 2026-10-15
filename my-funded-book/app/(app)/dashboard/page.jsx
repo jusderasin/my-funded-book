@@ -4,6 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ArrowUpRight, ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
 import { Area } from "@/components/charts";
+import TradeGalaxy from "@/components/TradeGalaxy";
 import { useBook } from "@/components/BookProvider";
 import { EmptyState, ProgressBar } from "@/components/prism/TerminalPrimitives";
 import { fmtMoney, fmtR, frDate } from "@/lib/format";
@@ -55,20 +56,22 @@ export default function DashboardPage() {
   const T = en ? {
     s1: "01 / COMMAND OVERVIEW", title: "DATASET PULSE", intro: "Every module responds to the filters. A research layer on your own executions — what works, what bleeds.",
     trades: "Logged trades", winRate: "Win rate", net: "Net P&L", pf: "Profit factor", plan: "Plan respected",
-    s2: "02 / PLAYBOOK DISTRIBUTION", title2: "WHERE YOUR EDGE APPEARS", intro2: "Frequency and P&L by setup and direction. Counts describe your sample, not a guarantee.",
+    s0: "02 / NEURAL MAP", title0: "YOUR TRADING GALAXY", intro0: "Every star is a trade. Constellations group your setups. Drag to rotate, click a star to open the trade.",
+    s2: "03 / PLAYBOOK DISTRIBUTION", title2: "WHERE YOUR EDGE APPEARS", intro2: "Frequency and P&L by setup and direction. Counts describe your sample, not a guarantee.",
     setups: "SETUP FREQUENCY", split: "DIRECTION SPLIT", curve: "EQUITY OVER TIME",
-    s3: "03 / P&L CALENDAR", title3: "DAY BY DAY", yearly: "YEARLY PERFORMANCE", week: "WEEK",
-    s4: "04 / EXECUTION ANATOMY", title4: "CONTEXT TO EXECUTION", sessions: "SESSION TIMING", tags: "TOP TAGS", symbols: "INSTRUMENTS", accounts: "ACTIVE PROP ACCOUNTS",
-    s5: "05 / TRADE LEDGER", title5: "LATEST EXECUTIONS", empty: "Log at least two trades to reveal this module.", none: "No data yet", openAll: "Open journal",
+    s3: "04 / P&L CALENDAR", title3: "DAY BY DAY", yearly: "YEARLY PERFORMANCE", week: "WEEK",
+    s4: "05 / EXECUTION ANATOMY", title4: "CONTEXT TO EXECUTION", sessions: "SESSION TIMING", tags: "TOP TAGS", symbols: "INSTRUMENTS", accounts: "ACTIVE PROP ACCOUNTS",
+    s5: "06 / TRADE LEDGER", title5: "LATEST EXECUTIONS", empty: "Log at least two trades to reveal this module.", none: "No data yet", openAll: "Open journal",
     prism: "Ask PRISM where you lose money", prismText: "Your AI coach reads every trade and answers in plain words.",
   } : {
     s1: "01 / VUE D'ENSEMBLE", title: "DATASET PULSE", intro: "Chaque module répond aux filtres. Une couche d'analyse sur tes propres exécutions — ce qui marche, ce qui saigne.",
     trades: "Trades loggés", winRate: "Win rate", net: "P&L net", pf: "Profit factor", plan: "Plan respecté",
-    s2: "02 / DISTRIBUTION DU PLAYBOOK", title2: "OÙ TON EDGE APPARAÎT", intro2: "Fréquence et P&L par setup et direction. Les chiffres décrivent ton échantillon, pas une garantie.",
+    s0: "02 / CARTE NEURONALE", title0: "TA GALAXIE DE TRADES", intro0: "Chaque étoile est un trade. Les constellations regroupent tes setups. Glisse pour tourner, clique une étoile pour ouvrir le trade.",
+    s2: "03 / DISTRIBUTION DU PLAYBOOK", title2: "OÙ TON EDGE APPARAÎT", intro2: "Fréquence et P&L par setup et direction. Les chiffres décrivent ton échantillon, pas une garantie.",
     setups: "FRÉQUENCE DES SETUPS", split: "RÉPARTITION LONG / SHORT", curve: "ÉQUITY DANS LE TEMPS",
-    s3: "03 / CALENDRIER P&L", title3: "JOUR PAR JOUR", yearly: "PERFORMANCE ANNUELLE", week: "SEM.",
-    s4: "04 / ANATOMIE DES TRADES", title4: "DU CONTEXTE À L'EXÉCUTION", sessions: "TIMING DES SESSIONS", tags: "TOP TAGS", symbols: "INSTRUMENTS", accounts: "COMPTES PROP ACTIFS",
-    s5: "05 / REGISTRE", title5: "DERNIÈRES EXÉCUTIONS", empty: "Logue au moins deux trades pour révéler ce module.", none: "Pas encore de données", openAll: "Ouvrir le journal",
+    s3: "04 / CALENDRIER P&L", title3: "JOUR PAR JOUR", yearly: "PERFORMANCE ANNUELLE", week: "SEM.",
+    s4: "05 / ANATOMIE DES TRADES", title4: "DU CONTEXTE À L'EXÉCUTION", sessions: "TIMING DES SESSIONS", tags: "TOP TAGS", symbols: "INSTRUMENTS", accounts: "COMPTES PROP ACTIFS",
+    s5: "06 / REGISTRE", title5: "DERNIÈRES EXÉCUTIONS", empty: "Logue au moins deux trades pour révéler ce module.", none: "Pas encore de données", openAll: "Ouvrir le journal",
     prism: "Demande à PRISM où tu perds de l'argent", prismText: "Ton coach IA lit chaque trade et te répond en clair.",
   };
 
@@ -125,11 +128,18 @@ export default function DashboardPage() {
               </div>
             ))}
           </div>
-          <Link href="/prism" className="term-panel group mt-4 flex items-center gap-4 p-4 transition hover:border-prism-accent/60">
+          <Link href="/prism" className="term-panel fx-shine group mt-4 flex items-center gap-4 p-4 transition hover:border-prism-accent/60">
             <span className="grid h-10 w-10 shrink-0 place-items-center rounded-md bg-prism-accent text-black"><Sparkles className="h-5 w-5" /></span>
             <span className="flex-1"><b className="term-title block text-lg">{T.prism}</b><span className="text-xs text-prism-muted">{T.prismText}</span></span>
             <ArrowUpRight className="h-5 w-5 text-prism-accent transition group-hover:translate-x-0.5" />
           </Link>
+        </section>
+
+        <section>
+          <SectionHead eyebrow={T.s0} title={T.title0} intro={T.intro0} />
+          <div className="term-panel mt-6 overflow-hidden bg-[radial-gradient(ellipse_at_center,rgba(198,244,50,.05),transparent_65%)]">
+            <TradeGalaxy trades={trades} lang={lang} />
+          </div>
         </section>
 
         <section>
@@ -201,7 +211,7 @@ function SetupBars({ rows }) {
       {rows.map((row) => (
         <div key={row.key} className="flex h-full min-w-0 flex-1 flex-col items-center justify-end gap-1" title={`${row.key} · ${row.count} trades · ${fmtMoney(row.pnl)}`}>
           <span className="font-mono text-[10px] text-prism-muted">{row.count}</span>
-          <div className="w-full rounded-t-sm bg-gradient-to-t from-[#7a9a10] to-prism-accent transition-all duration-700" style={{ height: `${Math.max(4, row.count / max * 100)}%` }} />
+          <div className="fx-grow w-full rounded-t-sm bg-gradient-to-t from-[#7a9a10] to-prism-accent transition-all duration-700" style={{ height: `${Math.max(4, row.count / max * 100)}%` }} />
           <span className={`font-mono text-[9px] font-bold ${row.pnl < 0 ? "text-prism-loss" : "text-prism-win"}`}>{Math.round(row.pnl)}</span>
           <span className="w-full truncate text-center text-[9px] uppercase text-prism-muted2">{row.key}</span>
         </div>
@@ -236,7 +246,7 @@ function HBars({ rows }) {
       {rows.map((row) => (
         <div key={row.key} className="grid grid-cols-[6.5rem_1fr_4.5rem] items-center gap-3 text-[11px]">
           <span className="truncate text-prism-muted">{row.key}</span>
-          <div className="h-1.5 bg-prism-panel2"><div className="h-full bg-prism-accent transition-all duration-700" style={{ width: `${Math.max(3, row.count / max * 100)}%` }} /></div>
+          <div className="h-1.5 bg-prism-panel2"><div className="fx-grow-x h-full bg-prism-accent transition-all duration-700" style={{ width: `${Math.max(3, row.count / max * 100)}%` }} /></div>
           <span className={`text-right font-mono font-bold ${row.pnl < 0 ? "text-prism-loss" : "text-prism-win"}`}>{Math.round(row.pnl)}</span>
         </div>
       ))}

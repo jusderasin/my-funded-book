@@ -4,6 +4,7 @@ import { Menu, Plus } from "lucide-react";
 import Sidebar from "./Sidebar";
 import { useBook } from "@/components/BookProvider";
 import { LogTradeModal } from "@/components/modals";
+import InteractiveFX from "@/components/InteractiveFX";
 
 /**
  * PRISM AppShell — layout global pour toutes les pages (app)/*.
@@ -35,6 +36,7 @@ export default function AppShellPrism({ user, children }) {
 
   return (
     <div className="app-shell min-h-[100dvh] bg-prism-bg text-prism-text font-sans antialiased">
+      <InteractiveFX />
       <Sidebar
         open={sidebarOpen}
         onClose={() => setSidebarOpen(false)}
