@@ -710,7 +710,8 @@ export function AccountModal({ editing, onClose }) {
       trailing_type: f.trailing_type || "intraday",
       trailing_lock_offset: isStatic ? 0 : (numOrNull(f.trailing_lock_offset) ?? 0),
       trailing_drawdown: f.trailing_type !== "static",
-      funded_at: f.funded_at || null,
+      // Un compte funded sans date ignorerait tous ses trades : on ne laisse jamais la date vide.
+      funded_at: f.funded_at || (f.type === "funded" || f.status === "funded" || f.status === "passed" ? todayISO() : null),
     };
     if (isEdit) await updateAccount(editing.id, payload);
     else await addAccount(payload);
