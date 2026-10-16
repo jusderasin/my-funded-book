@@ -548,10 +548,10 @@ export function LogTradeModal({ editing, onClose }) {
         </QlField>
 
         {selectedStrategy && (
-          <section className="rounded-xl border border-[rgba(6,182,212,0.3)] bg-[rgba(6,182,212,0.05)] p-3">
+          <section className="rounded-xl border border-[rgba(198,244,50,0.3)] bg-[rgba(198,244,50,0.05)] p-3">
             <div className="mb-2 flex items-center justify-between gap-3">
               <p className="text-xs font-bold text-white">{en ? "Entry checklist" : "Checklist d'entrée"}</p>
-              <span className="rounded-full border border-[rgba(6,182,212,0.3)] px-2 py-0.5 font-mono text-[10px] font-semibold text-prism-accent">{selectedChecks.length}/{strategyRules.length}</span>
+              <span className="rounded-full border border-[rgba(198,244,50,0.3)] px-2 py-0.5 font-mono text-[10px] font-semibold text-prism-accent">{selectedChecks.length}/{strategyRules.length}</span>
             </div>
             {strategyRules.length ? (
               <div className="space-y-1">
@@ -590,7 +590,7 @@ export function LogTradeModal({ editing, onClose }) {
                       <div className="flex gap-1">
                         {[1, 2, 3, 4, 5].map((n) => (
                           <button key={n} type="button" aria-label={`${metric.key} ${n}/5`} onClick={() => set("psychology", { ...DEFAULT_PSYCHOLOGY, ...(f.psychology || {}), [metric.key]: n })}
-                            className={`h-7 w-7 rounded-md border font-mono text-[11px] ${n === value ? QL_ON : n < value ? "border-[rgba(6,182,212,0.3)] text-prism-accent" : QL_OFF}`}>{n}</button>
+                            className={`h-7 w-7 rounded-md border font-mono text-[11px] ${n === value ? QL_ON : n < value ? "border-[rgba(198,244,50,0.3)] text-prism-accent" : QL_OFF}`}>{n}</button>
                         ))}
                       </div>
                     </div>

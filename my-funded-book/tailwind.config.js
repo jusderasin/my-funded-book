@@ -54,7 +54,7 @@ module.exports = {
       fontFamily: {
         sans: ["Inter", "system-ui", "sans-serif"],
         mono: ["'JetBrains Mono'", "'SF Mono'", "monospace"],
-        display: ["Inter", "system-ui", "sans-serif"],
+        display: ["Oswald", "Impact", "sans-serif"],
       },
       fontSize: {
         // Tailles massives PRISM pour les hero titles style TradeXNova.
