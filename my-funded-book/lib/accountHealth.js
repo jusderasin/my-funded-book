@@ -51,7 +51,23 @@ export function accountHealth(account, allTrades, certificates = [], L = "fr") {
   // Une date explicite est obligatoire en funded. Sans elle (comptes créés
   // avant la migration), on ne peut pas distinguer l'évaluation du funded :
   // on affiche donc un solde propre mais jamais un payout disponible.
-  const fundedFrom = isFunded ? account.funded_at : null;
+  // Sans date (anciens comptes), on déduit le départ funded : le lendemain du
+  // jour où l'objectif du challenge a été atteint par les trades du compte.
+  const inferFundedFrom = () => {
+    if (!target || target <= 0) return null;
+    const own = (allTrades || []).filter((tr) => tr.account_id === account.id).sort((x, y) => String(x.date).localeCompare(String(y.date)));
+    let total = 0;
+    for (const tr of own) {
+      total += Number(tr.pnl) || 0;
+      if (total >= target) {
+        const [y, m, d] = String(tr.date).slice(0, 10).split("-").map(Number);
+        const next = new Date(y, m - 1, d + 1);
+        return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}-${String(next.getDate()).padStart(2, "0")}`;
+      }
+    }
+    return null;
+  };
+  const fundedFrom = isFunded ? account.funded_at || inferFundedFrom() : null;
   const at = (allTrades || [])
     .filter((tr) => tr.account_id === account.id && (!isFunded || (fundedFrom && String(tr.date || "") >= String(fundedFrom))))
     .slice()
@@ -194,7 +210,7 @@ export function accountHealth(account, allTrades, certificates = [], L = "fr") {
     ddThreshold, ddMargin, ddMarginPct, ddLocked, breached,
     dailyLimit, dailyUsed, dailyLeft, dailyPct, dailyHit, todayPnl,
     target, targetPct, targetReached,
-    isFunded, payoutTotal, payoutCount: payouts.length, lastPayoutDate,
+    isFunded, fundedFrom, payoutTotal, payoutCount: payouts.length, lastPayoutDate,
     payoutEligible, daysToPayout, minDaysLeft,
     wins: at.filter((tr) => (Number(tr.pnl) || 0) > 0).length,
     losses: at.filter((tr) => (Number(tr.pnl) || 0) < 0).length,
