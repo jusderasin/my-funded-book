@@ -6,11 +6,16 @@
 /* Product polish: visual depth and motion stay deliberately lightweight. */
 html {
   scroll-behavior: smooth;
+  /* iOS (PWA) : un élément trop large fait dézoomer/glisser toute l'app. */
+  overflow-x: clip;
+  max-width: 100%;
+  -webkit-text-size-adjust: 100%;
   background: var(--prism-bg, #050506);
 }
 
 body {
-  overflow-x: hidden;
+  overflow-x: clip;
+  max-width: 100%;
   text-rendering: optimizeLegibility;
   -webkit-font-smoothing: antialiased;
 }

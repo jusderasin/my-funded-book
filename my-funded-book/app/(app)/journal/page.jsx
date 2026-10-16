@@ -13,12 +13,13 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import {
-  AlertCircle, ArrowDownRight, ArrowUpRight, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight,
+  AlertCircle, ArrowDownRight, ArrowUpRight, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight, Copy, FileUp,
   FileText, Filter, ImagePlus, ListChecks, Plus, Search, Star, Trash2, Upload, X, Zap,
 } from "lucide-react";
 import { useBook } from "@/components/BookProvider";
 import { LogTradeModal } from "@/components/modals";
 import { ImportCsvModal } from "@/components/ImportCsvModal";
+import { FillsImportModal } from "@/components/FillsImportModal";
 import { ConfirmModal } from "@/components/prism/TerminalPrimitives";
 import { createClient } from "@/lib/supabase/client";
 import { uploadFile } from "@/lib/upload";
@@ -65,6 +66,11 @@ function sessionFromTime(date, time) {
 }
 
 const RATING_TO_GRADE = { 1: "B", 2: "A", 3: "A+" };
+
+// Templates par setup (R visé, tags, checklist, symbole) — stockés en local
+// pour ne pas exiger de migration Supabase.
+const TPL_KEY = "mtb.setupTemplates";
+const readTemplates = () => { try { return JSON.parse(localStorage.getItem(TPL_KEY) || "{}") || {}; } catch { return {}; } };
 const MINDSETS = ["calm", "neutral", "tense", "tilt"];
 
 /* ------------------------------------------------------------------ */
@@ -81,7 +87,7 @@ const TXT = {
     strategy: "STRATÉGIE", rating: "NOTE", confluences: "CONFLUENCES", screenshot: "LIEN / SCREENSHOT", addShots: "Ajouter des screenshots",
     rules: "RÈGLES SUIVIES ?", emotions: "ÉMOTIONS MAÎTRISÉES ?", yes: "Oui", no: "Non", notes: "Ajouter des notes…", notesPh: "Contexte, exécution, ce que tu referais différemment…",
     submit: "LOG TRADE", saving: "ENREGISTREMENT…", history: "TRADING HISTORY", periods: { day: "JOUR", week: "SEMAINE", month: "MOIS", all: "TOUT" },
-    select: "SÉLECTIONNER", filter: "FILTRER", cols: ["DATE", "ENTRÉE", "SORTIE", "PRIX ENTRÉE", "PRIX SORTIE", "SYMBOLE", "DIRECTION", "TAILLE", "PNL", "R:R", "STRATÉGIE", "CONFLUENCES", "CHART", "NOTES"],
+    select: "SÉLECTIONNER", filter: "FILTRER", cols: ["DATE", "ENTRÉE", "SORTIE", "PRIX ENTRÉE", "PRIX SORTIE", "SYMBOLE", "DIRECTION", "TAILLE", "PNL", "R:R", "STRATÉGIE", "CONFLUENCES", "CHART", "NOTES", ""],
     emptyDay: "AUCUN TRADE — AJOUTE TON PREMIER TRADE CI-DESSUS", emptyPeriod: "Aucun trade sur cette période.",
     waiting: "En attente de données (min 5 trades)…", month: "CE MOIS", tradedDays: "Jours tradés", best: "Meilleur jour", worst: "Pire jour",
     review: "REVUE DU JOUR", mindset: "État d'esprit", mindsets: { calm: "Calme", neutral: "Neutre", tense: "Tendu", tilt: "Tilt" },
@@ -97,6 +103,8 @@ const TXT = {
     quick: "RAPIDE", full: "COMPLET", quickHint: "Saisie rapide : symbole, résultat, setup. Passe en complet pour les prix, horaires et la psycho.",
     calendar: "CALENDRIER", search: "Rechercher symbole, setup, note…", net: "NET", winrateShort: "WR", shortcut: "Ctrl + Entrée",
     open: "Ouvrir", noShot: "Pas de screenshot",
+    fills: "FILLS", duplicate: "Dupliquer", duplicated: "Trade dupliqué — ajuste le résultat et logue.",
+    checklist: "CHECKLIST", saveTpl: "Enregistrer comme template", tplSaved: "Template enregistré pour ce setup", tplApplied: "template",
   },
   en: {
     logTrade: "LOG TRADE", import: "IMPORT", del: "DELETE", delSel: "Select trades", delDay: "Delete today's trades",
@@ -108,7 +116,7 @@ const TXT = {
     strategy: "STRATEGY", rating: "RATING", confluences: "CONFLUENCES", screenshot: "LINK / SCREENSHOT", addShots: "Add Screenshots",
     rules: "FOLLOWED RULES?", emotions: "CONTROLLED EMOTIONS?", yes: "Yes", no: "No", notes: "Add Trading Notes…", notesPh: "Context, execution, what you would do differently…",
     submit: "LOG TRADE", saving: "SAVING…", history: "TRADING HISTORY", periods: { day: "DAY", week: "WEEK", month: "MONTH", all: "ALL" },
-    select: "SELECT TRADES", filter: "FILTER TRADES", cols: ["DATE", "ENTRY", "EXIT", "ENTRY PRICE", "EXIT PRICE", "SYMBOL", "DIRECTION", "SIZE", "PNL", "R:R", "STRATEGY", "CONFLUENCES", "CHART", "NOTES"],
+    select: "SELECT TRADES", filter: "FILTER TRADES", cols: ["DATE", "ENTRY", "EXIT", "ENTRY PRICE", "EXIT PRICE", "SYMBOL", "DIRECTION", "SIZE", "PNL", "R:R", "STRATEGY", "CONFLUENCES", "CHART", "NOTES", ""],
     emptyDay: "NO TRADES LOGGED — ADD YOUR FIRST TRADE ABOVE", emptyPeriod: "No trades in this period.",
     waiting: "Awaiting more data (min 5 trades)…", month: "THIS MONTH", tradedDays: "Traded days", best: "Best day", worst: "Worst day",
     review: "DAILY REVIEW", mindset: "Mindset", mindsets: { calm: "Calm", neutral: "Neutral", tense: "Tense", tilt: "Tilt" },
@@ -124,6 +132,8 @@ const TXT = {
     quick: "QUICK", full: "FULL", quickHint: "Quick log: symbol, result, setup. Switch to full for prices, times and psychology.",
     calendar: "CALENDAR", search: "Search symbol, setup, note…", net: "NET", winrateShort: "WR", shortcut: "Ctrl + Enter",
     open: "Open", noShot: "No screenshot",
+    fills: "FILLS", duplicate: "Duplicate", duplicated: "Trade duplicated — adjust the result and log it.",
+    checklist: "CHECKLIST", saveTpl: "Save as template", tplSaved: "Template saved for this setup", tplApplied: "template",
   },
 };
 
@@ -139,7 +149,7 @@ const WIN_BG = "bg-[rgba(34,197,94,0.12)]";
 const emptyForm = () => ({
   mode: "day", end_date: "", entry_time: "", exit_time: "", symbol: "", dir: "long",
   entry_price: "", exit_price: "", size: "1", r: "", planned: "", pnl: "", outcome: null,
-  setup: "", tags: [], rating: 0, followed: "", emotions: "", why: "", account_id: "",
+  setup: "", tags: [], checks: [], rating: 0, followed: "", emotions: "", why: "", account_id: "",
 });
 
 export default function JournalPage() {
@@ -164,6 +174,9 @@ export default function JournalPage() {
   const [period, setPeriod] = useState("day");
   const [filters, setFilters] = useState({ symbol: "", dir: "", setup: "", result: "", q: "" });
   const [quick, setQuick] = useState(false);
+  const [fillsOpen, setFillsOpen] = useState(false);
+  const [templates, setTemplates] = useState({});
+  const formTopRef = useRef(null);
   const [calOpen, setCalOpen] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
   const [selecting, setSelecting] = useState(false);
@@ -182,6 +195,7 @@ export default function JournalPage() {
       const stored = JSON.parse(localStorage.getItem("mtb.quickR") || "{}");
       setQuickR((current) => ({ ...current, ...stored }));
       setQuick(localStorage.getItem("mtb.journal.quick") === "1");
+      setTemplates(readTemplates());
     } catch { /* keep defaults */ }
   }, []);
   const toggleQuick = (value) => {
@@ -234,6 +248,52 @@ export default function JournalPage() {
     });
   };
   const beThreshold = Math.max(0, Number(profile?.be_threshold) || 0);
+
+  // Choisir un setup applique son template (ou, à défaut, les tags du dernier trade de ce setup).
+  const selectSetup = (name) => {
+    setF((current) => {
+      if (!name) return { ...current, setup: "", checks: [] };
+      const tpl = templates[name];
+      const last = (trades || []).find((t) => t.setup === name);
+      const tags = tpl?.tags || last?.tags || [];
+      return {
+        ...current,
+        setup: name,
+        r: current.r || (tpl?.r != null ? String(tpl.r) : current.r),
+        symbol: current.symbol || tpl?.symbol || "",
+        tags: [...new Set([...current.tags, ...tags])],
+        checks: tpl?.checks || [],
+      };
+    });
+  };
+  const saveTemplate = () => {
+    if (!f.setup) return;
+    const next = { ...readTemplates(), [f.setup]: { r: f.r === "" ? null : Number(String(f.r).replace(",", ".")), tags: f.tags, checks: f.checks, symbol: f.symbol.trim().toUpperCase() || null } };
+    try { localStorage.setItem(TPL_KEY, JSON.stringify(next)); } catch { /* ignore */ }
+    setTemplates(next);
+    notify(T.tplSaved);
+  };
+  const duplicate = (t) => {
+    const e = t.execution || {};
+    setF((current) => ({
+      ...emptyForm(),
+      mode: e.mode === "swing" ? "swing" : current.mode,
+      symbol: t.symbol || "", dir: t.dir === "short" ? "short" : "long",
+      setup: t.setup || "", tags: Array.isArray(t.tags) ? t.tags : [],
+      checks: Array.isArray(t.strategy_checks) ? t.strategy_checks : [],
+      r: t.r ? String(t.r) : "", size: e.size != null ? String(e.size) : "1",
+      account_id: t.account_id || current.account_id,
+    }));
+    setFiles([]);
+    setErr("");
+    notify(T.duplicated);
+    formTopRef.current?.scrollIntoView({ behavior: "smooth", block: "start" });
+  };
+  const strategyRules = useMemo(() => {
+    const rules = playbooks.find((p) => p.name === f.setup)?.rules;
+    return Array.isArray(rules) ? rules.filter(Boolean).map(String) : [];
+  }, [playbooks, f.setup]);
+  const toggleCheck = (rule) => put("checks", f.checks.includes(rule) ? f.checks.filter((x) => x !== rule) : [...f.checks, rule]);
 
   const classify = (t) => {
     const p = Number(t.pnl) || 0;
@@ -382,7 +442,7 @@ export default function JournalPage() {
       screenshot_url_2: urls[1],
       account_id: f.account_id || null,
       outcome: f.outcome || (pnl === 0 ? "BE" : null),
-      strategy_checks: [],
+      strategy_checks: f.checks,
     };
     if (hasExecution) {
       const num = (v) => { const n = parseFloat(String(v).replace(",", ".")); return Number.isFinite(n) ? n : null; };
@@ -403,7 +463,7 @@ export default function JournalPage() {
     const created = await addTrade(row);
     setSaving(false);
     if (!created) return; // erreur déjà affichée par BookProvider : on garde la saisie
-    setF((cur) => ({ ...emptyForm(), symbol: cur.symbol, dir: cur.dir, mode: cur.mode, account_id: cur.account_id }));
+    setF((cur) => ({ ...emptyForm(), symbol: cur.symbol, dir: cur.dir, mode: cur.mode, account_id: cur.account_id, setup: cur.setup, checks: cur.checks, tags: cur.tags }));
     setFiles([]);
     setNotesOpen(false);
   }
@@ -526,6 +586,7 @@ export default function JournalPage() {
             <h1 className="term-title text-2xl text-prism-accent">{T.logTrade}</h1>
             <i className="hidden h-6 w-px bg-prism-line sm:block" />
             <button type="button" onClick={() => setImportOpen(true)} className={GHOST}><Upload className="h-3 w-3" />{T.import}</button>
+            <button type="button" onClick={() => setFillsOpen(true)} className={GHOST}><FileUp className="h-3 w-3" />{T.fills}</button>
             <div className="relative">
               <button type="button" onClick={() => setDeleteMenu((v) => !v)} className={GHOST}><Trash2 className="h-3 w-3" />{T.del}<ChevronDown className="h-3 w-3" /></button>
               {deleteMenu && (
@@ -569,7 +630,7 @@ export default function JournalPage() {
           </div>
         </header>
 
-        <div className="space-y-5 p-4 sm:space-y-6 sm:p-6">
+        <div ref={formTopRef} className="scroll-mt-16 space-y-5 p-4 sm:space-y-6 sm:p-6">
           {hasExecution && (
             <div className="flex flex-wrap items-center gap-3">
               <div className="inline-flex rounded-md border border-prism-line bg-prism-surface p-0.5">
@@ -663,7 +724,7 @@ export default function JournalPage() {
             <Card step={3} done={Boolean(f.setup)} title={T.context}>
               <div className="grid grid-cols-2 gap-3">
                 <Field label={T.strategy}>
-                  <div className="flex gap-2"><select className={INPUT} value={f.setup} onChange={(e) => put("setup", e.target.value)}>
+                  <div className="flex gap-2"><select className={INPUT} value={f.setup} onChange={(e) => selectSetup(e.target.value)}>
                     <option value="">{T.setupPh}</option>
                     {playbooks.map((p) => <option key={p.id} value={p.name}>{p.name}</option>)}
                   </select><Link href="/playbook" className="grid h-10 w-10 shrink-0 place-items-center rounded-md border border-prism-line text-prism-accent hover:border-prism-accent" aria-label={lang === "en" ? "Manage strategies" : "Gérer les stratégies"}><Plus className="h-4 w-4" /></Link></div>
@@ -693,6 +754,24 @@ export default function JournalPage() {
                   <ScreenshotSlot label={lang === "en" ? "ENTRY" : "ENTRÉE"} file={files[0]} onPick={(file) => setFiles((current) => [file, current[1] || null])} />
                   <ScreenshotSlot label={lang === "en" ? "EXIT" : "SORTIE"} file={files[1]} onPick={(file) => setFiles((current) => [current[0] || null, file])} />
                 </div>
+                {f.setup && (
+                  <div className="col-span-2">
+                    {strategyRules.length > 0 && (
+                      <>
+                        <span className={LABEL}>{T.checklist} <span className="font-mono normal-case tracking-normal text-prism-muted2">{f.checks.filter((c) => strategyRules.includes(c)).length}/{strategyRules.length}</span></span>
+                        <div className="flex flex-wrap gap-1.5">
+                          {strategyRules.map((rule) => {
+                            const on = f.checks.includes(rule);
+                            return <button key={rule} type="button" onClick={() => toggleCheck(rule)} className={`inline-flex items-center gap-1.5 rounded-md border px-2.5 py-1.5 text-[11px] ${on ? "border-prism-accent bg-prism-accentDim text-prism-accent" : "border-prism-line text-prism-muted hover:text-prism-text"}`}>{on && <Check className="h-3 w-3" />}{rule}</button>;
+                          })}
+                        </div>
+                      </>
+                    )}
+                    <button type="button" onClick={saveTemplate} className="mt-2 text-[11px] text-prism-muted underline-offset-2 hover:text-prism-accent hover:underline">
+                      {T.saveTpl}{templates[f.setup] && <span className="ml-1 rounded border border-prism-accent/40 px-1 text-[9px] text-prism-accent">{T.tplApplied} ✓</span>}
+                    </button>
+                  </div>
+                )}
                 {f.tags.length > 0 && (
                   <div className="col-span-2 -mt-1 flex flex-wrap gap-1.5">
                     {f.tags.map((tg) => (
@@ -853,6 +932,7 @@ export default function JournalPage() {
                       {(t.tags || []).length > 0 && <div className="mt-1.5 flex flex-wrap gap-1">{t.tags.slice(0, 4).map((tg) => <span key={tg} className="rounded border border-prism-line px-1.5 text-[9px] text-prism-muted">{tg}</span>)}</div>}
                       {t.why && <p className="mt-1 line-clamp-2 text-[11px] text-prism-muted">{t.why}</p>}
                     </div>
+                    {!selecting && <button type="button" onClick={(ev) => { ev.stopPropagation(); duplicate(t); }} className="grid h-8 w-8 shrink-0 place-items-center self-center rounded-md border border-prism-line text-prism-muted hover:border-prism-accent hover:text-prism-accent" aria-label={T.duplicate} title={T.duplicate}><Copy className="h-3.5 w-3.5" /></button>}
                   </article>
                 );
               })}
@@ -893,6 +973,7 @@ export default function JournalPage() {
                           <div className="flex gap-1">{[t.screenshot_url, t.screenshot_url_2].filter(Boolean).map((url, index) => <button key={url} type="button" onClick={(ev) => { ev.stopPropagation(); openShots(t, index); }}><img src={url} alt="" className="h-7 w-10 rounded object-cover" /></button>)}{!t.screenshot_url && !t.screenshot_url_2 && "-"}</div>
                         </td>
                         <td className="max-w-[200px] truncate px-2 font-sans text-prism-muted">{t.why || "—"}</td>
+                        <td className="px-2">{!selecting && <button type="button" onClick={(ev) => { ev.stopPropagation(); duplicate(t); }} className="grid h-7 w-7 place-items-center rounded border border-prism-line text-prism-muted hover:border-prism-accent hover:text-prism-accent" aria-label={T.duplicate} title={T.duplicate}><Copy className="h-3 w-3" /></button>}</td>
                       </tr>
                     );
                   })}
@@ -909,6 +990,7 @@ export default function JournalPage() {
       {/* ======================= Modales ======================= */}
       {shotsOpen && <ScreenshotModal T={T} files={files} onClose={() => setShotsOpen(false)} onSave={(list) => { setFiles(list); setShotsOpen(false); }} />}
       {importOpen && <ImportCsvModal onClose={() => setImportOpen(false)} />}
+      {fillsOpen && <FillsImportModal hasExecution={hasExecution} defaultAccountId={f.account_id} onClose={() => setFillsOpen(false)} />}
       {editing && <LogTradeModal editing={editing} onClose={() => setEditing(null)} />}
       {confirmIds && (
         <ConfirmModal title={T.confirmDelTitle} message={T.confirmDelMsg(confirmIds.length)} confirmLabel={T.deleteSel} onClose={() => setConfirmIds(null)} onConfirm={confirmDelete} />
