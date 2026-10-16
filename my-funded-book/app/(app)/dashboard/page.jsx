@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { ArrowUpRight, ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
 import { Area } from "@/components/charts";
 import TradeGalaxy from "@/components/TradeGalaxy";
+import WeeklyReportCard from "@/components/WeeklyReportCard";
 import { useBook } from "@/components/BookProvider";
 import { EmptyState, ProgressBar } from "@/components/prism/TerminalPrimitives";
 import { fmtMoney, fmtR, frDate } from "@/lib/format";
@@ -48,7 +49,7 @@ function groupBy(trades, keyOf) {
 const tagsOf = (trade) => Array.isArray(trade.tags) ? trade.tags : String(trade.tags || "").split(",").map((tag) => tag.trim());
 
 export default function DashboardPage() {
-  const { scopedTrades, accounts, certificates, profile, lang } = useBook();
+  const { scopedTrades, accounts, certificates, profile, lang, demo } = useBook();
   const [range, setRange] = useState("all");
   const [dir, setDir] = useState("all");
   const [session, setSession] = useState("all");
@@ -133,6 +134,7 @@ export default function DashboardPage() {
             <span className="flex-1"><b className="term-title block text-lg">{T.prism}</b><span className="text-xs text-prism-muted">{T.prismText}</span></span>
             <ArrowUpRight className="h-5 w-5 text-prism-accent transition group-hover:translate-x-0.5" />
           </Link>
+          <div className="mt-4"><WeeklyReportCard trades={scopedTrades} lang={lang} prismHref={demo ? "/login" : "/prism"} /></div>
         </section>
 
         <section>

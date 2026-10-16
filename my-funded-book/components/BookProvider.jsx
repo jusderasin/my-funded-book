@@ -5,7 +5,7 @@ import { createClient } from "@/lib/supabase/client";
 import { computeStats } from "@/lib/stats";
 import { translate } from "@/lib/i18n";
 
-const BookCtx = createContext(null);
+export const BookCtx = createContext(null);
 export const useBook = () => useContext(BookCtx);
 
 const PRISM_THEME = { accent: "#c6f432", loss: "#ef4444" };

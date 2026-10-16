@@ -38,7 +38,12 @@ export default function PrismPage() {
   const [copied, setCopied] = useState(false);
   const endRef = useRef(null);
 
-  useEffect(() => { setConfig(loadAiConfig()); }, []);
+  useEffect(() => {
+    setConfig(loadAiConfig());
+    // /prism?q=… (rapport hebdo) : pré-remplit la question.
+    const q = new URLSearchParams(window.location.search).get("q");
+    if (q) setInput(q.slice(0, 2000));
+  }, []);
   useEffect(() => { endRef.current?.scrollIntoView({ behavior: "smooth", block: "nearest" }); }, [messages, busy]);
 
   const provider = PROVIDERS[config.provider] || PROVIDERS.prism;

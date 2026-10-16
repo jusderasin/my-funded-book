@@ -1,6 +1,6 @@
 "use client";
 
-import { useRef, useState } from "react";
+import { useEffect, useRef, useState } from "react";
 import { useRouter } from "next/navigation";
 import { createClient } from "@/lib/supabase/client";
 import { ArrowRight, BrainCircuit, Check, CircleDollarSign, LockKeyhole, Sparkles, Target } from "lucide-react";
@@ -19,6 +19,9 @@ export default function LoginPage() {
   const [err, setErr] = useState("");
   const [busy, setBusy] = useState(false);
   const isLogin = tab === "login";
+  useEffect(() => {
+    if (new URLSearchParams(window.location.search).get("tab") === "signup") setTab("signup");
+  }, []);
   const set = (key, value) => setForm((previous) => ({ ...previous, [key]: value }));
 
   function spotlight(event) {
@@ -36,7 +39,7 @@ export default function LoginPage() {
     setBusy(true);
     const result = isLogin
       ? await supabase.auth.signInWithPassword({ email: form.email.trim(), password: form.pass })
-      : await supabase.auth.signUp({ email: form.email.trim(), password: form.pass, options: { data: { name: form.name.trim() }, emailRedirectTo: `${location.origin}/auth/callback` } });
+      : await supabase.auth.signUp({ email: form.email.trim(), password: form.pass, options: { data: { name: form.name.trim() }, emailRedirectTo: `${location.origin}/auth/callback?next=/pricing` } });
     setBusy(false);
     if (result.error) return setErr(result.error.message);
     if (!isLogin && !result.data.session) {
@@ -81,6 +84,7 @@ export default function LoginPage() {
           {err && <p className="auth-error">{err}</p>}
           <button disabled={busy} onClick={submit} className="auth-submit">{busy ? "Connexion…" : isLogin ? "Entrer dans mon journal" : "Créer mon espace"}<ArrowRight size={18} /></button>
           <p className="auth-disclaimer"><LockKeyhole size={12} /> Connexion chiffrée · données privées</p>
+          {!isLogin && <p className="auth-disclaimer">14 jours gratuits, puis $19/mois · <a href="/demo" style={{ textDecoration: "underline" }}>voir la démo d&apos;abord</a></p>}
         </section>
       </section>
       <footer className="auth-footer"><span>MYTRADEBOOK © {new Date().getFullYear()}</span><span>DISCIPLINE AVANT TOUT</span></footer>
