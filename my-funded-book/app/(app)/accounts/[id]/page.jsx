@@ -89,10 +89,27 @@ export default function AccountDetailPage() {
   const account = useMemo(() => accounts.find((a) => a.id === id) || null, [accounts, id]);
   const h = useMemo(() => (account ? accountHealth(account, trades, certificates, L) : null), [account, trades, certificates, L]);
   const acctTrades = useMemo(() => (account ? trades.filter((t) => t.account_id === account.id) : []), [trades, account]);
+  // En funded, les stats (win rate, PF…) suivent la même période que le solde.
+  const phaseTrades = useMemo(() => (h?.isFunded && account?.funded_at ? acctTrades.filter((t) => String(t.date) >= String(account.funded_at)) : h?.isFunded ? [] : acctTrades), [acctTrades, account, h]);
+  // Compte funded sans date de départ (ancien compte) : on propose le lendemain
+  // du jour où l'objectif du challenge a été atteint.
+  const fundedSuggestion = useMemo(() => {
+    if (!account || !h?.isFunded || account.funded_at) return null;
+    const target = Number(account.profit_target) || h.target || 0;
+    const sorted = [...acctTrades].sort((a, b) => String(a.date).localeCompare(String(b.date)));
+    let cum = 0;
+    let reached = null;
+    for (const trade of sorted) { cum += Number(trade.pnl) || 0; if (target > 0 && cum >= target) { reached = trade.date; break; } }
+    if (!reached) return todayISO();
+    const [y, m, d] = String(reached).slice(0, 10).split("-").map(Number);
+    const next = new Date(y, m - 1, d + 1);
+    return `${next.getFullYear()}-${String(next.getMonth() + 1).padStart(2, "0")}-${String(next.getDate()).padStart(2, "0")}`;
+  }, [account, h, acctTrades]);
+  const [fundedDate, setFundedDate] = useState("");
 
   const stats = useMemo(() => {
     if (!account || !h) return null;
-    const pnls = acctTrades.map((t) => Number(t.pnl) || 0);
+    const pnls = phaseTrades.map((t) => Number(t.pnl) || 0);
     const wins = pnls.filter((p) => p > 0);
     const losses = pnls.filter((p) => p < 0);
     const gw = wins.reduce((s, p) => s + p, 0);
@@ -126,7 +143,7 @@ export default function AccountDetailPage() {
       bestDay,
       consistencyPct: h.cum > 0 ? (bestDay / h.cum) * 100 : 100,
     };
-  }, [account, h, acctTrades]);
+  }, [account, h, phaseTrades]);
 
   if (loading) return <p className="py-20 text-center text-sm text-prism-muted">{T.loading}</p>;
   if (!account) {
@@ -199,6 +216,19 @@ export default function AccountDetailPage() {
           <button type="button" onClick={() => setAssignOpen(true)} className={OUTLINE_CYAN}><PlusCircle className="h-4 w-4" />{T.assign}</button>
         </div>
       </header>
+
+      {fundedSuggestion && (
+        <section className="mt-6 flex flex-col gap-3 rounded-xl border border-amber-400/40 bg-amber-400/10 p-4 sm:flex-row sm:items-center">
+          <p className="min-w-0 flex-1 text-sm">
+            <b className="text-amber-300">{L === "en" ? "Funded start date missing." : "Date de passage en funded manquante."}</b>{" "}
+            <span className="text-prism-muted">{L === "en" ? `No trade counts on this funded account until you set it. ${acctTrades.length} trades are assigned; the challenge target was reached just before the suggested date.` : `Aucun trade n'est compté sur ce funded tant qu'elle n'est pas définie. ${acctTrades.length} trades sont assignés ; l'objectif du challenge a été atteint juste avant la date proposée.`}</span>
+          </p>
+          <div className="flex shrink-0 gap-2">
+            <input type="date" value={fundedDate || fundedSuggestion} onChange={(e) => setFundedDate(e.target.value)} className="h-10 rounded-md border border-prism-line bg-prism-surface px-3 font-mono text-xs text-prism-text" />
+            <button type="button" onClick={() => updateAccount(account.id, { funded_at: fundedDate || fundedSuggestion })} className="h-10 rounded-md bg-prism-accent px-4 text-[11px] font-extrabold tracking-[.12em] text-black">{L === "en" ? "SAVE" : "VALIDER"}</button>
+          </div>
+        </section>
+      )}
 
       {/* KPI */}
       <section className="mt-7 grid gap-3 sm:grid-cols-3 xl:grid-cols-6">
