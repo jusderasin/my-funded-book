@@ -6,7 +6,7 @@ import { useMemo, useState } from "react";
 
 export const GREEN = "#22c55e";
 export const RED = "#ef4444";
-export const CYAN = "#06b6d4";
+export const CYAN = "#c6f432";
 export const MUTED = "#8a8a93";
 
 export const money = (n, { sign = false, dec = 0 } = {}) => {

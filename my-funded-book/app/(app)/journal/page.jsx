@@ -666,7 +666,7 @@ export default function JournalPage() {
               type="button"
               onClick={submit}
               disabled={saving}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-prism-accent px-10 text-xs font-extrabold tracking-[.18em] text-black shadow-[0_0_24px_rgba(6,182,212,.35)] transition hover:brightness-110 disabled:opacity-60"
+              className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-prism-accent px-10 text-xs font-extrabold tracking-[.18em] text-black shadow-[0_0_24px_rgba(198,244,50,.35)] transition hover:brightness-110 disabled:opacity-60"
             >
               <Plus className="h-4 w-4" />{saving ? T.saving : T.submit}
             </button>

@@ -8,7 +8,7 @@ import { translate } from "@/lib/i18n";
 const BookCtx = createContext(null);
 export const useBook = () => useContext(BookCtx);
 
-const PRISM_THEME = { accent: "#06b6d4", loss: "#ef4444" };
+const PRISM_THEME = { accent: "#c6f432", loss: "#ef4444" };
 
 function hexToRgba(hex, alpha) {
   const value = String(hex || "").replace("#", "");

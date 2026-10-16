@@ -147,7 +147,7 @@ export default function ReportsPage() {
             {k.n} trade{k.n > 1 ? "s" : ""} · {range.from ? `${range.from} → ${range.to || "…"}` : en ? "all time" : "tout l'historique"}
           </p>
         </div>
-        <button type="button" onClick={exportCsv} disabled={!list.length} className="inline-flex h-9 items-center gap-2 self-start rounded-lg border border-[rgba(6,182,212,0.45)] bg-[rgba(6,182,212,0.06)] px-3.5 text-xs font-semibold text-prism-accent hover:bg-[rgba(6,182,212,0.12)] disabled:opacity-40 sm:self-auto">
+        <button type="button" onClick={exportCsv} disabled={!list.length} className="inline-flex h-9 items-center gap-2 self-start rounded-lg border border-[rgba(198,244,50,0.45)] bg-[rgba(198,244,50,0.06)] px-3.5 text-xs font-semibold text-prism-accent hover:bg-[rgba(198,244,50,0.12)] disabled:opacity-40 sm:self-auto">
           <Download className="h-4 w-4" /> {en ? "Export CSV" : "Export CSV"}
         </button>
       </header>
@@ -612,7 +612,7 @@ function CompareTab({ all, filters, en, beThreshold }) {
           ))}
         </div>
         <div className="mt-3 grid gap-3 sm:grid-cols-2">
-          <div className="rounded-lg border border-[rgba(6,182,212,0.35)] p-3">
+          <div className="rounded-lg border border-[rgba(198,244,50,0.35)] p-3">
             <p className="mb-2 text-[10px] font-bold uppercase tracking-[.12em] text-prism-accent">{en ? "Period A" : "Période A"}</p>
             <div className="grid grid-cols-2 gap-2">{dateInput(rangeA.from, (v) => setA({ ...rangeA, from: v }))}{dateInput(rangeA.to, (v) => setA({ ...rangeA, to: v }))}</div>
           </div>
