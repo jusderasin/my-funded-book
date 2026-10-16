@@ -90,7 +90,7 @@ export default function AccountDetailPage() {
   const h = useMemo(() => (account ? accountHealth(account, trades, certificates, L) : null), [account, trades, certificates, L]);
   const acctTrades = useMemo(() => (account ? trades.filter((t) => t.account_id === account.id) : []), [trades, account]);
   // En funded, les stats (win rate, PF…) suivent la même période que le solde.
-  const phaseTrades = useMemo(() => (h?.isFunded && account?.funded_at ? acctTrades.filter((t) => String(t.date) >= String(account.funded_at)) : h?.isFunded ? [] : acctTrades), [acctTrades, account, h]);
+  const phaseTrades = useMemo(() => (h?.isFunded && h.fundedFrom ? acctTrades.filter((t) => String(t.date) >= String(h.fundedFrom)) : h?.isFunded ? [] : acctTrades), [acctTrades, account, h]);
   // Compte funded sans date de départ (ancien compte) : on propose le lendemain
   // du jour où l'objectif du challenge a été atteint.
   const fundedSuggestion = useMemo(() => {
