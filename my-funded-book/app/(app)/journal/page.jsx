@@ -13,8 +13,8 @@ import { useEffect, useMemo, useRef, useState } from "react";
 import { createPortal } from "react-dom";
 import Link from "next/link";
 import {
-  AlertCircle, ArrowDownRight, ArrowUpRight, Check, ChevronDown, ChevronLeft, ChevronRight,
-  FileText, Filter, ImagePlus, ListChecks, Plus, Star, Trash2, Upload, X,
+  AlertCircle, ArrowDownRight, ArrowUpRight, CalendarDays, Check, ChevronDown, ChevronLeft, ChevronRight,
+  FileText, Filter, ImagePlus, ListChecks, Plus, Search, Star, Trash2, Upload, X, Zap,
 } from "lucide-react";
 import { useBook } from "@/components/BookProvider";
 import { LogTradeModal } from "@/components/modals";
@@ -94,6 +94,9 @@ const TXT = {
     fSymbol: "Symbole", fDir: "Direction", fSetup: "Stratégie", fResult: "Résultat", all: "Tous", win: "Gagnant", loss: "Perdant", reset: "Réinitialiser",
     migration: "Champs d'exécution détaillés désactivés : lance la migration 004 dans Supabase pour les activer.",
     auto: "auto", setupPh: "Setup…", tagsPh: "Tags… (Entrée)",
+    quick: "RAPIDE", full: "COMPLET", quickHint: "Saisie rapide : symbole, résultat, setup. Passe en complet pour les prix, horaires et la psycho.",
+    calendar: "CALENDRIER", search: "Rechercher symbole, setup, note…", net: "NET", winrateShort: "WR", shortcut: "Ctrl + Entrée",
+    open: "Ouvrir", noShot: "Pas de screenshot",
   },
   en: {
     logTrade: "LOG TRADE", import: "IMPORT", del: "DELETE", delSel: "Select trades", delDay: "Delete today's trades",
@@ -118,6 +121,9 @@ const TXT = {
     fSymbol: "Symbol", fDir: "Direction", fSetup: "Strategy", fResult: "Result", all: "All", win: "Win", loss: "Loss", reset: "Reset",
     migration: "Detailed execution fields disabled: run migration 004 in Supabase to enable them.",
     auto: "auto", setupPh: "Setup…", tagsPh: "Tags… (Enter)",
+    quick: "QUICK", full: "FULL", quickHint: "Quick log: symbol, result, setup. Switch to full for prices, times and psychology.",
+    calendar: "CALENDAR", search: "Search symbol, setup, note…", net: "NET", winrateShort: "WR", shortcut: "Ctrl + Enter",
+    open: "Open", noShot: "No screenshot",
   },
 };
 
@@ -156,7 +162,9 @@ export default function JournalPage() {
   const [notesOpen, setNotesOpen] = useState(false);
   const [unit, setUnit] = useState("$");
   const [period, setPeriod] = useState("day");
-  const [filters, setFilters] = useState({ symbol: "", dir: "", setup: "", result: "" });
+  const [filters, setFilters] = useState({ symbol: "", dir: "", setup: "", result: "", q: "" });
+  const [quick, setQuick] = useState(false);
+  const [calOpen, setCalOpen] = useState(false);
   const [filterOpen, setFilterOpen] = useState(false);
   const [selecting, setSelecting] = useState(false);
   const [selected, setSelected] = useState([]);
@@ -173,8 +181,24 @@ export default function JournalPage() {
     try {
       const stored = JSON.parse(localStorage.getItem("mtb.quickR") || "{}");
       setQuickR((current) => ({ ...current, ...stored }));
+      setQuick(localStorage.getItem("mtb.journal.quick") === "1");
     } catch { /* keep defaults */ }
   }, []);
+  const toggleQuick = (value) => {
+    setQuick(value);
+    try { localStorage.setItem("mtb.journal.quick", value ? "1" : "0"); } catch { /* ignore */ }
+  };
+
+  // Lien profond /journal?edit=<id> (galaxie, dashboard…) : ouvre la fiche du trade.
+  const deepLinked = useRef(false);
+  useEffect(() => {
+    if (deepLinked.current || !trades.length || typeof window === "undefined") return;
+    const id = new URLSearchParams(window.location.search).get("edit");
+    if (!id) return;
+    deepLinked.current = true;
+    const target = trades.find((trade) => String(trade.id) === id);
+    if (target) setEditing(target);
+  }, [trades]);
 
   // Détecte si la colonne `execution` existe (migration 004).
   useEffect(() => {
@@ -264,9 +288,20 @@ export default function JournalPage() {
       if (filters.dir && t.dir !== filters.dir) return false;
       if (filters.setup && t.setup !== filters.setup) return false;
       if (filters.result && classify(t) !== filters.result) return false;
+      if (filters.q) {
+        const needle = filters.q.toLowerCase();
+        const hay = [t.symbol, t.setup, t.why, ...(t.tags || [])].filter(Boolean).join(" ").toLowerCase();
+        if (!hay.includes(needle)) return false;
+      }
       return true;
     });
   }, [scopedTrades, period, date, filters, beThreshold]);
+
+  const historyStats = useMemo(() => {
+    let pnl = 0, r = 0, w = 0;
+    history.forEach((t) => { pnl += Number(t.pnl) || 0; r += Number(t.r) || 0; if (classify(t) === "win") w += 1; });
+    return { pnl, r, wr: history.length ? (w / history.length) * 100 : 0 };
+  }, [history, beThreshold]);
 
   const tagSuggestions = useMemo(() => {
     const freq = {};
@@ -373,6 +408,16 @@ export default function JournalPage() {
     setNotesOpen(false);
   }
 
+  const submitRef = useRef(submit);
+  submitRef.current = submit;
+  useEffect(() => {
+    const onKey = (event) => {
+      if ((event.ctrlKey || event.metaKey) && event.key === "Enter") { event.preventDefault(); submitRef.current(); }
+    };
+    window.addEventListener("keydown", onKey);
+    return () => window.removeEventListener("keydown", onKey);
+  }, []);
+
   /* ------------------------------ Suppression ------------------------------ */
   async function confirmDelete() {
     const ids = confirmIds || [];
@@ -391,17 +436,23 @@ export default function JournalPage() {
 
   const exec = (t) => t.execution || {};
   const hasFilters = Object.values(filters).some(Boolean);
+  const previewPnl = f.pnl.trim() === "" ? computedPnl : Number(f.pnl.replace(",", "."));
+  const previewR = Number(String(f.r).replace(",", "."));
+  const showFull = hasExecution && !quick;
+  const resetFilters = () => setFilters({ symbol: "", dir: "", setup: "", result: "", q: "" });
+  const openShots = (t, index) => setLightbox({ urls: [t.screenshot_url, t.screenshot_url_2].filter(Boolean), index });
 
   /* ------------------------------ Rendu ------------------------------ */
   return (
     <div className="min-h-full text-prism-text lg:grid lg:grid-cols-[320px_minmax(0,1fr)]">
       {/* ======================= Colonne calendrier ======================= */}
       <aside className="border-b border-prism-line bg-prism-surface lg:min-h-[100dvh] lg:border-b-0 lg:border-r">
-        <div className="relative flex h-[72px] items-center justify-between border-b border-prism-line px-5">
+        <div className="relative flex h-[60px] items-center justify-between border-b border-prism-line px-4 sm:px-5 lg:h-[72px]">
           <button type="button" onClick={() => setMonthPicker((v) => !v)} className="flex items-center gap-2 font-mono text-lg font-bold tracking-tight">
             {monthLabel(viewMonth)} <ChevronDown className={`h-4 w-4 text-prism-muted transition ${monthPicker ? "rotate-180" : ""}`} />
           </button>
           <div className="flex items-center gap-1 text-prism-muted">
+            <button type="button" onClick={() => setCalOpen((v) => !v)} className={`mr-1 inline-flex h-8 items-center gap-1.5 rounded-md border px-2 text-[10px] font-bold tracking-[.12em] lg:hidden ${calOpen ? "border-prism-accent text-prism-accent" : "border-prism-line"}`} aria-expanded={calOpen}><CalendarDays className="h-3.5 w-3.5" />{frDate(date).slice(0, 5)}</button>
             <button type="button" onClick={() => shiftMonth(-1)} className="rounded p-1 hover:text-prism-text" aria-label="prev"><ChevronLeft className="h-4 w-4" /></button>
             <button type="button" onClick={() => shiftMonth(1)} className="rounded p-1 hover:text-prism-text" aria-label="next"><ChevronRight className="h-4 w-4" /></button>
           </div>
@@ -423,7 +474,7 @@ export default function JournalPage() {
           )}
         </div>
 
-        <div className="px-5 pb-5">
+        <div className={`${calOpen ? "block" : "hidden"} px-4 pb-5 sm:px-5 lg:block`}>
           <div className="grid grid-cols-7 gap-1.5 border-b border-prism-line py-3 text-center text-[10px] font-semibold tracking-[.1em] text-prism-muted">
             {(lang === "en" ? ["SUN", "MON", "TUE", "WED", "THU", "FRI", "SAT"] : ["DIM", "LUN", "MAR", "MER", "JEU", "VEN", "SAM"]).map((d) => <span key={d}>{d}</span>)}
           </div>
@@ -438,7 +489,7 @@ export default function JournalPage() {
                 <button
                   key={iso}
                   type="button"
-                  onClick={() => pickDate(iso)}
+                  onClick={() => { pickDate(iso); setCalOpen(false); }}
                   title={p !== undefined ? fmtMoney(p, true) : undefined}
                   className={`aspect-square rounded-[4px] border font-mono text-xs transition ${selectedDay ? "border-prism-accent bg-prism-accentDim text-prism-accent" : `border-prism-line hover:border-prism-line2 ${tone}`} ${future ? "opacity-25" : ""}`}
                 >
@@ -471,8 +522,8 @@ export default function JournalPage() {
       <main className="min-w-0">
         {/* Barre du haut + bande KPI */}
         <header className="flex flex-col border-b border-prism-line min-[1800px]:flex-row min-[1800px]:items-stretch">
-          <div className="flex flex-none flex-wrap items-center gap-3 whitespace-nowrap px-6 py-5">
-            <h1 className="text-xl font-bold tracking-[.02em] text-prism-accent">{T.logTrade}</h1>
+          <div className="flex flex-none flex-wrap items-center gap-3 whitespace-nowrap px-4 py-4 sm:px-6 sm:py-5">
+            <h1 className="term-title text-2xl text-prism-accent">{T.logTrade}</h1>
             <i className="hidden h-6 w-px bg-prism-line sm:block" />
             <button type="button" onClick={() => setImportOpen(true)} className={GHOST}><Upload className="h-3 w-3" />{T.import}</button>
             <div className="relative">
@@ -488,7 +539,7 @@ export default function JournalPage() {
 
           <div className="grid grid-cols-2 border-t border-prism-line bg-prism-surface sm:grid-cols-4 min-[1800px]:flex-1 min-[1800px]:rounded-bl-xl min-[1800px]:border-l min-[1800px]:border-t-0">
             <Kpi label={T.dayPnl}>
-              <b className={`font-mono text-xl ${kpi.pnl > 0 ? "text-prism-win" : kpi.pnl < 0 ? "text-prism-loss" : ""}`}>{fmtMoney(kpi.pnl, true)}</b>
+              <b className={`font-mono text-lg sm:text-xl ${kpi.pnl > 0 ? "text-prism-win" : kpi.pnl < 0 ? "text-prism-loss" : ""}`}>{fmtMoney(kpi.pnl, true)}</b>
             </Kpi>
             <Kpi label={T.winrate}>
               <div className="flex flex-wrap items-end justify-between gap-x-4 gap-y-2">
@@ -518,7 +569,17 @@ export default function JournalPage() {
           </div>
         </header>
 
-        <div className="space-y-6 p-6">
+        <div className="space-y-5 p-4 sm:space-y-6 sm:p-6">
+          {hasExecution && (
+            <div className="flex flex-wrap items-center gap-3">
+              <div className="inline-flex rounded-md border border-prism-line bg-prism-surface p-0.5">
+                {[[true, T.quick], [false, T.full]].map(([value, label]) => (
+                  <button key={label} type="button" onClick={() => toggleQuick(value)} className={`inline-flex items-center gap-1.5 rounded px-3 py-1.5 text-[10px] font-bold tracking-[.14em] ${quick === value ? "bg-prism-accentDim text-prism-accent" : "text-prism-muted hover:text-prism-text"}`}>{value && <Zap className="h-3 w-3" />}{label}</button>
+                ))}
+              </div>
+              {quick && <p className="min-w-0 flex-1 text-[11px] text-prism-muted">{T.quickHint}</p>}
+            </div>
+          )}
           {err && (
             <div className={`flex items-center gap-3 rounded-lg border px-4 py-3 text-xs font-bold uppercase tracking-[.08em] text-prism-loss ${LOSS_BOX}`}>
               <AlertCircle className="h-4 w-4 shrink-0" />
@@ -531,8 +592,10 @@ export default function JournalPage() {
           )}
 
           {/* ---------------- Formulaire en 3 cartes ---------------- */}
-          <div className="grid gap-6 [grid-template-columns:repeat(auto-fit,minmax(300px,1fr))]">
+          <div className="grid gap-4 sm:gap-6 md:[grid-template-columns:repeat(auto-fit,minmax(300px,1fr))]">
             <Card
+              step={1}
+              done={Boolean(f.symbol.trim())}
               title={T.basics}
               action={hasExecution && (
                 <div className="inline-flex rounded-full border border-prism-line bg-prism-surface p-0.5">
@@ -542,7 +605,7 @@ export default function JournalPage() {
                 </div>
               )}
             >
-              {f.mode === "swing" && hasExecution ? (
+              {f.mode === "swing" && showFull ? (
                 <div className="grid grid-cols-2 gap-3">
                   <Field label={T.start}><input type="date" className={INPUT} value={date} onChange={(e) => e.target.value && pickDate(e.target.value)} /></Field>
                   <Field label={T.end}><input type="date" className={INPUT} value={f.end_date} min={date} onChange={(e) => put("end_date", e.target.value)} /></Field>
@@ -558,7 +621,7 @@ export default function JournalPage() {
                   </select>
                 </Field>
               </div>
-              {hasExecution && (
+              {showFull && (
                 <div className="mt-4 grid grid-cols-2 gap-3">
                   <Field label={T.entryTime}><input className={INPUT} placeholder="09:30:15" value={f.entry_time} onChange={(e) => put("entry_time", e.target.value)} /></Field>
                   <Field label={T.exitTime}><input className={INPUT} placeholder="09:34:42" value={f.exit_time} onChange={(e) => put("exit_time", e.target.value)} /></Field>
@@ -575,7 +638,7 @@ export default function JournalPage() {
               </div>
             </Card>
 
-            <Card title={T.execution}>
+            <Card step={2} done={previewPnl !== null && Number.isFinite(previewPnl)} title={T.execution}>
               <div className="mb-4 grid grid-cols-3 gap-2">
                 {["TP", "SL", "BE"].map((outcome) => (
                   <button key={outcome} type="button" onClick={() => setQuickOutcome(outcome)} className={`h-10 rounded-md border text-xs font-extrabold transition ${f.outcome === outcome ? outcome === "TP" ? "border-prism-win bg-[rgba(34,197,94,0.15)] text-prism-win" : outcome === "SL" ? "border-prism-loss bg-[rgba(239,68,68,0.15)] text-prism-loss" : "border-prism-line2 bg-[rgba(138,138,147,0.15)] text-prism-text" : "border-prism-line text-prism-muted hover:text-prism-text"}`}>
@@ -584,20 +647,20 @@ export default function JournalPage() {
                 ))}
               </div>
               <div className="grid grid-cols-2 gap-3">
-                {hasExecution && <>
+                {showFull && <>
                   <Field label={T.entryPrice}><input inputMode="decimal" className={INPUT} placeholder="6500.00" value={f.entry_price} onChange={(e) => put("entry_price", e.target.value)} /></Field>
                   <Field label={T.exitPrice}><input inputMode="decimal" className={INPUT} placeholder="6512.50" value={f.exit_price} onChange={(e) => put("exit_price", e.target.value)} /></Field>
                   <Field label={T.size}><input inputMode="decimal" className={INPUT} placeholder="1" value={f.size} onChange={(e) => put("size", e.target.value)} /></Field>
                 </>}
                 <Field label={T.rr}><input inputMode="decimal" className={INPUT} placeholder="2.5" value={f.r} onChange={(e) => put("r", e.target.value)} /></Field>
-                {hasExecution && <Field label={T.planned}><Money value={f.planned} onChange={(v) => put("planned", v)} placeholder="200" /></Field>}
+                {showFull && <Field label={T.planned}><Money value={f.planned} onChange={(v) => put("planned", v)} placeholder="200" /></Field>}
                 <Field label={<>{T.realized}{computedPnl !== null && f.pnl === "" && <span className="ml-1 normal-case tracking-normal text-prism-accent">· {T.auto}</span>}</>}>
                   <Money value={f.pnl} onChange={(v) => put("pnl", v)} placeholder={computedPnl !== null ? String(computedPnl) : "150"} />
                 </Field>
               </div>
             </Card>
 
-            <Card title={T.context}>
+            <Card step={3} done={Boolean(f.setup)} title={T.context}>
               <div className="grid grid-cols-2 gap-3">
                 <Field label={T.strategy}>
                   <div className="flex gap-2"><select className={INPUT} value={f.setup} onChange={(e) => put("setup", e.target.value)}>
@@ -605,7 +668,7 @@ export default function JournalPage() {
                     {playbooks.map((p) => <option key={p.id} value={p.name}>{p.name}</option>)}
                   </select><Link href="/playbook" className="grid h-10 w-10 shrink-0 place-items-center rounded-md border border-prism-line text-prism-accent hover:border-prism-accent" aria-label={lang === "en" ? "Manage strategies" : "Gérer les stratégies"}><Plus className="h-4 w-4" /></Link></div>
                 </Field>
-                <Field label={T.rating}>
+                {!quick && <Field label={T.rating}>
                   <div className="flex h-10 items-center justify-center gap-1 rounded-md border border-prism-line bg-prism-surface">
                     {[1, 2, 3].map((n) => (
                       <button key={n} type="button" onClick={() => put("rating", f.rating === n ? 0 : n)} aria-label={`${n}`}>
@@ -613,7 +676,7 @@ export default function JournalPage() {
                       </button>
                     ))}
                   </div>
-                </Field>
+                </Field>}
                 <Field label={T.confluences}>
                   <input
                     className={INPUT}
@@ -639,12 +702,12 @@ export default function JournalPage() {
                     ))}
                   </div>
                 )}
-                <Field label={T.rules}>
+                {!quick && <Field label={T.rules}>
                   <select className={INPUT} value={f.followed} onChange={(e) => put("followed", e.target.value)}>
                     <option value="">—</option><option value="yes">{T.yes}</option><option value="no">{T.no}</option>
                   </select>
-                </Field>
-                {hasExecution && (
+                </Field>}
+                {showFull && (
                   <Field label={T.emotions}>
                     <select className={INPUT} value={f.emotions} onChange={(e) => put("emotions", e.target.value)}>
                       <option value="">—</option><option value="yes">{T.yes}</option><option value="no">{T.no}</option>
@@ -656,24 +719,30 @@ export default function JournalPage() {
           </div>
 
           {/* ---------------- Notes + CTA ---------------- */}
-          <div className="flex flex-col gap-4 sm:flex-row sm:items-start sm:justify-between">
-            <div className="w-full sm:max-w-md">
-              <button type="button" onClick={() => setNotesOpen((v) => !v)} className="flex h-10 w-full items-center justify-between rounded-md border border-prism-line px-4 font-mono text-xs text-prism-muted hover:border-prism-line2 hover:text-prism-text sm:w-80">
-                <span className="flex items-center gap-2"><FileText className="h-3.5 w-3.5" />{T.notes}</span><Plus className="h-3.5 w-3.5" />
-              </button>
+          <button type="button" onClick={() => setNotesOpen((v) => !v)} className="flex h-10 w-full items-center justify-between rounded-md border border-prism-line px-4 font-mono text-xs text-prism-muted hover:border-prism-line2 hover:text-prism-text sm:w-80">
+            <span className="flex items-center gap-2"><FileText className="h-3.5 w-3.5" />{f.why ? f.why.slice(0, 32) + (f.why.length > 32 ? "…" : "") : T.notes}</span>{notesOpen ? <ChevronDown className="h-3.5 w-3.5 rotate-180" /> : <Plus className="h-3.5 w-3.5" />}
+          </button>
+          {notesOpen && (
+            <textarea className={`${INPUT} h-28 py-3 font-sans`} placeholder={T.notesPh} maxLength={2000} value={f.why} onChange={(e) => put("why", e.target.value)} />
+          )}
+          <div className="sticky bottom-0 z-20 -mx-4 flex items-center gap-3 border-t border-prism-line bg-black/90 px-4 py-3 backdrop-blur sm:static sm:mx-0 sm:justify-end sm:border-0 sm:bg-transparent sm:p-0 sm:backdrop-blur-none">
+            <div className="min-w-0 flex-1 font-mono text-[11px] sm:flex-none sm:text-right">
+              <p className="truncate font-bold">{f.symbol.trim().toUpperCase() || "—"} <span className={f.dir === "long" ? "text-prism-accent" : "text-prism-loss"}>{f.dir.toUpperCase()}</span>{f.setup && <span className="text-prism-muted"> · {f.setup}</span>}</p>
+              <p className="truncate">
+                <span className={previewPnl > 0 ? "text-prism-win" : previewPnl < 0 ? "text-prism-loss" : "text-prism-muted"}>{previewPnl !== null && Number.isFinite(previewPnl) ? fmtMoney(previewPnl, true) : "$ —"}</span>
+                {Number.isFinite(previewR) && previewR !== 0 && <span className="text-prism-muted"> · {previewR > 0 ? "+" : ""}{previewR}R</span>}
+                <span className="ml-2 hidden text-[9px] text-prism-muted2 sm:inline">{T.shortcut}</span>
+              </p>
             </div>
             <button
               type="button"
               onClick={submit}
               disabled={saving}
-              className="inline-flex h-11 items-center justify-center gap-2 rounded-md bg-prism-accent px-10 text-xs font-extrabold tracking-[.18em] text-black shadow-[0_0_24px_rgba(198,244,50,.35)] transition hover:brightness-110 disabled:opacity-60"
+              className="inline-flex h-11 shrink-0 items-center justify-center gap-2 rounded-md bg-prism-accent px-5 text-xs font-extrabold tracking-[.18em] text-black shadow-[0_0_24px_rgba(198,244,50,.35)] transition hover:brightness-110 disabled:opacity-60 sm:px-10"
             >
               <Plus className="h-4 w-4" />{saving ? T.saving : T.submit}
             </button>
           </div>
-          {notesOpen && (
-            <textarea className={`${INPUT} h-28 py-3 font-sans`} placeholder={T.notesPh} maxLength={2000} value={f.why} onChange={(e) => put("why", e.target.value)} />
-          )}
 
           {/* ---------------- Historique ---------------- */}
           <section>
@@ -687,12 +756,12 @@ export default function JournalPage() {
                   <button key={p} type="button" onClick={() => setPeriod(p)} className={`rounded px-3 py-1 text-[10px] font-bold tracking-[.12em] ${period === p ? "bg-prism-panel2 text-prism-text" : "text-prism-muted hover:text-prism-text"}`}>{T.periods[p]}</button>
                 ))}
               </div>
-              <div className="ml-auto flex gap-2">
+              <div className="flex gap-2 sm:ml-auto">
                 <button type="button" onClick={() => { setSelecting((v) => !v); setSelected([]); }} className={`${GHOST} ${selecting ? "border-prism-accent text-prism-accent" : ""}`}><ListChecks className="h-3.5 w-3.5" />{T.select}</button>
                 <div className="relative">
                   <button type="button" onClick={() => setFilterOpen((v) => !v)} className={`${GHOST} ${hasFilters ? "border-prism-accent text-prism-accent" : ""}`}><Filter className="h-3.5 w-3.5" />{T.filter}</button>
                   {filterOpen && (
-                    <div className="absolute right-0 top-10 z-30 w-64 space-y-3 rounded-lg border border-prism-line bg-prism-panel p-4 shadow-2xl">
+                    <div className="absolute right-0 top-10 z-30 w-[min(16rem,calc(100vw-2rem))] space-y-3 rounded-lg border border-prism-line bg-prism-panel p-4 shadow-2xl">
                       <Field label={T.fSymbol}><input className={INPUT} value={filters.symbol} onChange={(e) => setFilters({ ...filters, symbol: e.target.value })} placeholder="NQ" /></Field>
                       <Field label={T.fDir}>
                         <select className={INPUT} value={filters.dir} onChange={(e) => setFilters({ ...filters, dir: e.target.value })}>
@@ -709,11 +778,31 @@ export default function JournalPage() {
                           <option value="">{T.all}</option><option value="win">{T.win}</option><option value="be">BE</option><option value="loss">{T.loss}</option>
                         </select>
                       </Field>
-                      <button type="button" onClick={() => setFilters({ symbol: "", dir: "", setup: "", result: "" })} className="text-[11px] text-prism-muted hover:text-prism-text">{T.reset}</button>
+                      <button type="button" onClick={resetFilters} className="text-[11px] text-prism-muted hover:text-prism-text">{T.reset}</button>
                     </div>
                   )}
                 </div>
               </div>
+            </div>
+
+            <div className="mb-3 flex flex-col gap-2 sm:flex-row sm:items-center">
+              <label className="relative block min-w-0 flex-1 sm:max-w-xs">
+                <Search className="pointer-events-none absolute left-3 top-1/2 h-3.5 w-3.5 -translate-y-1/2 text-prism-muted" />
+                <input className={`${INPUT} h-9 pl-8`} placeholder={T.search} value={filters.q} onChange={(e) => setFilters({ ...filters, q: e.target.value })} />
+              </label>
+              <div className="flex flex-wrap items-center gap-1.5">
+                {[["", T.all], ["win", T.win], ["be", "BE"], ["loss", T.loss]].map(([value, label]) => (
+                  <button key={label} type="button" onClick={() => setFilters({ ...filters, result: value })} className={`h-8 rounded-md border px-2.5 text-[10px] font-bold tracking-[.1em] ${filters.result === value ? value === "loss" ? "border-prism-loss text-prism-loss" : "border-prism-accent text-prism-accent" : "border-prism-line text-prism-muted hover:text-prism-text"}`}>{label.toUpperCase()}</button>
+                ))}
+              </div>
+              {history.length > 0 && (
+                <div className="flex gap-4 font-mono text-[11px] sm:ml-auto">
+                  <span className="text-prism-muted">{history.length} trade{history.length > 1 ? "s" : ""}</span>
+                  <span className={historyStats.pnl >= 0 ? "text-prism-win" : "text-prism-loss"}>{T.net} {fmtMoney(historyStats.pnl, true)}</span>
+                  <span className={historyStats.r >= 0 ? "text-prism-text" : "text-prism-loss"}>{historyStats.r >= 0 ? "+" : ""}{historyStats.r.toFixed(1)}R</span>
+                  <span className="text-prism-muted">{T.winrateShort} {historyStats.wr.toFixed(0)}%</span>
+                </div>
+              )}
             </div>
 
             {selecting && (
@@ -734,7 +823,41 @@ export default function JournalPage() {
               </div>
             )}
 
-            <div className="overflow-x-auto">
+            <div className="space-y-2 md:hidden">
+              {history.map((t) => {
+                const e = exec(t);
+                const p = Number(t.pnl) || 0;
+                const c = classify(t);
+                const checked = selected.includes(t.id);
+                const shots = [t.screenshot_url, t.screenshot_url_2].filter(Boolean);
+                return (
+                  <article
+                    key={t.id}
+                    onClick={() => (selecting ? setSelected((s) => (checked ? s.filter((x) => x !== t.id) : [...s, t.id])) : setEditing(t))}
+                    className={`flex cursor-pointer gap-3 rounded-lg border bg-prism-panel p-3 transition ${checked ? "border-prism-accent bg-prism-accentDim" : "border-prism-line"} ${c === "win" ? "border-l-2 border-l-prism-win" : c === "loss" ? "border-l-2 border-l-prism-loss" : ""}`}
+                  >
+                    {shots[0] ? (
+                      <button type="button" onClick={(ev) => { ev.stopPropagation(); openShots(t, 0); }} className="h-16 w-20 shrink-0 overflow-hidden rounded border border-prism-line"><img src={shots[0]} alt="" className="h-full w-full object-cover" /></button>
+                    ) : selecting ? (
+                      <span className={`mt-0.5 grid h-5 w-5 shrink-0 place-items-center rounded border ${checked ? "border-prism-accent bg-prism-accent text-black" : "border-prism-line2"}`}>{checked && <Check className="h-3 w-3" />}</span>
+                    ) : null}
+                    <div className="min-w-0 flex-1">
+                      <div className="flex items-start justify-between gap-2">
+                        <p className="truncate text-sm font-bold">{t.symbol} <span className={t.dir === "long" ? "text-prism-accent" : "text-prism-loss"}>{String(t.dir || "").toUpperCase()}</span></p>
+                        <b className={`shrink-0 font-mono text-sm ${c === "be" ? "text-prism-muted" : p > 0 ? "text-prism-win" : "text-prism-loss"}`}>{fmtMoney(p, true)}</b>
+                      </div>
+                      <div className="mt-0.5 flex items-center justify-between gap-2 font-mono text-[10px] text-prism-muted">
+                        <span className="truncate">{frDate(t.date).slice(0, 5)}{e.entry_time ? ` · ${e.entry_time.slice(0, 5)}` : ""} · {t.setup || "—"}</span>
+                        <span className="shrink-0">{Number(t.r) ? `${Number(t.r) > 0 ? "+" : ""}${Number(t.r).toFixed(2)}R` : ""}{t.outcome ? ` · ${t.outcome}` : ""}</span>
+                      </div>
+                      {(t.tags || []).length > 0 && <div className="mt-1.5 flex flex-wrap gap-1">{t.tags.slice(0, 4).map((tg) => <span key={tg} className="rounded border border-prism-line px-1.5 text-[9px] text-prism-muted">{tg}</span>)}</div>}
+                      {t.why && <p className="mt-1 line-clamp-2 text-[11px] text-prism-muted">{t.why}</p>}
+                    </div>
+                  </article>
+                );
+              })}
+            </div>
+            <div className="hidden overflow-x-auto md:block">
               <table className="w-full min-w-[1100px] font-mono text-[11px]">
                 <thead>
                   <tr className="border-b border-prism-line">
@@ -767,7 +890,7 @@ export default function JournalPage() {
                         <td className="max-w-[140px] truncate px-2">{t.setup || "—"}</td>
                         <td className="max-w-[160px] px-2"><div className="flex flex-wrap gap-1">{(t.tags || []).slice(0, 3).map((tg) => <span key={tg} className="rounded border border-prism-line px-1.5 text-[9px]">{tg}</span>)}{!(t.tags || []).length && "—"}</div></td>
                         <td className="px-2">
-                          <div className="flex gap-1">{[t.screenshot_url, t.screenshot_url_2].filter(Boolean).map((url, index) => <button key={url} type="button" onClick={(ev) => { ev.stopPropagation(); setLightbox({ urls: [t.screenshot_url, t.screenshot_url_2].filter(Boolean), index }); }}><img src={url} alt="" className="h-7 w-10 rounded object-cover" /></button>)}{!t.screenshot_url && !t.screenshot_url_2 && "-"}</div>
+                          <div className="flex gap-1">{[t.screenshot_url, t.screenshot_url_2].filter(Boolean).map((url, index) => <button key={url} type="button" onClick={(ev) => { ev.stopPropagation(); openShots(t, index); }}><img src={url} alt="" className="h-7 w-10 rounded object-cover" /></button>)}{!t.screenshot_url && !t.screenshot_url_2 && "-"}</div>
                         </td>
                         <td className="max-w-[200px] truncate px-2 font-sans text-prism-muted">{t.why || "—"}</td>
                       </tr>
@@ -775,10 +898,10 @@ export default function JournalPage() {
                   })}
                 </tbody>
               </table>
-              {history.length === 0 && (
-                <p className="py-12 text-center font-mono text-[11px] tracking-[.1em] text-prism-muted2">{period === "day" && !hasFilters ? T.emptyDay : T.emptyPeriod}</p>
-              )}
             </div>
+            {history.length === 0 && (
+              <p className="py-12 text-center font-mono text-[11px] tracking-[.1em] text-prism-muted2">{period === "day" && !hasFilters ? T.emptyDay : T.emptyPeriod}</p>
+            )}
           </section>
         </div>
       </main>
@@ -803,11 +926,14 @@ export default function JournalPage() {
 /* ------------------------------------------------------------------ */
 /* Sous-composants                                                      */
 /* ------------------------------------------------------------------ */
-function Card({ title, action, children }) {
+function Card({ step, done, title, action, children }) {
   return (
-    <section className="rounded-xl border border-prism-line bg-prism-panel p-6">
-      <div className="mb-5 flex items-center justify-between border-b border-prism-line pb-4">
-        <h2 className="text-[11px] font-bold tracking-[.16em]">{title}</h2>
+    <section className="min-w-0 rounded-xl border border-prism-line bg-prism-panel p-4 sm:p-6">
+      <div className="mb-4 flex items-center justify-between gap-2 border-b border-prism-line pb-3 sm:mb-5 sm:pb-4">
+        <h2 className="flex items-center gap-2 text-[11px] font-bold tracking-[.16em]">
+          {step && <span className={`grid h-5 w-5 place-items-center rounded-full border font-mono text-[9px] ${done ? "border-prism-accent bg-prism-accent text-black" : "border-prism-line2 text-prism-muted"}`}>{done ? <Check className="h-3 w-3" /> : step}</span>}
+          {title}
+        </h2>
         {action}
       </div>
       {children}
@@ -830,7 +956,7 @@ function Money({ value, onChange, placeholder }) {
 
 function Kpi({ label, extra, children }) {
   return (
-    <div className="min-w-0 border-b border-r border-prism-line px-5 py-4 last:border-r-0 sm:border-b-0">
+    <div className="min-w-0 border-b border-r border-prism-line px-4 py-3 even:border-r-0 sm:border-b-0 sm:px-5 sm:py-4 sm:even:border-r sm:last:border-r-0">
       <div className="mb-2 flex items-center justify-between gap-2">
         <span className="text-[9px] font-semibold tracking-[.14em] text-prism-muted">{label}</span>
         {extra}
