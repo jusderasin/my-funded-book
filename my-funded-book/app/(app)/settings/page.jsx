@@ -3,8 +3,6 @@
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
 import { useBook } from "@/components/BookProvider";
-import { AccentPicker } from "@/components/AccentPicker";
-import { ThemePicker } from "@/components/ThemePicker";
 import { PushNotifications } from "@/components/PushNotifications";
 import { ApiTokens } from "@/components/ApiTokens";
 import { createClient } from "@/lib/supabase/client";
@@ -308,10 +306,6 @@ export default function SettingsPage() {
               <PrimaryBtn onClick={save} disabled={saving}>{saving ? t("m_sending") : t("settings_save")}</PrimaryBtn>
             </div>
           </div>
-
-          <ThemePicker profile={profile} saveProfile={saveProfile} lang={lang} />
-
-          <AccentPicker profile={profile} saveProfile={saveProfile} lang={lang} notify={notify} />
 
           <PushNotifications profile={profile} saveProfile={saveProfile} lang={lang} notify={notify} />
 

@@ -1,14 +1,16 @@
 "use client";
 
 import { useEffect, useMemo, useRef, useState } from "react";
-import { useRouter } from "next/navigation";
+import { Maximize2, Minus, Plus, X } from "lucide-react";
+import { LogTradeModal } from "@/components/modals";
 import { fmtMoney, frDate } from "@/lib/format";
 
 /**
  * Galaxie des trades — sphère 3D en canvas (sans dépendance).
  * Chaque trade est une étoile : vert = gain, rouge = perte, taille = |P&L|.
  * Les trades d'un même setup forment une constellation reliée par des lignes.
- * Glisser pour tourner, survoler pour lire, cliquer pour ouvrir le trade.
+ * Glisser pour tourner, molette / pincer / boutons pour zoomer, clic = mini
+ * rapport, double clic = fiche complète du trade (même modale que le journal).
  */
 const LIME = [198, 244, 50];
 const RED = [255, 82, 82];
@@ -23,8 +25,11 @@ function hash(text) {
 export default function TradeGalaxy({ trades, lang = "fr", className = "h-[340px] sm:h-[460px]" }) {
   const canvasRef = useRef(null);
   const wrapRef = useRef(null);
-  const router = useRouter();
+  const zoomRef = useRef({ set: () => {} });
   const [hover, setHover] = useState(null);
+  const [picked, setPicked] = useState(null);
+  const [opened, setOpened] = useState(null);
+  const [zoomLevel, setZoomLevel] = useState(1);
   const en = lang === "en";
 
   // Chaque setup reçoit une « région » du ciel ; ses trades s'y regroupent.
@@ -73,6 +78,16 @@ export default function TradeGalaxy({ trades, lang = "fr", className = "h-[340px
     let pointer = null;
     let projected = [];
     let raf = 0;
+    let zoom = 1;
+    let clickTimer = 0;
+    let lastTap = null;
+    const pointers = new Map();
+    let pinch = null;
+    const setZoom = (value) => {
+      zoom = Math.max(0.6, Math.min(4, value));
+      setZoomLevel(zoom);
+    };
+    zoomRef.current.set = (fn) => setZoom(typeof fn === "function" ? fn(zoom) : fn);
 
     const resize = () => {
       width = wrap.clientWidth;
@@ -97,7 +112,7 @@ export default function TradeGalaxy({ trades, lang = "fr", className = "h-[340px
     const draw = () => {
       frame += 1;
       if (!drag) rotY += velocity;
-      const scale = Math.min(width, height) * 0.36;
+      const scale = Math.min(width, height) * 0.36 * zoom;
       context.clearRect(0, 0, width, height);
 
       // Halo du noyau.
@@ -208,8 +223,33 @@ export default function TradeGalaxy({ trades, lang = "fr", className = "h-[340px
       const rect = canvas.getBoundingClientRect();
       return { x: event.clientX - rect.left, y: event.clientY - rect.top };
     };
-    const onDown = (event) => { pointer = local(event); drag = { ...local(event), rotX, rotY, moved: false }; canvas.setPointerCapture?.(event.pointerId); };
+    const hitAt = (point) => {
+      let best = null;
+      projected.forEach((p) => {
+        const distance = Math.hypot(p.x - point.x, p.y - point.y);
+        if (distance < 16 && (!best || distance < best.distance)) best = { ...p, distance };
+      });
+      return best;
+    };
+    const onDown = (event) => {
+      pointers.set(event.pointerId, local(event));
+      canvas.setPointerCapture?.(event.pointerId);
+      if (pointers.size === 2) {
+        const [a, b] = [...pointers.values()];
+        pinch = { distance: Math.hypot(a.x - b.x, a.y - b.y) || 1, zoom };
+        drag = null;
+        return;
+      }
+      pointer = local(event);
+      drag = { ...local(event), rotX, rotY, moved: false };
+    };
     const onMove = (event) => {
+      if (pointers.has(event.pointerId)) pointers.set(event.pointerId, local(event));
+      if (pinch && pointers.size >= 2) {
+        const [a, b] = [...pointers.values()];
+        setZoom(pinch.zoom * (Math.hypot(a.x - b.x, a.y - b.y) / pinch.distance));
+        return;
+      }
       pointer = local(event);
       if (!drag) return;
       const dx = pointer.x - drag.x;
@@ -219,14 +259,35 @@ export default function TradeGalaxy({ trades, lang = "fr", className = "h-[340px
       rotX = Math.max(-1.2, Math.min(1.2, drag.rotX + dy * 0.008));
     };
     const onUp = (event) => {
+      pointers.delete(event.pointerId);
+      if (pinch) {
+        if (pointers.size < 2) pinch = null;
+        drag = null;
+        return;
+      }
       const wasClick = drag && !drag.moved;
       drag = null;
-      if (wasClick && event.pointerType !== "touch") {
-        const hit = projected.find((p) => Math.hypot(p.x - pointer.x, p.y - pointer.y) < 12);
-        if (hit?.star.trade.id) router.push(`/journal?edit=${hit.star.trade.id}`);
+      if (!wasClick) return;
+      const hit = hitAt(local(event));
+      const now = Date.now();
+      // Double clic / double tap : on ouvre la fiche complète du trade.
+      if (hit && lastTap && lastTap.id === hit.star.trade.id && now - lastTap.at < 320) {
+        clearTimeout(clickTimer);
+        lastTap = null;
+        setPicked(null);
+        setOpened(hit.star.trade);
+        return;
       }
+      lastTap = hit ? { id: hit.star.trade.id, at: now } : null;
+      clearTimeout(clickTimer);
+      clickTimer = setTimeout(() => setPicked(hit ? { star: hit.star, x: hit.x, y: hit.y } : null), hit ? 240 : 0);
     };
     const onLeave = () => { pointer = null; };
+    const onCancel = (event) => { pointers.delete(event.pointerId); if (pointers.size < 2) pinch = null; drag = null; };
+    const onWheel = (event) => {
+      event.preventDefault();
+      setZoom(zoom * Math.exp(-event.deltaY * 0.0015));
+    };
 
     resize();
     draw();
@@ -236,7 +297,12 @@ export default function TradeGalaxy({ trades, lang = "fr", className = "h-[340px
     canvas.addEventListener("pointermove", onMove);
     canvas.addEventListener("pointerup", onUp);
     canvas.addEventListener("pointerleave", onLeave);
+    canvas.addEventListener("pointercancel", onCancel);
+    canvas.addEventListener("wheel", onWheel, { passive: false });
     return () => {
+      clearTimeout(clickTimer);
+      canvas.removeEventListener("pointercancel", onCancel);
+      canvas.removeEventListener("wheel", onWheel);
       cancelAnimationFrame(raf);
       observer.disconnect();
       canvas.removeEventListener("pointerdown", onDown);
@@ -244,7 +310,7 @@ export default function TradeGalaxy({ trades, lang = "fr", className = "h-[340px
       canvas.removeEventListener("pointerup", onUp);
       canvas.removeEventListener("pointerleave", onLeave);
     };
-  }, [stars, clusters, dust, router]);
+  }, [stars, clusters, dust]);
 
   const wins = stars.filter((star) => star.pnl > 0).length;
   return (
@@ -253,7 +319,7 @@ export default function TradeGalaxy({ trades, lang = "fr", className = "h-[340px
       <div className="pointer-events-none absolute left-3 top-3 space-y-1 font-mono text-[10px] text-prism-muted">
         <p><span className="text-prism-accent">●</span> {wins} {en ? "winners" : "gagnants"}</p>
         <p><span className="text-[#ff5252]">●</span> {stars.length - wins} {en ? "losers / BE" : "perdants / BE"}</p>
-        <p className="text-prism-muted2">{en ? "drag · hover · click" : "glisse · survole · clique"}</p>
+        <p className="text-prism-muted2">{en ? "drag · zoom · click · double-click" : "glisse · zoome · clic · double-clic"}</p>
       </div>
       {!stars.length && <p className="absolute inset-0 grid place-items-center text-sm text-prism-muted">{en ? "Log trades to light up your galaxy." : "Logue des trades pour allumer ta galaxie."}</p>}
       {hover && (
@@ -263,6 +329,45 @@ export default function TradeGalaxy({ trades, lang = "fr", className = "h-[340px
           <p className={`mt-0.5 font-mono font-bold ${hover.star.pnl < 0 ? "text-prism-loss" : "text-prism-win"}`}>{fmtMoney(hover.star.pnl)}</p>
         </div>
       )}
+      <div className="absolute bottom-3 right-3 z-10 flex flex-col overflow-hidden rounded-md border border-prism-line bg-black/70 backdrop-blur">
+        <button type="button" onClick={() => zoomRef.current.set((z) => z * 1.25)} className="grid h-8 w-8 place-items-center text-prism-muted hover:text-prism-accent" aria-label="zoom in"><Plus className="h-4 w-4" /></button>
+        <button type="button" onClick={() => zoomRef.current.set(1)} className="grid h-7 w-8 place-items-center border-y border-prism-line font-mono text-[9px] text-prism-muted hover:text-prism-accent" aria-label="reset zoom" title={en ? "Reset" : "Réinitialiser"}>{Math.abs(zoomLevel - 1) < 0.01 ? <Maximize2 className="h-3 w-3" /> : `${zoomLevel.toFixed(1)}x`}</button>
+        <button type="button" onClick={() => zoomRef.current.set((z) => z / 1.25)} className="grid h-8 w-8 place-items-center text-prism-muted hover:text-prism-accent" aria-label="zoom out"><Minus className="h-4 w-4" /></button>
+      </div>
+      {picked && <MiniReport picked={picked} wrap={wrapRef.current} en={en} onClose={() => setPicked(null)} onOpen={() => { setOpened(picked.star.trade); setPicked(null); }} />}
+      {opened && <LogTradeModal editing={opened} onClose={() => setOpened(null)} />}
+    </div>
+  );
+}
+
+// Mini rapport affiché au clic simple sur une étoile.
+function MiniReport({ picked, wrap, en, onClose, onOpen }) {
+  const trade = picked.star.trade;
+  const boxWidth = wrap?.clientWidth || 300;
+  const width = Math.min(260, boxWidth - 16);
+  const height = wrap?.clientHeight || 400;
+  const left = Math.max(8, Math.min(picked.x + 16, boxWidth - width - 8));
+  const top = Math.max(8, Math.min(picked.y - 40, height - (trade.screenshot_url ? 300 : 190)));
+  const pnl = Number(trade.pnl) || 0;
+  const r = Number(trade.r) || 0;
+  const notes = String(trade.why || "").trim();
+  return (
+    <div className="absolute z-20 max-h-[calc(100%-16px)] overflow-y-auto rounded-md border border-prism-accent/40 bg-black/90 text-[11px] shadow-[0_0_40px_-10px_rgba(198,244,50,.6)] backdrop-blur" style={{ left, top, width }}>
+      {trade.screenshot_url && <button type="button" onClick={onOpen} className="block w-full"><img src={trade.screenshot_url} alt="" className="h-28 w-full object-cover" /></button>}
+      <div className="p-3">
+        <div className="flex items-start justify-between gap-2">
+          <p className="font-mono text-prism-muted">{frDate(trade.date)} · {trade.session || "—"}</p>
+          <button type="button" onClick={onClose} className="-mr-1 -mt-1 text-prism-muted hover:text-prism-text" aria-label="close"><X className="h-3.5 w-3.5" /></button>
+        </div>
+        <p className="mt-1 text-sm font-bold text-prism-text">{trade.symbol || "—"} <span className={trade.dir === "short" ? "text-prism-loss" : "text-prism-accent"}>{String(trade.dir || "").toUpperCase()}</span></p>
+        <p className="mt-0.5 truncate text-prism-muted">{picked.star.setup}</p>
+        <div className="mt-2 grid grid-cols-2 gap-2 border-y border-prism-line py-2 font-mono">
+          <span><small className="block text-[9px] text-prism-muted2">P&L</small><b className={pnl < 0 ? "text-prism-loss" : pnl > 0 ? "text-prism-win" : "text-prism-muted"}>{fmtMoney(pnl, true)}</b></span>
+          <span><small className="block text-[9px] text-prism-muted2">R</small><b className={r < 0 ? "text-prism-loss" : "text-prism-text"}>{r ? `${r > 0 ? "+" : ""}${r.toFixed(2)}R` : "—"}</b></span>
+        </div>
+        {notes && <p className="mt-2 line-clamp-3 text-prism-muted">{notes}</p>}
+        <button type="button" onClick={onOpen} className="mt-3 h-8 w-full rounded bg-prism-accent text-[10px] font-extrabold tracking-[.14em] text-black">{en ? "OPEN TRADE" : "OUVRIR LE TRADE"}</button>
+      </div>
     </div>
   );
 }
