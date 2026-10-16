@@ -93,9 +93,10 @@ export default function WelcomePage() {
         <h1>Ton edge ne se devine pas.<br /><em>Il se construit.</em></h1>
         <p>Un système de trading personnel pour mesurer ton exécution, protéger ton capital et transformer tes habitudes en décisions claires.</p>
         <div className="landing-hero-actions">
-          <Link href="/login" className="landing-primary">Construire mon journal <ArrowRight size={18} /></Link>
-          <a href="#method" className="landing-secondary"><MousePointer2 size={16} /> Explorer le système</a>
+          <Link href="/login?tab=signup" className="landing-primary">Essai gratuit 14 jours <ArrowRight size={18} /></Link>
+          <Link href="/demo" className="landing-secondary"><MousePointer2 size={16} /> Voir la démo (sans compte)</Link>
         </div>
+        <p className="landing-trust">14 jours offerts · puis $19/mois ou $149/an · annulable en 1 clic</p>
         <div className="landing-trust"><LockKeyhole size={13} /> Tes données restent privées. Ton journal t&apos;appartient.</div>
       </section>
 
@@ -138,7 +139,7 @@ export default function WelcomePage() {
         <Link href="/login" className="landing-arrow-link" aria-label="Découvrir le cockpit prop"><ArrowRight /></Link>
       </section>
 
-      <section className="landing-final"><div className="landing-kicker"><Zap size={14} /> PRÊT QUAND TU L&apos;ES</div><h2>Le marché ne donne rien.<br /><em>Ton process, si.</em></h2><p>Crée un journal qui travaille autant que toi.</p><Link href="/login" className="landing-primary">Commencer maintenant <ArrowRight size={18} /></Link></section>
+      <section className="landing-final"><div className="landing-kicker"><Zap size={14} /> PRÊT QUAND TU L&apos;ES</div><h2>Le marché ne donne rien.<br /><em>Ton process, si.</em></h2><p>Crée un journal qui travaille autant que toi.</p><Link href="/login?tab=signup" className="landing-primary">Commencer l&apos;essai gratuit <ArrowRight size={18} /></Link></section>
 
       <footer className="landing-footer"><BrandMark compact /><span>MYTRADEBOOK © {new Date().getFullYear()}</span><span>Construit pour les traders qui veulent durer.</span></footer>
     </main>

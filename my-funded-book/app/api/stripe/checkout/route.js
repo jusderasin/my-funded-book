@@ -65,7 +65,7 @@ export async function POST(req) {
       mode: "subscription",
       allow_promotion_codes: true,
       client_reference_id: user.id,
-      success_url: `${site}/dashboard?checkout=success`,
+      success_url: `${site}/pricing?checkout=success`,
       cancel_url: `${site}/pricing?checkout=cancel`,
       subscription_data: {
         trial_period_days: 14,
