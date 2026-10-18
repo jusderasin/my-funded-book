@@ -97,7 +97,7 @@ export default function DashboardPage() {
   const tags = useMemo(() => groupBy(trades, tagsOf).slice(0, 6), [trades]);
   const symbols = useMemo(() => groupBy(trades, (trade) => trade.symbol).slice(0, 6), [trades]);
   const longs = trades.filter((trade) => String(trade.dir || "").toLowerCase() === "long").length;
-  const propAccounts = useMemo(() => accounts.filter((account) => account.status === "active").map((account) => ({ account, health: accountHealth(account, scopedTrades, certificates, lang) })), [accounts, certificates, lang, scopedTrades]);
+  const propAccounts = useMemo(() => accounts.filter((account) => ["active", "funded", "passed"].includes(account.status)).map((account) => ({ account, health: accountHealth(account, scopedTrades, certificates, lang) })), [accounts, certificates, lang, scopedTrades]);
   const sessionOptions = [...new Set(scopedTrades.map((trade) => trade.session).filter(Boolean))];
 
   const kpis = [

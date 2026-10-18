@@ -611,3 +611,10 @@ input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.7); }
 @keyframes brand-beam { 0% { stroke-dashoffset: 40; } 35%, 70% { stroke-dashoffset: 0; } 100% { stroke-dashoffset: -40; } }
 
 @media (prefers-reduced-motion: reduce) { .fx-seen:not(.fx-in) { opacity: 1; transform: none; } .brand-beam { animation: none; stroke-dashoffset: 0; } }
+
+/* Équipe PRISM : respiration des avatars et anneau de l'agent actif. */
+.agent-idle { animation: agent-bob 3.2s ease-in-out infinite; transform-origin: 50% 100%; }
+.agent-ring { animation: agent-ring 2.4s ease-out infinite; transform-origin: 32px 60px; }
+@keyframes agent-bob { 0%, 100% { transform: translateY(0); } 50% { transform: translateY(-2px); } }
+@keyframes agent-ring { 0% { opacity: .9; transform: scale(.7); } 100% { opacity: 0; transform: scale(1.25); } }
+@media (prefers-reduced-motion: reduce) { .agent-idle, .agent-ring { animation: none; } }

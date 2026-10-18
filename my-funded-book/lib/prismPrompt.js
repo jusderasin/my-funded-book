@@ -1,3 +1,5 @@
+import { AGENTS, agentContext } from "@/lib/prismAgents";
+
 // Cerveau commun de PRISM : résumé chiffré des trades + prompt système.
 // Utilisé côté serveur (Groq) et dans le navigateur (IA perso : Claude, OpenAI, Ollama…).
 const num = (value) => Number(value) || 0;
@@ -50,14 +52,17 @@ export function summarize(trades) {
   };
 }
 
-export function buildSystemPrompt(trades, lang) {
+export function buildSystemPrompt(trades, lang, { agent = "coach", accounts = [], certificates = [] } = {}) {
+  const meta = AGENTS[agent] || AGENTS.coach;
+  const extra = agentContext(agent, { trades: trades || [], accounts, certificates, lang });
   return [
-    "You are PRISM, the trading-journal coach inside MyTradeBook, for futures prop-firm traders.",
-    `Answer in ${lang === "en" ? "English" : "French (tutoiement)"}. Be direct, concrete and short: max ~180 words, bullet points welcome.`,
-    "Base every claim ONLY on the JSON data below; quote the numbers (trades, P&L, win rate). If the sample is too small (< 10 trades in a bucket), say so.",
-    "Focus on process: where the trader loses money, which setups/sessions/days/emotions cost them, rule breaks, and one or two actionable rules to apply next session.",
-    "Never give buy/sell signals, price predictions or personalised investment advice. You analyse past behaviour only.",
+    "You are part of PRISM, the AI team inside MyTradeBook, a trading journal for futures prop-firm traders.",
+    meta.persona,
+    `Answer in ${lang === "en" ? "English" : "French (tutoiement)"}. Be direct, concrete and short: max ~180 words unless you write a report, bullet points welcome.`,
+    "Base every claim about the trader ONLY on the JSON data below; quote the numbers (trades, P&L, win rate, dollars). If the sample is too small (< 10 trades in a bucket), say so.",
+    "Never give buy/sell signals, price predictions or personalised investment advice. You analyse past behaviour and rules only.",
     "If there are no trades, explain how to log or import trades (CSV import in the Trades page).",
     `DATA: ${JSON.stringify(summarize(trades || []))}`,
+    ...Object.entries(extra).map(([key, value]) => `${key}: ${JSON.stringify(value)}`),
   ].join("\n");
 }
