@@ -24,7 +24,18 @@ const PERIODS = [
 const TABS = [
   ["overview", "Vue d'ensemble", "Overview"], ["time", "Temps", "Time"], ["setups", "Setups", "Setups"],
   ["risk", "Risque", "Risk"], ["discipline", "Discipline", "Discipline"], ["compare", "Comparaison", "Compare"],
+  ["payouts", "Payouts & argent réel", "Payouts & real money"],
 ];
+
+// Phase d'un trade : challenge (éval), compte financé (argent réel) ou sans compte.
+// Un compte funded ne compte en « réel » qu'à partir de sa date de passage funded.
+function phaseOf(trade, fundedMap) {
+  if (!trade.account_id) return "none";
+  const info = fundedMap[trade.account_id];
+  if (!info) return "none";
+  if (info.funded && (!info.from || String(trade.date) >= String(info.from))) return "funded";
+  return "eval";
+}
 const DAYS_FR = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 const DAYS_EN = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
 
@@ -106,7 +117,7 @@ function YesNoCompare({ title, rows, en }) {
 /* ------------------------------------------------------------------ */
 
 export default function ReportsPage() {
-  const { trades, accounts, activeAccountId, profile, certificates, lang } = useBook();
+  const { trades, accounts, activeAccountId, profile, certificates, expenses = [], lang } = useBook();
   const en = lang === "en";
   const beThreshold = Math.max(0, Number(profile?.be_threshold) || 0);
   const DAYS = en ? DAYS_EN : DAYS_FR;
@@ -114,13 +125,20 @@ export default function ReportsPage() {
   const [tab, setTab] = useState("overview");
   const [period, setPeriod] = useState("month");
   const [custom, setCustom] = useState({ from: "", to: "" });
-  const [f, setF] = useState({ account: "", symbol: "", dir: "", setup: "", session: "", outcome: "" });
+  const [f, setF] = useState({ account: "", symbol: "", dir: "", setup: "", session: "", outcome: "", phase: "" });
   const setFilter = (k, v) => setF((s) => ({ ...s, [k]: v }));
-  const reset = () => { setPeriod("month"); setCustom({ from: "", to: "" }); setF({ account: "", symbol: "", dir: "", setup: "", session: "", outcome: "" }); };
+  const reset = () => { setPeriod("month"); setCustom({ from: "", to: "" }); setF({ account: "", symbol: "", dir: "", setup: "", session: "", outcome: "", phase: "" }); };
 
   const all = trades || [];
   const range = periodRange(period, new Date(), custom);
-  const list = useMemo(() => filterTrades(all, { ...f, range }), [all, f, range.from, range.to]); // eslint-disable-line react-hooks/exhaustive-deps
+  const fundedMap = useMemo(() => Object.fromEntries((accounts || []).map((a) => {
+    const health = accountHealth(a, all, certificates, lang);
+    return [a.id, { funded: !!health.isFunded, from: health.fundedFrom || null }];
+  })), [accounts, all, certificates, lang]);
+  const list = useMemo(
+    () => filterTrades(all, { ...f, range }).filter((t) => !f.phase || phaseOf(t, fundedMap) === f.phase),
+    [all, f, range.from, range.to, fundedMap] // eslint-disable-line react-hooks/exhaustive-deps
+  );
   const account = accounts.find((a) => a.id === f.account) || null;
   const k = useMemo(() => kpis(list, { beThreshold, startBalance: Number(account?.size) || 0 }), [list, beThreshold, account]);
 
@@ -173,6 +191,12 @@ export default function ReportsPage() {
             <option value="">{en ? "All accounts" : "Tous les comptes"}</option>
             {accounts.map((a) => <option key={a.id} value={a.id}>{a.note || a.firm} · ${Number(a.size || 0).toLocaleString("en-US")}</option>)}
           </select>
+          <select className={`${SELECT} ${f.phase ? "border-prism-accent text-prism-accent" : ""}`} value={f.phase} onChange={(e) => setFilter("phase", e.target.value)}>
+            <option value="">{en ? "Challenge + funded" : "Challenge + funded"}</option>
+            <option value="funded">{en ? "Funded only (real money)" : "Funded seulement (argent réel)"}</option>
+            <option value="eval">{en ? "Challenges only" : "Challenges seulement"}</option>
+            <option value="none">{en ? "No account" : "Sans compte"}</option>
+          </select>
           <select className={SELECT} value={f.symbol} onChange={(e) => setFilter("symbol", e.target.value)}>
             <option value="">{en ? "All symbols" : "Tous les symboles"}</option>
             {options.symbol.map((s) => <option key={s} value={s}>{s}</option>)}
@@ -206,7 +230,17 @@ export default function ReportsPage() {
         ))}
       </nav>
 
-      {!list.length && tab !== "compare" ? (
+      {f.phase && tab !== "payouts" && (
+        <p className="mb-4 rounded-lg border border-prism-line bg-prism-panel px-3 py-2 text-[11px] text-prism-muted">
+          {f.phase === "funded" ? (en ? "Funded accounts only, from the day each one was funded: this is the P&L that can become real money." : "Comptes funded uniquement, à partir du jour où chacun est passé funded : c'est le P&L qui peut devenir de l'argent réel.")
+            : f.phase === "eval" ? (en ? "Challenge (evaluation) trades only: this P&L passes accounts, it is not withdrawable." : "Trades de challenge (évaluation) uniquement : ce P&L sert à valider, il n'est pas retirable.")
+            : (en ? "Trades not linked to any account." : "Trades rattachés à aucun compte.")}
+        </p>
+      )}
+
+      {tab === "payouts" ? (
+        <PayoutsTab certificates={certificates || []} expenses={expenses} accounts={accounts || []} all={all} fundedMap={fundedMap} en={en} />
+      ) : !list.length && tab !== "compare" ? (
         <Panel><Empty>{en ? "No trade matches these filters." : "Aucun trade ne correspond à ces filtres."}</Empty></Panel>
       ) : (
         <>
@@ -579,6 +613,84 @@ function DisciplineTab({ list, en, beThreshold }) {
 /* ------------------------------------------------------------------ */
 /*  6. Comparaison                                                      */
 /* ------------------------------------------------------------------ */
+
+// Argent réel : payouts encaissés, frais de challenges, net, par année.
+function PayoutsTab({ certificates, expenses, accounts, all, fundedMap, en }) {
+  const year = (date) => String(date || "").slice(0, 4);
+  const payouts = certificates.filter((c) => c.type === "payout").sort((a, b) => String(b.date).localeCompare(String(a.date)));
+  const years = [...new Set([...payouts.map((c) => year(c.date)), ...expenses.map((e) => year(e.date)), String(new Date().getFullYear())])].filter(Boolean).sort().reverse();
+  const sumBy = (rows, y) => rows.filter((r) => !y || year(r.date) === y).reduce((s, r) => s + (Number(r.amount) || 0), 0);
+  const fundedPnl = (y) => all.filter((t) => phaseOf(t, fundedMap) === "funded" && (!y || year(t.date) === y)).reduce((s, t) => s + pnlOf(t), 0);
+  const evalPnl = (y) => all.filter((t) => phaseOf(t, fundedMap) === "eval" && (!y || year(t.date) === y)).reduce((s, t) => s + pnlOf(t), 0);
+  const byFirm = {};
+  payouts.forEach((c) => { byFirm[c.firm] = (byFirm[c.firm] || 0) + (Number(c.amount) || 0); });
+  const totalPayouts = sumBy(payouts);
+  const totalFees = sumBy(expenses);
+  const passed = certificates.filter((c) => c.type === "eval_passed").length;
+  const accountName = (id) => { const a = accounts.find((x) => x.id === id); return a ? (a.note || a.firm) : null; };
+
+  return (
+    <div className="space-y-4">
+      <div className="grid grid-cols-2 gap-2.5 lg:grid-cols-4">
+        <Kpi label={en ? "Payouts received (all time)" : "Payouts encaissés (total)"} value={money(totalPayouts)} sub={`${payouts.length} payout(s)`} color={totalPayouts > 0 ? "text-prism-win" : undefined} />
+        <Kpi label={en ? "Challenge fees" : "Frais de challenges"} value={money(-totalFees)} sub={`${expenses.length} ${en ? "expense(s)" : "dépense(s)"}`} color={totalFees > 0 ? "text-prism-loss" : undefined} />
+        <Kpi label={en ? "Real net" : "Net réel"} value={money(totalPayouts - totalFees, { sign: true })} sub={en ? "payouts − fees" : "payouts − frais"} color={tone(totalPayouts - totalFees)} />
+        <Kpi label={en ? "Challenges passed" : "Challenges validés"} value={String(passed)} sub={en ? "certificates" : "certificats"} />
+      </div>
+
+      <Panel title={en ? "Year by year" : "Année par année"}>
+        <div className="overflow-x-auto">
+          <table className="w-full min-w-[620px] text-left font-mono text-[11px]">
+            <thead><tr className="border-b border-prism-line text-[9px] uppercase tracking-[.12em] text-prism-muted2">
+              {[en ? "Year" : "Année", en ? "Payouts" : "Payouts", en ? "Fees" : "Frais", en ? "Real net" : "Net réel", en ? "Funded P&L" : "P&L funded", en ? "Challenge P&L" : "P&L challenges"].map((h) => <th key={h} className="px-2 py-2.5">{h}</th>)}
+            </tr></thead>
+            <tbody>
+              {years.map((y) => {
+                const p = sumBy(payouts, y);
+                const fee = sumBy(expenses, y);
+                return (
+                  <tr key={y} className="border-b border-prism-line/60 last:border-0">
+                    <td className="px-2 py-2.5 font-bold text-prism-text">{y}</td>
+                    <td className="px-2 py-2.5 text-prism-win">{money(p)}</td>
+                    <td className="px-2 py-2.5 text-prism-loss">{fee ? money(-fee) : "—"}</td>
+                    <td className={`px-2 py-2.5 font-bold ${tone(p - fee)}`}>{money(p - fee, { sign: true })}</td>
+                    <td className={`px-2 py-2.5 ${tone(fundedPnl(y))}`}>{money(fundedPnl(y), { sign: true })}</td>
+                    <td className={`px-2 py-2.5 text-prism-muted`}>{money(evalPnl(y), { sign: true })}</td>
+                  </tr>
+                );
+              })}
+            </tbody>
+          </table>
+        </div>
+        <p className="mt-3 text-[10px] text-prism-muted2">{en ? "Only payouts are money in your pocket. Funded P&L is withdrawable in theory; challenge P&L only passes accounts." : "Seuls les payouts sont de l'argent dans ta poche. Le P&L funded est retirable en théorie ; le P&L de challenge sert seulement à valider."}</p>
+      </Panel>
+
+      <div className="grid gap-4 lg:grid-cols-2">
+        <Panel title={en ? "Payouts by firm" : "Payouts par prop firm"}>
+          {Object.keys(byFirm).length ? (
+            <div className="space-y-2 text-xs">
+              {Object.entries(byFirm).sort((a, b) => b[1] - a[1]).map(([firm, amount]) => (
+                <div key={firm} className="flex justify-between border-b border-prism-line/60 pb-2 last:border-0"><span className="text-prism-muted">{firm}</span><b className="font-mono text-prism-win">{money(amount)}</b></div>
+              ))}
+            </div>
+          ) : <Empty>{en ? "No payout yet. Add one from the Funded page." : "Aucun payout pour l'instant. Ajoute-le depuis la page Funded."}</Empty>}
+        </Panel>
+        <Panel title={en ? "Payout history" : "Historique des payouts"}>
+          {payouts.length ? (
+            <div className="max-h-72 space-y-2 overflow-y-auto text-xs">
+              {payouts.map((c) => (
+                <div key={c.id} className="flex items-center justify-between gap-3 border-b border-prism-line/60 pb-2 last:border-0">
+                  <span className="min-w-0"><b className="block truncate text-prism-text">{accountName(c.account_id) || c.firm}</b><span className="font-mono text-[10px] text-prism-muted">{c.date}{c.note ? ` · ${c.note}` : ""}</span></span>
+                  <b className="font-mono text-prism-win">{money(Number(c.amount) || 0)}</b>
+                </div>
+              ))}
+            </div>
+          ) : <Empty>—</Empty>}
+        </Panel>
+      </div>
+    </div>
+  );
+}
 
 function CompareTab({ all, filters, en, beThreshold }) {
   const [kind, setKind] = useState("month");
