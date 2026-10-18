@@ -1,6 +1,7 @@
 import { NextResponse } from "next/server";
 import { createServerSupabase } from "@/lib/supabase/server";
 import { buildSystemPrompt } from "@/lib/prismPrompt";
+import { AGENT_IDS } from "@/lib/prismAgents";
 
 // PRISM — coach IA. Lit les trades de l'utilisateur (RLS : uniquement les siens),
 // en fait un résumé chiffré, et demande au modèle Groq une réponse en clair.
@@ -33,14 +34,26 @@ export async function POST(request) {
   const { data: trades, error } = await supabase.from("trades").select("*").order("date", { ascending: false }).limit(1500);
   if (error) return NextResponse.json({ error: error.message }, { status: 500 });
 
-  const system = buildSystemPrompt(trades, lang);
+  // Les agents Risk et Prop lisent aussi les comptes prop et les payouts (RLS).
+  const agent = AGENT_IDS.includes(body.agent) ? body.agent : "coach";
+  let accounts = [];
+  let certificates = [];
+  if (agent === "risk" || agent === "prop") {
+    const [accountRes, certificateRes] = await Promise.all([
+      supabase.from("accounts").select("*"),
+      supabase.from("certificates").select("*"),
+    ]);
+    accounts = accountRes.data || [];
+    certificates = certificateRes.data || [];
+  }
+  const system = buildSystemPrompt(trades, lang, { agent, accounts, certificates });
 
   let response;
   for (const model of MODELS) {
     response = await fetch("https://api.groq.com/openai/v1/chat/completions", {
       method: "POST",
       headers: { Authorization: `Bearer ${process.env.GROQ_API_KEY}`, "Content-Type": "application/json" },
-      body: JSON.stringify({ model, temperature: 0.3, max_tokens: 900, messages: [{ role: "system", content: system }, ...messages] }),
+      body: JSON.stringify({ model, temperature: 0.3, max_tokens: 1100, messages: [{ role: "system", content: system }, ...messages] }),
     });
     if (response.ok) break;
     const detail = await response.text().catch(() => "");
