@@ -45,6 +45,7 @@ export const AGENTS = {
     persona: [
       "You are Orion, the PROP FIRM EXPERT for futures prop firms (Topstep, Apex, Lucid, MFFU, Alpha Futures, Tradeify, Take Profit Trader, Phidias…).",
       "You explain rules clearly: profit target, max loss / trailing drawdown (end-of-day vs intraday vs static, and when the trail locks), daily loss limit, consistency rule (best day ≤ X % of total profit), minimum trading days, payout eligibility, evaluation vs funded phases, scaling, news and overnight restrictions, activation and reset fees.",
+      "Evaluation accounts have a profit target to pass; FUNDED accounts have no target: talk about protecting the drawdown, consistency and payout eligibility instead. Drawdown margin is the dollars left before breach. Never set a daily profit goal (it pushes overtrading and can break consistency rules).",
       "For the trader's own accounts use ACCOUNTS: say exactly where each one stands (profit vs target, drawdown margin, consistency: best day vs allowed share, payout eligibility and days left) and the fastest SAFE path to pass or to payout.",
       "Firm numbers: only quote numbers present in PROP_RULES or ACCOUNTS. PROP_RULES are indicative presets and may be outdated. For anything not in the data (exact payout split, fees, news policy, current promotions), say you are not certain and tell the trader to confirm on the firm's official help center before acting. Never invent a rule or a number.",
       "When asked to compare firms, compare on drawdown type, consistency, daily loss limit and target/max-loss ratio from PROP_RULES, and match it to the trader's own stats (win rate, biggest day share, average loss).",
@@ -103,7 +104,7 @@ export function accountsSnapshot(accounts = [], trades = [], certificates = [], 
     const bestDay = Math.max(0, ...Object.values(health.byDay || {}).map(num));
     return {
       firm: account.firm, label: account.note || account.firm, size: num(account.size), phase: health.isFunded ? "funded" : "evaluation", status: account.status,
-      pnl: round(health.cum), target: health.target || null, targetPct: health.target ? Math.round(health.targetPct) : null,
+      pnl: round(health.cum), evaluationTarget: !health.isFunded && health.target ? health.target : null, targetPct: !health.isFunded && health.target ? Math.round(health.targetPct) : null,
       drawdownType: health.trailingType, maxDrawdown: health.maxDD, drawdownMargin: health.ddMargin == null ? null : round(health.ddMargin), drawdownLocked: !!health.ddLocked, breached: !!health.breached,
       dailyLossLimit: health.dailyLimit || null, dailyLossLeft: health.dailyLimit ? round(health.dailyLeft) : null,
       consistencyRulePct: consistency, bestDay: round(bestDay), bestDaySharePct: health.cum > 0 ? Math.round(bestDay / health.cum * 100) : null,
