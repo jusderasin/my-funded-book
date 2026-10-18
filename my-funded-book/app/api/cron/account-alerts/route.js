@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import webpush from "web-push";
 import { createAdminSupabase } from "@/lib/supabase/server";
 import { accountHealth } from "@/lib/accountHealth";
+import { isMissed } from "@/lib/journalKit";
 
 export const dynamic = "force-dynamic";
 
@@ -27,7 +28,7 @@ export async function GET(request) {
   for (const profile of profiles || []) {
     const preferences = { risk: true, payout: true, ...(profile.notification_settings || {}) };
     const userAccounts = (accounts || []).filter((account) => account.user_id === profile.id);
-    const userTrades = (trades || []).filter((trade) => trade.user_id === profile.id);
+    const userTrades = (trades || []).filter((trade) => trade.user_id === profile.id && !isMissed(trade));
     const messages = userAccounts.flatMap((account) => {
       const health = accountHealth(account, userTrades, certificates || [], "fr");
       const isFunded = account.type === "funded" || account.status === "funded" || account.status === "passed";

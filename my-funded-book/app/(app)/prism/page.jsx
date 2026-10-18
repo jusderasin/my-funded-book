@@ -31,7 +31,7 @@ function RichText({ text }) {
 }
 
 export default function PrismPage() {
-  const { lang, scopedTrades, accounts = [], certificates = [] } = useBook();
+  const { lang, scopedTrades, missedTrades = [], accounts = [], certificates = [] } = useBook();
   const en = lang === "en";
   const [messages, setMessages] = useState([]);
   const [input, setInput] = useState("");
@@ -82,7 +82,7 @@ export default function PrismPage() {
         reply = json.reply;
       } else {
         if (provider.needsKey && !config.key) throw new Error(en ? "Add your API key in the AI settings." : "Ajoute ta clé API dans les réglages IA.");
-        reply = await callProvider(config, buildSystemPrompt(scopedTrades, lang, { agent, accounts, certificates }), history);
+        reply = await callProvider(config, buildSystemPrompt([...scopedTrades, ...missedTrades], lang, { agent, accounts, certificates }), history);
       }
       setMessages([...next, { role: "assistant", content: reply || "…", via: provider.label, agent }]);
     } catch (error) {
