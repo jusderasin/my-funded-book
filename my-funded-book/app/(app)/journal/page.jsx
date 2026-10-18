@@ -18,6 +18,7 @@ import {
 } from "lucide-react";
 import { useBook } from "@/components/BookProvider";
 import { LogTradeModal } from "@/components/modals";
+import { isMistakeTag, needsReview, MISSED_TAG } from "@/lib/journalKit";
 import { ImportCsvModal } from "@/components/ImportCsvModal";
 import { FillsImportModal } from "@/components/FillsImportModal";
 import { ConfirmModal } from "@/components/prism/TerminalPrimitives";
@@ -154,7 +155,7 @@ const emptyForm = () => ({
 
 export default function JournalPage() {
   const {
-    lang, profile, scopedTrades, trades, playbooks, accounts,
+    lang, profile, scopedTrades, missedTrades = [], trades, playbooks, accounts,
     addTrade, updateTrade, deleteTrade, dailyReviews, saveDailyReview, notify,
   } = useBook();
   const T = TXT[lang === "en" ? "en" : "fr"];
@@ -340,14 +341,17 @@ export default function JournalPage() {
 
   const history = useMemo(() => {
     const [ws, we] = weekBounds(date);
-    return scopedTrades.filter((t) => {
+    // « Ratés » lit les setups non pris, gardés hors des stats.
+    const source = filters.result === "missed" ? missedTrades : scopedTrades;
+    return source.filter((t) => {
       if (period === "day" && t.date !== date) return false;
       if (period === "week" && (t.date < ws || t.date > we)) return false;
       if (period === "month" && !String(t.date).startsWith(date.slice(0, 7))) return false;
       if (filters.symbol && !String(t.symbol || "").toUpperCase().includes(filters.symbol.toUpperCase())) return false;
       if (filters.dir && t.dir !== filters.dir) return false;
       if (filters.setup && t.setup !== filters.setup) return false;
-      if (filters.result && classify(t) !== filters.result) return false;
+      if (filters.result === "review" && !needsReview(t)) return false;
+      if (filters.result && !["missed", "review"].includes(filters.result) && classify(t) !== filters.result) return false;
       if (filters.q) {
         const needle = filters.q.toLowerCase();
         const hay = [t.symbol, t.setup, t.why, ...(t.tags || [])].filter(Boolean).join(" ").toLowerCase();
@@ -355,7 +359,7 @@ export default function JournalPage() {
       }
       return true;
     });
-  }, [scopedTrades, period, date, filters, beThreshold]);
+  }, [scopedTrades, missedTrades, period, date, filters, beThreshold]);
 
   const historyStats = useMemo(() => {
     let pnl = 0, r = 0, w = 0;
@@ -854,7 +858,7 @@ export default function JournalPage() {
                       </Field>
                       <Field label={T.fResult}>
                         <select className={INPUT} value={filters.result} onChange={(e) => setFilters({ ...filters, result: e.target.value })}>
-                          <option value="">{T.all}</option><option value="win">{T.win}</option><option value="be">BE</option><option value="loss">{T.loss}</option>
+                          <option value="">{T.all}</option><option value="win">{T.win}</option><option value="be">BE</option><option value="loss">{T.loss}</option><option value="missed">{lang === "en" ? "Missed" : "Ratés"}</option><option value="review">{lang === "en" ? "To review" : "À revoir"}</option>
                         </select>
                       </Field>
                       <button type="button" onClick={resetFilters} className="text-[11px] text-prism-muted hover:text-prism-text">{T.reset}</button>
@@ -870,7 +874,7 @@ export default function JournalPage() {
                 <input className={`${INPUT} h-9 pl-8`} placeholder={T.search} value={filters.q} onChange={(e) => setFilters({ ...filters, q: e.target.value })} />
               </label>
               <div className="flex flex-wrap items-center gap-1.5">
-                {[["", T.all], ["win", T.win], ["be", "BE"], ["loss", T.loss]].map(([value, label]) => (
+                {[["", T.all], ["win", T.win], ["be", "BE"], ["loss", T.loss], ["missed", lang === "en" ? "Missed" : "Ratés"], ["review", lang === "en" ? "To review" : "À revoir"]].map(([value, label]) => (
                   <button key={label} type="button" onClick={() => setFilters({ ...filters, result: value })} className={`h-8 rounded-md border px-2.5 text-[10px] font-bold tracking-[.1em] ${filters.result === value ? value === "loss" ? "border-prism-loss text-prism-loss" : "border-prism-accent text-prism-accent" : "border-prism-line text-prism-muted hover:text-prism-text"}`}>{label.toUpperCase()}</button>
                 ))}
               </div>
@@ -929,7 +933,11 @@ export default function JournalPage() {
                         <span className="truncate">{frDate(t.date).slice(0, 5)}{e.entry_time ? ` · ${e.entry_time.slice(0, 5)}` : ""} · {t.setup || "—"}</span>
                         <span className="shrink-0">{Number(t.r) ? `${Number(t.r) > 0 ? "+" : ""}${Number(t.r).toFixed(2)}R` : ""}{t.outcome ? ` · ${t.outcome}` : ""}</span>
                       </div>
-                      {(t.tags || []).length > 0 && <div className="mt-1.5 flex flex-wrap gap-1">{t.tags.slice(0, 4).map((tg) => <span key={tg} className="rounded border border-prism-line px-1.5 text-[9px] text-prism-muted">{tg}</span>)}</div>}
+                      <div className="mt-1.5 flex flex-wrap gap-1">
+                        {(t.tags || []).includes(MISSED_TAG) && <span className="rounded border border-amber-400/60 px-1.5 text-[9px] font-bold text-amber-300">{lang === "en" ? "MISSED" : "RATÉ"}</span>}
+                        {needsReview(t) && <span className="rounded border border-prism-accent/50 px-1.5 text-[9px] font-bold text-prism-accent">{lang === "en" ? "TO REVIEW" : "À REVOIR"}</span>}
+                        {(t.tags || []).filter((tg) => tg !== MISSED_TAG).slice(0, 4).map((tg) => <span key={tg} className={`rounded border px-1.5 text-[9px] ${isMistakeTag(tg) ? "border-prism-loss/50 text-prism-loss" : "border-prism-line text-prism-muted"}`}>{tg}</span>)}
+                      </div>
                       {t.why && <p className="mt-1 line-clamp-2 text-[11px] text-prism-muted">{t.why}</p>}
                     </div>
                     {!selecting && <button type="button" onClick={(ev) => { ev.stopPropagation(); duplicate(t); }} className="grid h-8 w-8 shrink-0 place-items-center self-center rounded-md border border-prism-line text-prism-muted hover:border-prism-accent hover:text-prism-accent" aria-label={T.duplicate} title={T.duplicate}><Copy className="h-3.5 w-3.5" /></button>}
@@ -968,7 +976,7 @@ export default function JournalPage() {
                         <td className={`px-2 font-bold ${classify(t) === "be" ? "text-prism-muted" : p > 0 ? "text-prism-win" : "text-prism-loss"}`}>{fmtMoney(p, true)} {t.outcome && <span className="ml-1 rounded border border-current px-1 text-[8px]">{t.outcome}</span>}</td>
                         <td className="px-2">{Number(t.r) ? Number(t.r).toFixed(2) : "—"}</td>
                         <td className="max-w-[140px] truncate px-2">{t.setup || "—"}</td>
-                        <td className="max-w-[160px] px-2"><div className="flex flex-wrap gap-1">{(t.tags || []).slice(0, 3).map((tg) => <span key={tg} className="rounded border border-prism-line px-1.5 text-[9px]">{tg}</span>)}{!(t.tags || []).length && "—"}</div></td>
+                        <td className="max-w-[160px] px-2"><div className="flex flex-wrap gap-1">{(t.tags || []).includes(MISSED_TAG) && <span className="rounded border border-amber-400/60 px-1.5 text-[9px] font-bold text-amber-300">{lang === "en" ? "MISSED" : "RATÉ"}</span>}{needsReview(t) && <span className="rounded border border-prism-accent/50 px-1.5 text-[9px] font-bold text-prism-accent">{lang === "en" ? "REVIEW" : "À REVOIR"}</span>}{(t.tags || []).filter((tg) => tg !== MISSED_TAG).slice(0, 3).map((tg) => <span key={tg} className={`rounded border px-1.5 text-[9px] ${isMistakeTag(tg) ? "border-prism-loss/50 text-prism-loss" : "border-prism-line"}`}>{tg}</span>)}{!(t.tags || []).length && !needsReview(t) && "—"}</div></td>
                         <td className="px-2">
                           <div className="flex gap-1">{[t.screenshot_url, t.screenshot_url_2].filter(Boolean).map((url, index) => <button key={url} type="button" onClick={(ev) => { ev.stopPropagation(); openShots(t, index); }}><img src={url} alt="" className="h-7 w-10 rounded object-cover" /></button>)}{!t.screenshot_url && !t.screenshot_url_2 && "-"}</div>
                         </td>

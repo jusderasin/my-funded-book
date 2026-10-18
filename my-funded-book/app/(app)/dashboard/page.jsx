@@ -11,6 +11,7 @@ import { EmptyState, ProgressBar } from "@/components/prism/TerminalPrimitives";
 import { fmtMoney, fmtR, frDate } from "@/lib/format";
 import { accountHealth } from "@/lib/accountHealth";
 import { computeStats } from "@/lib/stats";
+import { advancedStats, missedSummary } from "@/lib/journalKit";
 
 const average = (values) => values.length ? values.reduce((sum, value) => sum + value, 0) / values.length : 0;
 const pnlOf = (trade) => Number(trade.pnl) || 0;
@@ -49,7 +50,7 @@ function groupBy(trades, keyOf) {
 const tagsOf = (trade) => Array.isArray(trade.tags) ? trade.tags : String(trade.tags || "").split(",").map((tag) => tag.trim());
 
 export default function DashboardPage() {
-  const { scopedTrades, accounts, certificates, profile, lang, demo } = useBook();
+  const { scopedTrades, missedTrades = [], accounts, certificates, profile, lang, demo } = useBook();
   const [range, setRange] = useState("all");
   const [dir, setDir] = useState("all");
   const [session, setSession] = useState("all");
@@ -100,12 +101,22 @@ export default function DashboardPage() {
   const propAccounts = useMemo(() => accounts.filter((account) => ["active", "funded", "passed"].includes(account.status)).map((account) => ({ account, health: accountHealth(account, scopedTrades, certificates, lang) })), [accounts, certificates, lang, scopedTrades]);
   const sessionOptions = [...new Set(scopedTrades.map((trade) => trade.session).filter(Boolean))];
 
+  const adv = useMemo(() => advancedStats(trades), [trades]);
+  const missed = useMemo(() => missedSummary(missedTrades), [missedTrades]);
+  const rankRows = [["first", en ? "1st trade of the day" : "1er trade du jour"], ["second", en ? "2nd trade" : "2e trade"], ["later", en ? "3rd and more" : "3e et plus"]]
+    .map(([key, label]) => ({ key: label, count: adv.rank[key].trades, pnl: adv.rank[key].pnl }))
+    .filter((row) => row.count);
+  const mistakeRows = Object.entries(adv.mistakes).map(([key, row]) => ({ key, count: row.trades, pnl: row.pnl })).sort((a, b) => a.pnl - b.pnl).slice(0, 6);
+  const hourRows = Object.entries(adv.byHour).sort(([a], [b]) => a.localeCompare(b)).map(([hour, row]) => ({ key: `${hour}h`, count: row.trades, pnl: row.pnl }));
+
   const kpis = [
     [String(trades.length), T.trades, `${m.tradingDays} ${en ? "trading days" : "jours tradés"}`, 100],
     [`${m.winRate.toFixed(0)}%`, T.winRate, `${en ? "avg" : "moy."} ${fmtR(m.averageR)}`, m.winRate],
     [fmtMoney(m.net), T.net, en ? "filtered sample" : "échantillon filtré", m.net >= 0 ? 100 : 30, m.net < 0],
     [m.profitFactor === Infinity ? "∞" : m.profitFactor.toFixed(2), T.pf, en ? "gross win / gross loss" : "gains / pertes bruts", Math.min(m.profitFactor * 40, 100)],
     [`${planRate}%`, T.plan, en ? "of executions" : "des exécutions", planRate],
+    [`${adv.expectancy >= 0 ? "+" : ""}${fmtMoney(adv.expectancy)}`, en ? "Expectancy" : "Espérance", `${en ? "per trade" : "par trade"} · ${fmtR(adv.expectancyR)}`, adv.expectancy > 0 ? 100 : 25, adv.expectancy < 0],
+    [`-${fmtMoney(adv.maxDrawdown)}`, en ? "Max drawdown" : "Drawdown max", en ? "peak to trough" : "du plus haut au plus bas", m.net > 0 && adv.maxDrawdown ? Math.min(100, adv.maxDrawdown / Math.max(1, m.net) * 100) : 0, true],
   ];
 
   return (
@@ -119,7 +130,7 @@ export default function DashboardPage() {
             <FilterSelect value={session} onChange={setSession} options={[["all", en ? "All sessions" : "Toutes sessions"], ...sessionOptions.map((value) => [value, value])]} />
             {(range !== "all" || dir !== "all" || session !== "all") && <button type="button" onClick={() => { setRange("all"); setDir("all"); setSession("all"); }} className="term-tag h-8 px-3">{en ? "Reset filters" : "Réinitialiser"}</button>}
           </div>
-          <div className="term-panel mt-4 grid grid-cols-2 divide-prism-line sm:grid-cols-5 sm:divide-x">
+          <div className="term-panel mt-4 grid grid-cols-2 divide-prism-line sm:grid-cols-4 lg:grid-cols-7 sm:divide-x">
             {kpis.map(([value, label, sub, bar, negative], index) => (
               <div key={label} className={`p-4 ${index === 0 ? "col-span-2 sm:col-span-1" : ""}`}>
                 <p className={`term-title text-3xl ${negative ? "text-prism-loss" : index === 0 ? "text-prism-accent" : "text-prism-text"}`}>{trades.length ? value : "—"}</p>
@@ -171,6 +182,23 @@ export default function DashboardPage() {
             <Panel title={T.tags} tag={`${tags.length}`}><HBars rows={tags} /></Panel>
             <Panel title={T.symbols} tag={`${symbols.length}`}><HBars rows={symbols} /></Panel>
             <PropAccounts accounts={propAccounts} title={T.accounts} en={en} />
+            <Panel title={en ? "FIRST VS NEXT TRADES" : "1ER TRADE VS LES SUIVANTS"} tag={en ? "P&L" : "P&L"}>
+              {rankRows.length ? <HBars rows={rankRows} /> : <p className="text-xs text-prism-muted">—</p>}
+              <p className="mt-3 text-[10px] text-prism-muted2">{en ? "If your 2nd trade bleeds, one trade a day may be your edge." : "Si ton 2e trade saigne, un seul trade par jour est peut-être ton edge."}</p>
+            </Panel>
+            <Panel title={en ? "MISTAKES THAT COST" : "ERREURS QUI COÛTENT"} tag={`${mistakeRows.length}`}>
+              {mistakeRows.length ? <HBars rows={mistakeRows} /> : <p className="text-xs text-prism-muted">{en ? "Tag your mistakes in the trade form (Mistakes section)." : "Tague tes erreurs dans le formulaire de trade (section Erreurs)."}</p>}
+            </Panel>
+            <Panel title={en ? "MISSED TRADES" : "TRADES RATÉS"} tag={`${missed.count}`}>
+              {missed.count ? (
+                <div className="space-y-2 text-xs">
+                  <p className="text-prism-muted">{en ? `${missed.count} valid setups not taken, ${missed.wouldHaveWon} would have won.` : `${missed.count} setups valides non pris, dont ${missed.wouldHaveWon} auraient été gagnants.`}</p>
+                  <p className={`term-title text-2xl ${missed.hypotheticalPnl >= 0 ? "text-amber-300" : "text-prism-win"}`}>{missed.hypotheticalPnl >= 0 ? "+" : ""}{fmtMoney(missed.hypotheticalPnl)}</p>
+                  <p className="text-[10px] text-prism-muted2">{missed.hypotheticalPnl >= 0 ? (en ? "Money left on the table by hesitation." : "Argent laissé sur la table par hésitation.") : (en ? "Skipping them saved you money: good discipline." : "Les laisser passer t'a fait économiser : bonne discipline.")}</p>
+                </div>
+              ) : <p className="text-xs text-prism-muted">{en ? "Log the setups you see but don't take (Missed trade in the form)." : "Logue les setups que tu vois sans les prendre (« Trade raté » dans le formulaire)."}</p>}
+            </Panel>
+            {hourRows.length > 0 && <Panel title={en ? "P&L BY ENTRY HOUR" : "P&L PAR HEURE D'ENTRÉE"} tag={`${hourRows.length}`}><HBars rows={hourRows} /></Panel>}
           </div>
         </section>
 
@@ -354,13 +382,33 @@ function PropAccounts({ accounts, title, en }) {
             return (
               <Link key={account.id} href={`/accounts/${account.id}`} className="block rounded-md border border-prism-line p-2.5 transition hover:border-prism-accent/60">
                 <div className="flex justify-between text-[11px]"><b className="truncate">{account.note || account.firm}</b><span className={`font-mono font-bold ${pnl < 0 ? "text-prism-loss" : "text-prism-win"}`}>{fmtMoney(pnl)}</span></div>
-                {target > 0 && <div className="mt-2"><ProgressBar value={pct} tone={pnl >= 0 ? "gain" : "loss"} /></div>}
+                {!health.isFunded && target > 0 && <div className="mt-2"><ProgressBar value={pct} tone={pnl >= 0 ? "gain" : "loss"} /></div>}
+                {health.isFunded && <PayoutGauge account={account} health={health} en={en} />}
               </Link>
             );
           })}
         </div>
       )}
     </Panel>
+  );
+}
+
+// Jauge payout d'un compte financé : profit vers le minimum de retrait + délai.
+function PayoutGauge({ account, health, en }) {
+  const minimum = Number(account.payout_min) || 0;
+  const pnl = Number(health.cum) || 0;
+  const pct = minimum > 0 ? Math.max(0, Math.min(100, pnl / minimum * 100)) : 0;
+  const status = health.payoutEligible
+    ? (en ? "Payout available" : "Payout disponible")
+    : health.daysToPayout != null ? (en ? `Payout in ${health.daysToPayout} d` : `Payout dans ${health.daysToPayout} j`)
+    : health.minDaysLeft ? (en ? `${health.minDaysLeft} trading days left` : `${health.minDaysLeft} jours de trading restants`)
+    : minimum ? (en ? "Toward payout" : "Vers le payout") : (en ? "Add the payout minimum on the account" : "Ajoute le minimum de payout au compte");
+  return (
+    <div className="mt-2">
+      <div className="mb-1 flex justify-between text-[9px] text-prism-muted"><span className={health.payoutEligible ? "font-bold text-prism-accent" : ""}>{status}</span>{minimum > 0 && <span className="font-mono">{fmtMoney(Math.max(0, pnl))} / {fmtMoney(minimum)}</span>}</div>
+      {minimum > 0 && <ProgressBar value={pct} tone="gain" />}
+      {health.payoutCount > 0 && <p className="mt-1 text-[9px] text-prism-muted2">{health.payoutCount} payout(s) · {fmtMoney(health.payoutTotal)}</p>}
+    </div>
   );
 }
 

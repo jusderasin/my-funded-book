@@ -6,6 +6,7 @@ import { FilePicker } from "./FilePicker";
 import { useBook } from "./BookProvider";
 import { uploadFile } from "@/lib/upload";
 import { FIRMS, SESSIONS, GRADES, TAG_LIB } from "@/lib/constants";
+import { MISSED_TAG, MISTAKE_TAGS, NOTE_TEMPLATES, isMistakeTag } from "@/lib/journalKit";
 import { todayISO, fmtMoney } from "@/lib/format";
 import {
   X,
@@ -297,7 +298,32 @@ export function LogTradeModal({ editing, onClose }) {
   const [saving, setSaving] = useState(false);
   const [advanced, setAdvanced] = useState(false);
   const [tagInput, setTagInput] = useState("");
+  const [review, setReview] = useState({ loading: false, text: "", error: "" });
   const set = (k, v) => setF((s) => ({ ...s, [k]: v }));
+  const missed = f.tags.includes(MISSED_TAG);
+  const toggleMissed = () => set("tags", missed ? f.tags.filter((tag) => tag !== MISSED_TAG) : [...f.tags, MISSED_TAG]);
+  const toggleMistake = (tag) => set("tags", f.tags.includes(tag) ? f.tags.filter((x) => x !== tag) : [...f.tags, tag]);
+  const insertTemplate = (key) => {
+    const text = NOTE_TEMPLATES[key][en ? "en" : "fr"].text;
+    set("why", f.why ? `${f.why.trimEnd()}\n\n${text}` : text);
+    setAdvanced(true);
+  };
+  // Revue PRISM d'un trade : Nova le relit en 4 blocs, à garder dans les notes si utile.
+  async function runReview() {
+    setReview({ loading: true, text: "", error: "" });
+    const trade = { date: f.date, symbol: f.symbol, dir: f.dir, session: f.session, grade: f.grade, r: f.r, pnl: f.pnl, setup: f.setup, plan: f.plan, tags: f.tags, notes: f.why, checklist: selectedChecks };
+    const question = en
+      ? `Review THIS trade: ${JSON.stringify(trade)}. Answer with exactly 4 short sections: "## Quick read", "## What mattered", "## Main improvement", "## Next trade rule". Compare it to my history when useful.`
+      : `Fais la revue de CE trade : ${JSON.stringify(trade)}. Réponds avec exactement 4 sections courtes : "## Lecture rapide", "## Ce qui a compté", "## Amélioration principale", "## Règle pour le prochain trade". Compare avec mon historique quand c'est utile.`;
+    try {
+      const response = await fetch("/api/prism", { method: "POST", headers: { "Content-Type": "application/json" }, body: JSON.stringify({ messages: [{ role: "user", content: question }], lang, agent: "coach" }) });
+      const json = await response.json().catch(() => ({}));
+      if (!json.reply) throw new Error(json.error === "subscription_required" ? (en ? "Available with an active subscription." : "Disponible avec un abonnement actif.") : json.error || "PRISM indisponible");
+      setReview({ loading: false, text: json.reply, error: "" });
+    } catch (error) {
+      setReview({ loading: false, text: "", error: String(error.message || error) });
+    }
+  }
 
   const selectedStrategy = playbooks.find((strategy) => strategy.name === f.setup);
   const strategyRules = Array.isArray(selectedStrategy?.rules) ? selectedStrategy.rules : [];
@@ -345,7 +371,7 @@ export function LogTradeModal({ editing, onClose }) {
   (trades || []).forEach((tr) => (tr.tags || []).forEach((tg) => { tagFreq[tg] = (tagFreq[tg] || 0) + 1; }));
   const historyTags = Object.keys(tagFreq).sort((a, b) => tagFreq[b] - tagFreq[a]);
   const tagSuggestions = [...new Set([...TAG_LIB, ...historyTags])]
-    .filter((tg) => !f.tags.some((x) => x.toLowerCase() === tg.toLowerCase()))
+    .filter((tg) => tg !== MISSED_TAG && !isMistakeTag(tg) && !f.tags.some((x) => x.toLowerCase() === tg.toLowerCase()))
     .slice(0, 12);
 
   function pickOutcome(o) {
@@ -437,6 +463,13 @@ export function LogTradeModal({ editing, onClose }) {
       }
     >
       <div className="space-y-5 overflow-x-hidden">
+        {/* 0. Trade réel ou trade raté */}
+        <div className="grid grid-cols-2 gap-2 rounded-xl border border-prism-line p-1">
+          <button type="button" onClick={() => missed && toggleMissed()} className={`h-9 rounded-lg text-xs font-bold ${!missed ? "bg-prism-accent text-black" : "text-prism-muted hover:text-white"}`}>{en ? "Trade taken" : "Trade pris"}</button>
+          <button type="button" onClick={() => !missed && toggleMissed()} className={`h-9 rounded-lg text-xs font-bold ${missed ? "bg-amber-400 text-black" : "text-prism-muted hover:text-white"}`}>{en ? "Missed trade" : "Trade raté"}</button>
+        </div>
+        {missed && <p className="-mt-3 text-[11px] leading-4 text-amber-300">{en ? "A valid setup you did not take. Enter the result it would have given: it is kept apart and never counted in your P&L or prop accounts." : "Un setup valide que tu n'as pas pris. Indique le résultat qu'il aurait donné : il est gardé à part et jamais compté dans ton P&L ni tes comptes prop."}</p>}
+
         {/* 1. Résultat */}
         <QlField label={en ? "Result" : "Résultat"}>
           <div className="grid grid-cols-3 gap-2">
@@ -611,10 +644,16 @@ export function LogTradeModal({ editing, onClose }) {
               </div>
             </section>
 
+            <QlField label={en ? "Mistakes" : "Erreurs"}>
+              <div className="flex flex-wrap gap-1.5">
+                {MISTAKE_TAGS.map((tag) => <PrismChip key={tag} active={f.tags.includes(tag)} danger={f.tags.includes(tag)} onClick={() => toggleMistake(tag)}>{tag}</PrismChip>)}
+              </div>
+            </QlField>
+
             <QlField label={t("m_tags")}>
-              {f.tags.length > 0 && (
+              {f.tags.some((tag) => tag !== MISSED_TAG && !isMistakeTag(tag)) && (
                 <div className="mb-2 flex flex-wrap gap-1.5">
-                  {f.tags.map((tag) => (<PrismChip key={tag} active onClick={() => removeTag(tag)}>{tag} ×</PrismChip>))}
+                  {f.tags.filter((tag) => tag !== MISSED_TAG && !isMistakeTag(tag)).map((tag) => (<PrismChip key={tag} active onClick={() => removeTag(tag)}>{tag} ×</PrismChip>))}
                 </div>
               )}
               <div className="flex gap-1.5">
@@ -628,10 +667,36 @@ export function LogTradeModal({ editing, onClose }) {
               )}
             </QlField>
 
+            <div className="flex flex-wrap gap-1.5">
+              {Object.keys(NOTE_TEMPLATES).map((key) => (
+                <button key={key} type="button" onClick={() => insertTemplate(key)} className="rounded-md border border-prism-line px-2.5 py-1.5 text-[11px] text-prism-muted transition hover:border-prism-accent hover:text-prism-accent">+ {NOTE_TEMPLATES[key][en ? "en" : "fr"].label}</button>
+              ))}
+            </div>
             <QlField label={t("m_why")}>
               <textarea className={`${QL_INPUT} ${QL_TXT} h-auto min-h-[80px] resize-y py-2.5 leading-relaxed`} value={f.why || ""} onChange={(e) => set("why", e.target.value)} placeholder={t("m_why_ph")} />
             </QlField>
           </div>
+        )}
+
+        {editing && !missed && (
+          <section className="rounded-xl border border-[rgba(198,244,50,0.3)] bg-[rgba(198,244,50,0.04)] p-3.5">
+            <div className="flex items-center justify-between gap-3">
+              <p className="text-xs font-bold text-white">{en ? "PRISM review" : "Revue PRISM"}</p>
+              <button type="button" onClick={runReview} disabled={review.loading} className="rounded-md bg-prism-accent px-3 py-1.5 text-[11px] font-bold text-black disabled:opacity-50">{review.loading ? (en ? "Reading…" : "Lecture…") : review.text ? (en ? "Redo" : "Refaire") : (en ? "Review this trade" : "Analyser ce trade")}</button>
+            </div>
+            {review.error && <p className="mt-2 text-[11px] text-prism-loss">{review.error}</p>}
+            {review.text && (
+              <>
+                <div className="mt-3 grid gap-2 sm:grid-cols-2">
+                  {review.text.split(/^##\s+/m).filter((block) => block.trim()).map((block, index) => {
+                    const [title, ...body] = block.trim().split("\n");
+                    return <div key={index} className="rounded-lg border border-prism-line bg-black/20 p-2.5"><p className="text-[10px] font-bold uppercase tracking-[.12em] text-prism-accent">{title.replace(/[*#]/g, "")}</p><p className="mt-1 whitespace-pre-line text-[11px] leading-4 text-prism-muted">{body.join("\n").replace(/\*\*/g, "").trim()}</p></div>;
+                  })}
+                </div>
+                <button type="button" onClick={() => { set("why", `${(f.why || "").trimEnd()}\n\n--- ${en ? "PRISM review" : "Revue PRISM"} ---\n${review.text}`.trim()); setAdvanced(true); }} className="mt-2 text-[11px] font-semibold text-prism-accent hover:underline">{en ? "Add to my notes" : "Ajouter à mes notes"}</button>
+              </>
+            )}
+          </section>
         )}
       </div>
     </PrismModal>

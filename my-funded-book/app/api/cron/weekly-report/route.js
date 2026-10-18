@@ -2,6 +2,7 @@ import { NextResponse } from "next/server";
 import webpush from "web-push";
 import { createAdminSupabase } from "@/lib/supabase/server";
 import { weeklyReport, reportWeek } from "@/lib/weeklyReport";
+import { isMissed } from "@/lib/journalKit";
 
 export const dynamic = "force-dynamic";
 
@@ -30,7 +31,7 @@ export async function GET(request) {
   webpush.setVapidDetails("mailto:support@mytradebook.app", process.env.NEXT_PUBLIC_VAPID_PUBLIC_KEY, process.env.VAPID_PRIVATE_KEY);
   let sent = 0;
   for (const userId of userIds) {
-    const report = weeklyReport((trades || []).filter((trade) => trade.user_id === userId), new Date(), "fr");
+    const report = weeklyReport((trades || []).filter((trade) => trade.user_id === userId && !isMissed(trade)), new Date(), "fr");
     if (!report.count) continue;
     const money = `${report.net >= 0 ? "+" : "-"}$${Math.abs(Math.round(report.net))}`;
     const body = [

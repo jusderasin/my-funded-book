@@ -1,6 +1,7 @@
 "use client";
 
 import { createContext, useContext, useEffect, useMemo, useState, useCallback } from "react";
+import { isMissed } from "@/lib/journalKit";
 import { createClient } from "@/lib/supabase/client";
 import { computeStats } from "@/lib/stats";
 import { translate } from "@/lib/i18n";
@@ -258,19 +259,27 @@ export function BookProvider({ user, children }) {
     reload: loadAll,
   };
 
+  // Les trades ratés (setups non pris) vivent à part : ils ne doivent jamais
+  // fausser le P&L, les comptes prop ou le classement.
+  const realTrades = useMemo(() => trades.filter((trade) => !isMissed(trade)), [trades]);
+  const missedTrades = useMemo(
+    () => trades.filter(isMissed).sort((a, b) => String(b.date || "").localeCompare(String(a.date || ""))),
+    [trades]
+  );
+
   const stats = useMemo(
-    () => computeStats(trades, Number(profile.starting_balance) || 0),
-    [trades, profile.starting_balance]
+    () => computeStats(realTrades, Number(profile.starting_balance) || 0),
+    [realTrades, profile.starting_balance]
   );
 
   const scopedTrades = useMemo(
-    () => trades
+    () => realTrades
       .slice()
       .sort((a, b) => {
         const dateOrder = String(b.date || "").localeCompare(String(a.date || ""));
         return dateOrder || String(b.created_at || "").localeCompare(String(a.created_at || ""));
       }),
-    [trades]
+    [realTrades]
   );
   const scopedStats = useMemo(
     () => computeStats(scopedTrades, Number(profile.starting_balance) || 0),
@@ -280,12 +289,12 @@ export function BookProvider({ user, children }) {
   // Trades toujours triés par DATE du trade (récent en haut), puis par date d'ajout.
   const sortedTrades = useMemo(
     () =>
-      [...trades].sort((a, b) => {
+      [...realTrades].sort((a, b) => {
         const d = String(b.date || "").localeCompare(String(a.date || ""));
         if (d !== 0) return d;
         return String(b.created_at || "").localeCompare(String(a.created_at || ""));
       }),
-    [trades]
+    [realTrades]
   );
 
   const value = {
@@ -296,6 +305,7 @@ export function BookProvider({ user, children }) {
     user,
     profile,
     trades: sortedTrades,
+    missedTrades,
     accounts,
     activeAccount,
     activeAccountId,

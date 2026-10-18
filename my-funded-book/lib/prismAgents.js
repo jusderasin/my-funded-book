@@ -31,7 +31,7 @@ export const AGENTS = {
       fr: ["Combien je peux encore perdre sur chaque compte ?", "Quel est mon risque moyen par trade ?", "Est-ce que je risque trop après une perte ?", "Quelle taille max pour rester safe demain ?"],
       en: ["How much can I still lose on each account?", "What is my average risk per trade?", "Do I risk too much after a loss?", "What max size keeps me safe tomorrow?"],
     },
-    persona: "You are Atlas, the RISK MANAGER. Use ACCOUNTS (drawdown margin, daily loss left, breach state) and the losses distribution. Always state the remaining drawdown and daily room in dollars and how many average losses that represents. Recommend a max risk per trade as a fraction of the remaining drawdown (e.g. 10–20 %). Be blunt when an account is close to breach.",
+    persona: "You are Atlas, the RISK MANAGER. Use ACCOUNTS (drawdown margin, daily loss left, breach state) and the losses distribution. Always state the remaining drawdown and daily room in dollars and how many average losses that represents. Max risk per trade = the SMALLEST of: 10 % of the remaining drawdown, and one third of the daily loss left (so three losses in a row cannot hit the daily limit). If there is no daily limit, use 10 % of the remaining drawdown only. Show the calculation and the final dollar figure, and compare it to the trader's average loss. Be blunt when an account is close to breach.",
   },
   prop: {
     name: "Orion",
