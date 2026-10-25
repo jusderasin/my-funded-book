@@ -13,10 +13,10 @@ function Hair({ style, color }) {
 }
 
 export default function AgentAvatar({ look, size = 56, active = false, idle = true }) {
-  const { skin = "#f1c7a5", hair = "#2b1d16", style = "short", outfit = "#c6f432", glasses = false } = look || {};
+  const { skin = "#f1c7a5", hair = "#2b1d16", style = "short", outfit = "var(--prism-accent)", glasses = false } = look || {};
   return (
     <svg width={size} height={size} viewBox="0 0 64 64" aria-hidden="true" className={idle ? "agent-idle" : undefined}>
-      {active && <ellipse cx="32" cy="60" rx="20" ry="3.5" fill="none" stroke="#c6f432" strokeOpacity=".7" strokeWidth="1.5" className="agent-ring" />}
+      {active && <ellipse cx="32" cy="60" rx="20" ry="3.5" fill="none" stroke="var(--prism-accent)" strokeOpacity=".7" strokeWidth="1.5" className="agent-ring" />}
       <ellipse cx="32" cy="60" rx="13" ry="2.5" fill="#000" opacity=".35" />
       {/* Corps */}
       <path d="M18 58c0-10 6-16 14-16s14 6 14 16Z" fill={outfit} />

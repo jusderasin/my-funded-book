@@ -45,7 +45,7 @@ function paintBackground(g, theme, seed, photo) {
   }
   const palettes = {
     mono: { base: ["#000000", "#141414"], blobs: ["#ffffff", "#6b6b6b", "#2a2a2a"], text: "#fff", sub: "rgba(255,255,255,0.6)", line: "#fff" },
-    graphite: { base: ["#c9c9cc", "#a7a7ab"], blobs: ["#ffffff", "#8d8d92", "#e4e4e7"], text: "#fff", sub: "rgba(255,255,255,0.78)", line: "#fff" },
+    graphite: { base: ["#5b5b61", "#2f2f34"], blobs: ["#d4d4d8", "#71717a", "#3f3f46"], text: "#fff", sub: "rgba(255,255,255,0.78)", line: "#fff" },
     midnight: { base: ["#05060a", "#0b1020"], blobs: ["#1d4ed8", "#7c3aed", "#0ea5e9"], text: "#fff", sub: "rgba(255,255,255,0.6)", line: "#93c5fd" },
     bronze: { base: ["#2a1a10", "#5a3a22"], blobs: ["#d6a46c", "#8a5a33", "#f2d3a6"], text: "#fff", sub: "rgba(255,240,220,0.75)", line: "#f7dcb4" },
     aurora: { base: ["#020a08", "#04140f"], blobs: ["#22c55e", "#14b8a6", "#a3e635"], text: "#fff", sub: "rgba(220,255,235,0.7)", line: "#bbf7d0" },
@@ -189,7 +189,7 @@ function drawCard(canvas, { spec, theme, seed, photo, lang }) {
   g.textAlign = "right"; g.fillStyle = p.sub; g.font = font(500, 24); g.fillText(lang === "en" ? "trading journal" : "journal de trading", S - 70, S - 62);
 }
 
-export default function TradeCard({ trades, lang = "fr", defaultTheme = "graphite" }) {
+export default function TradeCard({ trades, lang = "fr", defaultTheme = "mono" }) {
   const en = lang === "en";
   const sorted = useMemo(() => chrono(trades), [trades]);
   const recent = useMemo(() => sorted.slice().reverse().slice(0, 60), [sorted]);

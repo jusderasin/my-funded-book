@@ -21,7 +21,7 @@ body {
 }
 
 ::selection {
-  background: rgba(198,244,50, .28);
+  background: color-mix(in srgb, var(--prism-accent) 28%, transparent);
   color: #fff;
 }
 
@@ -31,18 +31,18 @@ body {
 }
 
 * {
-  scrollbar-color: rgba(198,244,50, .4) transparent;
+  scrollbar-color: color-mix(in srgb, var(--prism-accent) 40%, transparent) transparent;
   scrollbar-width: thin;
 }
 
 *::-webkit-scrollbar { width: 8px; height: 8px; }
 *::-webkit-scrollbar-thumb { border: 2px solid transparent; border-radius: 999px; background: rgba(113, 113, 122, .5); background-clip: padding-box; }
-*::-webkit-scrollbar-thumb:hover { background: rgba(198,244,50, .65); background-clip: padding-box; }
+*::-webkit-scrollbar-thumb:hover { background: color-mix(in srgb, var(--prism-accent) 65%, transparent); background-clip: padding-box; }
 
 .app-shell {
   isolation: isolate;
   background:
-    radial-gradient(900px 480px at 76% -14%, rgba(198,244,50, .08), transparent 64%),
+    radial-gradient(900px 480px at 76% -14%, color-mix(in srgb, var(--prism-accent) 8%, transparent), transparent 64%),
     radial-gradient(700px 460px at 16% 108%, rgba(34, 197, 94, .045), transparent 72%),
     var(--prism-bg, #050506);
 }
@@ -64,9 +64,9 @@ body {
 }
 
 .app-mobile-log {
-  background: #c6f432;
+  background: var(--prism-accent);
   color: #000;
-  box-shadow: 0 8px 26px rgba(198,244,50, .22);
+  box-shadow: 0 8px 26px color-mix(in srgb, var(--prism-accent) 22%, transparent);
 }
 
 .app-sidebar {
@@ -76,7 +76,7 @@ body {
   box-shadow: 14px 0 40px rgba(0, 0, 0, .14);
 }
 
-.app-sidebar-brand { background: linear-gradient(90deg, rgba(198,244,50, .035), transparent 74%); }
+.app-sidebar-brand { background: linear-gradient(90deg, color-mix(in srgb, var(--prism-accent) 4%, transparent), transparent 74%); }
 .app-sidebar-footer { background: rgba(255, 255, 255, .009); }
 
 .prism-surface {
@@ -251,9 +251,68 @@ body {
   --prism-muted2: #55555c;
   --prism-accent: #c6f432;
   --prism-accent-soft: #e2ff6b;
-  --prism-accent-dim: rgba(198,244,50,.10);
+  --prism-accent-dim: color-mix(in srgb, var(--prism-accent) 10%, transparent);
   --prism-win: #22c55e;
   --prism-loss: #ef4444;
+}
+
+/* Noir & blanc : même structure que prism, accent blanc, pertes en gris. */
+:root[data-theme="mono"] {
+  color-scheme: dark;
+  --ink:    #000000;
+  --ink2:   #050505;
+  --panel:  #0a0a0a;
+  --panel2: #131313;
+  --line:   rgba(255, 255, 255, 0.10);
+  --line2:  rgba(255, 255, 255, 0.16);
+  --muted:  #a3a3a3;
+  --muted2: #6b6b6b;
+  --accent: #ffffff;
+  --loss:   #7c7c7c;
+  --prism-bg: #000000;
+  --prism-surface: #050505;
+  --prism-panel: #0a0a0a;
+  --prism-panel2: #131313;
+  --prism-line: rgba(255, 255, 255, 0.10);
+  --prism-line2: rgba(255, 255, 255, 0.16);
+  --prism-text: #ffffff;
+  --prism-muted: #a3a3a3;
+  --prism-muted2: #6b6b6b;
+  --prism-accent: #ffffff;
+  --prism-accent-soft: #e5e5e5;
+  --prism-accent-dim: rgba(255,255,255,.08);
+  --prism-win: #f5f5f5;
+  --prism-loss: #7c7c7c;
+}
+
+/* Caba : bleu nuit, gains bleus, pertes violettes. */
+:root[data-theme="caba"] {
+  color-scheme: dark;
+  --ink:    #04060e;
+  --ink2:   #070a16;
+  --panel:  #0a0e1d;
+  --panel2: #11173a;
+  --line:   rgba(124, 140, 255, 0.13);
+  --line2:  rgba(124, 140, 255, 0.22);
+  --muted:  #9aa3c7;
+  --muted2: #626b92;
+  --accent: #7c5cff;
+  --loss:   #b14cff;
+  --prism-bg: #04060e;
+  --prism-surface: #070a16;
+  --prism-panel: #0a0e1d;
+  --prism-panel2: #11173a;
+  --prism-line: rgba(124, 140, 255, 0.13);
+  --prism-line2: rgba(124, 140, 255, 0.22);
+  --prism-text: #eef1ff;
+  --prism-muted: #9aa3c7;
+  --prism-muted2: #626b92;
+  --prism-accent: #7c5cff;
+  --prism-accent-soft: #a78bfa;
+  --prism-accent-dim: rgba(124,92,255,.15);
+  --prism-win: #4f8bff;
+  --prism-loss: #b14cff;
+  --lab-line: #6ea0ff;
 }
 
 :root[data-mode="light"] { color-scheme: light; --ink:#f6f3ee; --ink2:#f1ede6; --panel:#e9e5dd; --panel2:#e3dfd6; --line:rgba(0,0,0,.08); --line2:rgba(0,0,0,.14); --muted:#6b6b72; --muted2:#858580; --accent:#5a7d00; --prism-bg:#f6f3ee; --prism-surface:#f1ede6; --prism-panel:#e9e5dd; --prism-panel2:#e3dfd6; --prism-line:rgba(0,0,0,.08); --prism-line2:rgba(0,0,0,.14); --prism-text:#1c1c1f; --prism-muted:#6b6b72; --prism-muted2:#858580; --prism-accent:#5a7d00; --prism-accent-dim:rgba(8,145,178,.12); }
@@ -556,11 +615,13 @@ input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.7); }
 @media (max-width:1279px) { :root[data-theme="signal"] .dashboard-models-card { min-height:0; } }
 
 /* Terminal lime — grille de fond + titres condensés (look "dataset pulse"). */
-:root[data-theme="prism"] .app-shell {
+:root[data-theme="prism"] .app-shell,
+:root[data-theme="mono"] .app-shell,
+:root[data-theme="caba"] .app-shell {
   background:
     linear-gradient(rgba(255,255,255,.025) 1px, transparent 1px) 0 0 / 48px 48px,
     linear-gradient(90deg, rgba(255,255,255,.025) 1px, transparent 1px) 0 0 / 48px 48px,
-    radial-gradient(900px 480px at 76% -14%, rgba(198,244,50,.06), transparent 64%),
+    radial-gradient(900px 480px at 76% -14%, color-mix(in srgb, var(--prism-accent) 6%, transparent), transparent 64%),
     var(--prism-bg, #050506);
 }
 .term-eyebrow { font-family: 'JetBrains Mono', monospace; font-size: 10px; font-weight: 700; letter-spacing: .18em; text-transform: uppercase; color: var(--prism-accent); }
@@ -570,23 +631,23 @@ input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.7); }
 
 /* ---------- Interactions premium (InteractiveFX) ---------- */
 .fx-cursor-glow { display: none; }
-.fx-pointer .fx-cursor-glow { display: block; position: fixed; inset: 0; z-index: 0; pointer-events: none; background: radial-gradient(520px circle at var(--mx, 50%) var(--my, 20%), rgba(198,244,50,.07), transparent 60%); }
+.fx-pointer .fx-cursor-glow { display: block; position: fixed; inset: 0; z-index: 0; pointer-events: none; background: radial-gradient(520px circle at var(--mx, 50%) var(--my, 20%), color-mix(in srgb, var(--prism-accent) 7%, transparent), transparent 60%); }
 .term-panel, .prism-surface { position: relative; isolation: isolate; transition: transform .35s cubic-bezier(.16,1,.3,1), border-color .25s ease, box-shadow .35s ease, opacity .6s ease; }
 .fx-seen:not(.fx-in) { opacity: 0; transform: translateY(14px); }
 .fx-seen.fx-in { opacity: 1; }
 .fx-pointer .term-panel:hover { transform: perspective(1100px) rotateX(var(--rx, 0deg)) rotateY(var(--ry, 0deg)); }
 .fx-pointer .term-panel::before, .fx-pointer .prism-surface::before {
   content: ""; position: absolute; inset: -1px; border-radius: inherit; padding: 1px; pointer-events: none; z-index: 2;
-  background: radial-gradient(260px circle at var(--sx, 50%) var(--sy, 50%), rgba(198,244,50,.75), transparent 65%);
+  background: radial-gradient(260px circle at var(--sx, 50%) var(--sy, 50%), color-mix(in srgb, var(--prism-accent) 75%, transparent), transparent 65%);
   -webkit-mask: linear-gradient(#000 0 0) content-box, linear-gradient(#000 0 0); -webkit-mask-composite: xor; mask-composite: exclude;
   opacity: 0; transition: opacity .25s ease;
 }
 .fx-pointer .term-panel::after, .fx-pointer .prism-surface::after {
   content: ""; position: absolute; inset: 0; border-radius: inherit; pointer-events: none; z-index: -1;
-  background: radial-gradient(420px circle at var(--sx, 50%) var(--sy, 50%), rgba(198,244,50,.06), transparent 60%);
+  background: radial-gradient(420px circle at var(--sx, 50%) var(--sy, 50%), color-mix(in srgb, var(--prism-accent) 6%, transparent), transparent 60%);
   opacity: 0; transition: opacity .25s ease;
 }
-.fx-pointer .term-panel:hover, .fx-pointer .prism-surface:hover { border-color: rgba(198,244,50,.22); box-shadow: 0 24px 60px -30px rgba(0,0,0,.9), 0 0 0 1px rgba(198,244,50,.05); }
+.fx-pointer .term-panel:hover, .fx-pointer .prism-surface:hover { border-color: color-mix(in srgb, var(--prism-accent) 22%, transparent); box-shadow: 0 24px 60px -30px rgba(0,0,0,.9), 0 0 0 1px color-mix(in srgb, var(--prism-accent) 5%, transparent); }
 .fx-pointer .term-panel:hover::before, .fx-pointer .prism-surface:hover::before,
 .fx-pointer .term-panel:hover::after, .fx-pointer .prism-surface:hover::after { opacity: 1; }
 
@@ -594,7 +655,7 @@ input[type="date"]::-webkit-calendar-picker-indicator { filter: invert(0.7); }
 .term-tag, .fx-shine { position: relative; overflow: hidden; transition: transform .2s ease, box-shadow .25s ease; }
 .term-tag::after, .fx-shine::after { content: ""; position: absolute; inset: 0; background: linear-gradient(110deg, transparent 30%, rgba(255,255,255,.55) 50%, transparent 70%); transform: translateX(-120%); transition: transform .6s ease; pointer-events: none; }
 .term-tag:hover::after, .fx-shine:hover::after { transform: translateX(120%); }
-.term-tag:hover, .fx-shine:hover { box-shadow: 0 0 24px -4px rgba(198,244,50,.65); }
+.term-tag:hover, .fx-shine:hover { box-shadow: 0 0 24px -4px color-mix(in srgb, var(--prism-accent) 65%, transparent); }
 
 /* Entrées de menu : barre lumineuse qui glisse. */
 .app-sidebar nav a { transition: color .2s ease, background-color .2s ease, padding-left .25s cubic-bezier(.16,1,.3,1); }

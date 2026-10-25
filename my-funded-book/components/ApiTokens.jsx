@@ -75,7 +75,7 @@ export function ApiTokens({ lang }) {
           <button type="button" onClick={() => setFresh(null)} className="mt-2 text-prism-muted hover:text-prism-text">{en ? "I saved it" : "Je l'ai sauvegardé"}</button>
         </div>
       )}
-      {error && <p className="text-[11px] text-red-400">{error}</p>}
+      {error && <p className="text-[11px] text-prism-loss">{error}</p>}
 
       <div className="divide-y divide-prism-line rounded-md border border-prism-line">
         {rows.length === 0 && <p className="px-3 py-2.5 text-[11px] text-prism-muted">{en ? "No token yet." : "Aucun jeton pour l'instant."}</p>}
@@ -85,7 +85,7 @@ export function ApiTokens({ lang }) {
               <b className="block text-prism-text">{row.name} <span className="font-mono text-prism-muted">{row.token_prefix}…</span></b>
               <span className="text-prism-muted2">{en ? "Created" : "Créé"} {fmt(row.created_at)} · {en ? "last used" : "dernière utilisation"} {fmt(row.last_used_at)}</span>
             </div>
-            <button type="button" onClick={() => revoke(row.id)} className="text-prism-muted hover:text-red-400" title={en ? "Revoke" : "Révoquer"}><Trash2 className="h-4 w-4" /></button>
+            <button type="button" onClick={() => revoke(row.id)} className="text-prism-muted hover:text-prism-loss" title={en ? "Revoke" : "Révoquer"}><Trash2 className="h-4 w-4" /></button>
           </div>
         ))}
       </div>

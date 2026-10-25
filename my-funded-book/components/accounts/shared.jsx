@@ -8,11 +8,11 @@ import { PROP_RULES, FIRMS } from "@/lib/constants";
 export const INPUT = "h-10 w-full rounded-md border border-prism-line bg-prism-surface px-3 font-mono text-xs text-prism-text placeholder:text-prism-muted2 outline-none transition focus:border-prism-accent";
 export const LABEL = "mb-1.5 block text-[10px] font-semibold uppercase tracking-[.12em] text-prism-muted";
 export const GHOST = "inline-flex h-9 items-center gap-1.5 rounded-md border border-prism-line px-3 text-[11px] font-semibold text-prism-muted transition hover:border-prism-line2 hover:text-prism-text disabled:opacity-40";
-export const OUTLINE_CYAN = "inline-flex h-10 items-center gap-2 rounded-lg border border-[rgba(198,244,50,0.45)] bg-[rgba(198,244,50,0.06)] px-4 text-sm font-medium text-prism-accent transition hover:bg-[rgba(198,244,50,0.12)]";
+export const OUTLINE_CYAN = "inline-flex h-10 items-center gap-2 rounded-lg border border-[color-mix(in_srgb,var(--prism-accent)_45%,transparent)] bg-[color-mix(in_srgb,var(--prism-accent)_6%,transparent)] px-4 text-sm font-medium text-prism-accent transition hover:bg-[color-mix(in_srgb,var(--prism-accent)_12%,transparent)]";
 
-export const GREEN = "#22c55e";
-export const RED = "#ef4444";
-export const CYAN = "#c6f432";
+export const GREEN = "var(--prism-win)";
+export const RED = "var(--prism-loss)";
+export const CYAN = "var(--prism-accent)";
 export const AMBER = "#f59e0b";
 
 export const money = (n, dec = true) => {
@@ -53,7 +53,7 @@ export function Badge({ tone = "neutral", children }) {
     warn: "border-[rgba(245,158,11,0.45)] bg-[rgba(245,158,11,0.10)] text-amber-400",
     gain: "border-[rgba(34,197,94,0.45)] bg-[rgba(34,197,94,0.10)] text-prism-win",
     loss: "border-[rgba(239,68,68,0.45)] bg-[rgba(239,68,68,0.10)] text-prism-loss",
-    accent: "border-[rgba(198,244,50,0.45)] bg-prism-accentDim text-prism-accent",
+    accent: "border-[color-mix(in_srgb,var(--prism-accent)_45%,transparent)] bg-prism-accentDim text-prism-accent",
     neutral: "border-prism-line bg-prism-panel2 text-prism-muted",
   };
   return <span className={`inline-flex items-center rounded-md border px-2 py-0.5 text-[10px] font-bold uppercase tracking-[.12em] ${tones[tone] || tones.neutral}`}>{children}</span>;

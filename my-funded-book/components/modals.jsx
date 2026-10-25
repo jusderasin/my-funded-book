@@ -581,10 +581,10 @@ export function LogTradeModal({ editing, onClose }) {
         </QlField>
 
         {selectedStrategy && (
-          <section className="rounded-xl border border-[rgba(198,244,50,0.3)] bg-[rgba(198,244,50,0.05)] p-3">
+          <section className="rounded-xl border border-[color-mix(in_srgb,var(--prism-accent)_30%,transparent)] bg-[color-mix(in_srgb,var(--prism-accent)_5%,transparent)] p-3">
             <div className="mb-2 flex items-center justify-between gap-3">
               <p className="text-xs font-bold text-white">{en ? "Entry checklist" : "Checklist d'entrée"}</p>
-              <span className="rounded-full border border-[rgba(198,244,50,0.3)] px-2 py-0.5 font-mono text-[10px] font-semibold text-prism-accent">{selectedChecks.length}/{strategyRules.length}</span>
+              <span className="rounded-full border border-[color-mix(in_srgb,var(--prism-accent)_30%,transparent)] px-2 py-0.5 font-mono text-[10px] font-semibold text-prism-accent">{selectedChecks.length}/{strategyRules.length}</span>
             </div>
             {strategyRules.length ? (
               <div className="space-y-1">
@@ -623,7 +623,7 @@ export function LogTradeModal({ editing, onClose }) {
                       <div className="flex gap-1">
                         {[1, 2, 3, 4, 5].map((n) => (
                           <button key={n} type="button" aria-label={`${metric.key} ${n}/5`} onClick={() => set("psychology", { ...DEFAULT_PSYCHOLOGY, ...(f.psychology || {}), [metric.key]: n })}
-                            className={`h-7 w-7 rounded-md border font-mono text-[11px] ${n === value ? QL_ON : n < value ? "border-[rgba(198,244,50,0.3)] text-prism-accent" : QL_OFF}`}>{n}</button>
+                            className={`h-7 w-7 rounded-md border font-mono text-[11px] ${n === value ? QL_ON : n < value ? "border-[color-mix(in_srgb,var(--prism-accent)_30%,transparent)] text-prism-accent" : QL_OFF}`}>{n}</button>
                         ))}
                       </div>
                     </div>
@@ -679,7 +679,7 @@ export function LogTradeModal({ editing, onClose }) {
         )}
 
         {editing && !missed && (
-          <section className="rounded-xl border border-[rgba(198,244,50,0.3)] bg-[rgba(198,244,50,0.04)] p-3.5">
+          <section className="rounded-xl border border-[color-mix(in_srgb,var(--prism-accent)_30%,transparent)] bg-[color-mix(in_srgb,var(--prism-accent)_4%,transparent)] p-3.5">
             <div className="flex items-center justify-between gap-3">
               <p className="text-xs font-bold text-white">{en ? "PRISM review" : "Revue PRISM"}</p>
               <button type="button" onClick={runReview} disabled={review.loading} className="rounded-md bg-prism-accent px-3 py-1.5 text-[11px] font-bold text-black disabled:opacity-50">{review.loading ? (en ? "Reading…" : "Lecture…") : review.text ? (en ? "Redo" : "Refaire") : (en ? "Review this trade" : "Analyser ce trade")}</button>

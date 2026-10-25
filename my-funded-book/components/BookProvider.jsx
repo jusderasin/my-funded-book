@@ -3,13 +3,14 @@
 import { createContext, useContext, useEffect, useMemo, useState, useCallback } from "react";
 import { isMissed } from "@/lib/journalKit";
 import { createClient } from "@/lib/supabase/client";
+import { THEME_CACHE_KEY, themeById, themeFromDb } from "@/lib/themes";
 import { computeStats } from "@/lib/stats";
 import { translate } from "@/lib/i18n";
 
 export const BookCtx = createContext(null);
 export const useBook = () => useContext(BookCtx);
 
-const PRISM_THEME = { accent: "#c6f432", loss: "#ef4444" };
+
 
 function hexToRgba(hex, alpha) {
   const value = String(hex || "").replace("#", "");
@@ -18,34 +19,33 @@ function hexToRgba(hex, alpha) {
   return `rgba(${(integer >> 16) & 255}, ${(integer >> 8) & 255}, ${integer & 255}, ${alpha})`;
 }
 
-// Applique les couleurs perso du profil sur :root (CSS vars) + le thème global.
-// Si la colonne est vide, on garde le fallback défini dans tailwind.config.js / globals.css.
-function applyProfileVars(p) {
-  if (typeof document === "undefined" || !p) return;
-  // Les profils existants utilisaient "signal" (violet). La V2 adopte PRISM
-  // noir/cyan comme identité par défaut sans exiger une migration de profil.
-  const selectedTheme = "prism";
-  const fallback = PRISM_THEME;
-  // Le thème Terminal Violet est une direction visuelle complète : il ne doit
-  // pas être recoloré par les anciens accents verts enregistrés dans le profil.
-  const accent = fallback.accent;
-  const prismAccent = fallback.accent;
-  const loss = fallback.loss;
+// Applique le thème du profil sur :root : data-theme pour la palette complète
+// (globals.css) + accent / gain / perte en inline. Le thème est aussi mis en cache
+// local pour être appliqué dès l'ouverture, avant le chargement du profil.
+export function applyTheme(theme) {
+  if (typeof document === "undefined") return;
+  const { accent, soft, win, loss } = theme.vars;
   const root = document.documentElement;
-
   root.style.setProperty("--accent", accent);
   root.style.setProperty("--loss", loss);
-  root.style.setProperty("--prism-accent", prismAccent);
-  root.style.setProperty("--prism-accent-soft", prismAccent);
-  root.style.setProperty("--prism-accent-dim", hexToRgba(prismAccent, 0.13));
-  root.style.setProperty("--prism-win", "#22c55e");
+  root.style.setProperty("--prism-accent", accent);
+  root.style.setProperty("--prism-accent-soft", soft);
+  root.style.setProperty("--prism-accent-dim", hexToRgba(accent, 0.13));
+  root.style.setProperty("--prism-win", win);
   root.style.setProperty("--prism-loss", loss);
-  root.setAttribute("data-theme", selectedTheme);
+  root.setAttribute("data-theme", theme.id);
+  try { localStorage.setItem(THEME_CACHE_KEY, theme.id); } catch {}
+}
+
+function applyProfileVars(p) {
+  if (!p) return;
+  applyTheme(themeFromDb(p.theme));
 }
 
 export function BookProvider({ user, children }) {
   const supabase = useMemo(() => createClient(), []);
   const [loading, setLoading] = useState(true);
+  useEffect(() => { try { const cached = localStorage.getItem(THEME_CACHE_KEY); if (cached) applyTheme(themeById(cached)); } catch {} }, []);
   const [lang, setLangState] = useState("fr");
   const [profile, setProfile] = useState({ name: "trader", pin: "1234", starting_balance: 0 });
   const [trades, setTrades] = useState([]);

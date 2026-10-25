@@ -4,7 +4,6 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ArrowUpRight, ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
 import { Area } from "@/components/charts";
-import TradeCard from "@/components/analytics/TradeCard";
 import WeeklyReportCard from "@/components/WeeklyReportCard";
 import { useBook } from "@/components/BookProvider";
 import { EmptyState, ProgressBar } from "@/components/prism/TerminalPrimitives";
@@ -58,7 +57,6 @@ export default function DashboardPage() {
   const T = en ? {
     s1: "01 / COMMAND OVERVIEW", title: "DATASET PULSE", intro: "Every module responds to the filters. A research layer on your own executions — what works, what bleeds.",
     trades: "Logged trades", winRate: "Win rate", net: "Net P&L", pf: "Profit factor", plan: "Plan respected",
-    s0: "00 / SHARE", title0: "TRADE CARD", intro0: "Turn a trade or a whole month into a card ready for Instagram.",
     s2: "03 / PLAYBOOK DISTRIBUTION", title2: "WHERE YOUR EDGE APPEARS", intro2: "Frequency and P&L by setup and direction. Counts describe your sample, not a guarantee.",
     setups: "SETUP FREQUENCY", split: "DIRECTION SPLIT", curve: "EQUITY OVER TIME",
     s3: "04 / P&L CALENDAR", title3: "DAY BY DAY", yearly: "YEARLY PERFORMANCE", week: "WEEK",
@@ -68,7 +66,6 @@ export default function DashboardPage() {
   } : {
     s1: "01 / VUE D'ENSEMBLE", title: "DATASET PULSE", intro: "Chaque module répond aux filtres. Une couche d'analyse sur tes propres exécutions — ce qui marche, ce qui saigne.",
     trades: "Trades loggés", winRate: "Win rate", net: "P&L net", pf: "Profit factor", plan: "Plan respecté",
-    s0: "00 / PARTAGE", title0: "CARTE DE TRADE", intro0: "Transforme un trade ou tout un mois en carte prête pour Instagram.",
     s2: "03 / DISTRIBUTION DU PLAYBOOK", title2: "OÙ TON EDGE APPARAÎT", intro2: "Fréquence et P&L par setup et direction. Les chiffres décrivent ton échantillon, pas une garantie.",
     setups: "FRÉQUENCE DES SETUPS", split: "RÉPARTITION LONG / SHORT", curve: "ÉQUITY DANS LE TEMPS",
     s3: "04 / CALENDRIER P&L", title3: "JOUR PAR JOUR", yearly: "PERFORMANCE ANNUELLE", week: "SEM.",
@@ -123,13 +120,6 @@ export default function DashboardPage() {
     <main className="min-h-full px-4 py-8 sm:px-8 sm:py-12">
       <div className="mx-auto max-w-[1180px] space-y-14">
         <section>
-          <SectionHead eyebrow={T.s0} title={T.title0} intro={T.intro0} />
-          <div className="term-panel mt-6 p-4 sm:p-5">
-            <TradeCard trades={trades} lang={lang} />
-          </div>
-        </section>
-
-        <section>
           <SectionHead eyebrow={T.s1} title={T.title} intro={T.intro} />
           <div className="mt-6 flex flex-wrap items-center gap-2">
             <FilterSelect value={range} onChange={setRange} options={[["all", en ? "All time" : "Tout"], ["7", "7 j"], ["30", "30 j"], ["90", "90 j"]]} />
@@ -166,7 +156,7 @@ export default function DashboardPage() {
             </Panel>
           </div>
           <Panel className="mt-3" title={T.curve} tag={fmtMoney(m.net)}>
-            {stats.curve.length > 2 ? <Area values={stats.curve.map((point) => point.eq)} labels={stats.curve.map((point) => frDate(point.d))} color="#c6f432" fill="#c6f432" fmt={fmtMoney} /> : <EmptyState title={T.none}>{T.empty}</EmptyState>}
+            {stats.curve.length > 2 ? <Area values={stats.curve.map((point) => point.eq)} labels={stats.curve.map((point) => frDate(point.d))} color="var(--prism-accent)" fill="var(--prism-accent)" fmt={fmtMoney} /> : <EmptyState title={T.none}>{T.empty}</EmptyState>}
           </Panel>
         </section>
 
@@ -319,8 +309,8 @@ function PnlCalendar({ byDay, trades, T, lang }) {
     if (pnl == null) return { className: "border-prism-line bg-prism-panel2/50 text-prism-muted2", style: {} };
     const alpha = 0.18 + Math.min(1, Math.abs(pnl) / maxAbs) * 0.5;
     return pnl >= 0
-      ? { className: "border-[#c6f432]/60 text-[#eaffb0] shadow-[0_0_18px_-6px_rgba(198,244,50,.6)]", style: { background: `rgba(140,190,30,${alpha})` } }
-      : { className: "border-red-500/60 text-red-200", style: { background: `rgba(220,38,38,${alpha})` } };
+      ? { className: "border-[color-mix(in_srgb,var(--prism-accent)_60%,transparent)] text-[var(--prism-accent-soft)] shadow-[0_0_18px_-6px_color-mix(in_srgb,var(--prism-accent)_60%,transparent)]", style: { background: `color-mix(in srgb, var(--prism-accent) ${Math.round(alpha * 100)}%, transparent)` } }
+      : { className: "border-[color-mix(in_srgb,var(--prism-loss)_60%,transparent)] text-prism-loss", style: { background: `rgba(220,38,38,${alpha})` } };
   };
 
   return (
@@ -349,7 +339,7 @@ function PnlCalendar({ byDay, trades, T, lang }) {
                 </Link>
               );
             }),
-            <div key={`w-${weekIndex}`} className={`flex min-h-[3.25rem] flex-col items-center justify-center rounded-md border text-center sm:min-h-[4.5rem] ${weekTrades ? (weekTotal >= 0 ? "border-[#c6f432]/40 text-prism-win" : "border-red-500/40 text-prism-loss") : "border-prism-line text-prism-muted2"}`}>
+            <div key={`w-${weekIndex}`} className={`flex min-h-[3.25rem] flex-col items-center justify-center rounded-md border text-center sm:min-h-[4.5rem] ${weekTrades ? (weekTotal >= 0 ? "border-[color-mix(in_srgb,var(--prism-accent)_40%,transparent)] text-prism-win" : "border-[color-mix(in_srgb,var(--prism-loss)_40%,transparent)] text-prism-loss") : "border-prism-line text-prism-muted2"}`}>
               <b className="font-mono text-[10px] sm:text-xs">{weekTrades ? Math.round(weekTotal) : "—"}</b>
               {weekTrades > 0 && <small className="text-[8px] text-prism-muted">{weekTrades}t</small>}
             </div>,
@@ -359,7 +349,7 @@ function PnlCalendar({ byDay, trades, T, lang }) {
       <p className="term-title mb-2 mt-6 text-sm">{T.yearly} · {year}</p>
       <div className="grid grid-cols-6 gap-1.5 sm:grid-cols-12">
         {monthly.map(({ mo, pnl, n }) => (
-          <button key={mo} type="button" onClick={() => setCursor({ year, month: mo })} className={`rounded-md border p-1.5 text-center transition hover:-translate-y-0.5 ${n ? (pnl >= 0 ? "border-[#c6f432]/60 bg-[#8cbe1e]/25 text-[#eaffb0]" : "border-red-500/60 bg-red-600/25 text-red-200") : "border-prism-line text-prism-muted2"} ${mo === month ? "ring-1 ring-prism-accent" : ""}`}>
+          <button key={mo} type="button" onClick={() => setCursor({ year, month: mo })} className={`rounded-md border p-1.5 text-center transition hover:-translate-y-0.5 ${n ? (pnl >= 0 ? "border-[color-mix(in_srgb,var(--prism-accent)_60%,transparent)] bg-[color-mix(in_srgb,var(--prism-accent)_25%,transparent)] text-[var(--prism-accent-soft)]" : "border-[color-mix(in_srgb,var(--prism-loss)_60%,transparent)] bg-[color-mix(in_srgb,var(--prism-loss)_25%,transparent)] text-prism-loss") : "border-prism-line text-prism-muted2"} ${mo === month ? "ring-1 ring-prism-accent" : ""}`}>
             <span className="block text-[9px] uppercase">{new Intl.DateTimeFormat(locale, { month: "short" }).format(new Date(year, mo, 1))}</span>
             <b className="block font-mono text-[10px]">{n ? Math.round(pnl) : "—"}</b>
             {n > 0 && <small className="block text-[8px] opacity-70">{n}t</small>}
