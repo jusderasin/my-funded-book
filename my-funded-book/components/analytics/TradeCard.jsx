@@ -7,6 +7,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Download, ImagePlus, Shuffle, X } from "lucide-react";
 import { chrono, durationMin } from "@/lib/reports";
+import { monthlyRecap, monthsOf } from "@/lib/analytics";
 import { frDate } from "@/lib/format";
 
 const S = 1080;
@@ -17,6 +18,7 @@ const THEMES = [
   { id: "bronze", fr: "Bronze", en: "Bronze" },
   { id: "aurora", fr: "Aurore", en: "Aurora" },
   { id: "blood", fr: "Rouge sang", en: "Blood" },
+  { id: "caba", fr: "Caba", en: "Caba" },
 ];
 
 const pnlOf = (t) => (t?.outcome === "BE" ? 0 : Number(t?.pnl) || 0);
@@ -47,6 +49,7 @@ function paintBackground(g, theme, seed, photo) {
     midnight: { base: ["#05060a", "#0b1020"], blobs: ["#1d4ed8", "#7c3aed", "#0ea5e9"], text: "#fff", sub: "rgba(255,255,255,0.6)", line: "#93c5fd" },
     bronze: { base: ["#2a1a10", "#5a3a22"], blobs: ["#d6a46c", "#8a5a33", "#f2d3a6"], text: "#fff", sub: "rgba(255,240,220,0.75)", line: "#f7dcb4" },
     aurora: { base: ["#020a08", "#04140f"], blobs: ["#22c55e", "#14b8a6", "#a3e635"], text: "#fff", sub: "rgba(220,255,235,0.7)", line: "#bbf7d0" },
+    caba: { base: ["#04060e", "#12183c"], blobs: ["#4f8bff", "#7c5cff", "#b14cff"], text: "#fff", sub: "rgba(220,225,255,0.72)", line: "#c7d2fe" },
     blood: { base: ["#120203", "#2a0507"], blobs: ["#ef4444", "#7f1d1d", "#f97316"], text: "#fff", sub: "rgba(255,220,220,0.7)", line: "#fecaca" },
   };
   const p = palettes[theme] || palettes.graphite;
@@ -88,27 +91,73 @@ function paintBackground(g, theme, seed, photo) {
   return p;
 }
 
-function drawCard(canvas, { trade, curve, theme, seed, photo, lang }) {
+// Spécification d'une carte : un trade ou un mois, dessinés avec le même gabarit.
+function tradeSpec(trade, curve, lang) {
+  const en = lang === "en";
+  const ex = trade.execution || {};
+  const dur = durationMin(trade);
+  const price = (v) => (v != null ? Number(v).toLocaleString("en-US", { maximumFractionDigits: 2 }) : "—");
+  return {
+    icon: String(trade.dir || "").toLowerCase() === "short" ? "↘" : "↗",
+    title: trade.symbol || "—",
+    subtitle: `${frDate(trade.date)}${ex.entry_time ? " · " + String(ex.entry_time).slice(0, 5) : ""}${trade.setup ? " · " + trade.setup : ""}`,
+    badge: String(trade.dir || "").toUpperCase(),
+    value: pnlOf(trade),
+    under: trade.r != null && trade.r !== "" ? `${Number(trade.r) >= 0 ? "+" : ""}${Number(trade.r).toFixed(2)}R` : "",
+    rows: [
+      [en ? "Entry" : "Entrée", price(ex.entry_price)],
+      [en ? "Exit" : "Sortie", price(ex.exit_price)],
+      [en ? "Size" : "Taille", ex.size != null ? `${ex.size} ${en ? "contracts" : "contrats"}` : "—"],
+      [en ? "Duration" : "Durée", dur != null ? (dur >= 60 ? `${Math.floor(dur / 60)}h${String(dur % 60).padStart(2, "0")}` : `${dur} min`) : "—"],
+    ],
+    curve,
+  };
+}
+
+function monthSpec(recap, lang) {
+  const en = lang === "en";
+  const [y, m] = recap.month.split("-").map(Number);
+  const name = new Date(y, m - 1, 1).toLocaleDateString(en ? "en-US" : "fr-FR", { month: "long", year: "numeric" });
+  let c = 0;
+  const curve = [0, ...Object.keys(recap.byDay).sort().map((d) => (c += recap.byDay[d]))];
+  return {
+    icon: "◷",
+    title: name.charAt(0).toUpperCase() + name.slice(1),
+    subtitle: `${recap.count} trades · ${recap.days} ${en ? "trading days" : "jours tradés"}`,
+    badge: en ? "MONTH" : "MOIS",
+    value: recap.net,
+    under: `${recap.totalR >= 0 ? "+" : ""}${recap.totalR.toFixed(1)}R`,
+    rows: [
+      ["Win rate", `${Math.round(recap.winRate)}%`],
+      [en ? "Green days" : "Jours verts", `${recap.greenDays}/${recap.days}`],
+      [en ? "Best day" : "Meilleur jour", money(recap.bestDay.pnl)],
+      [en ? "Plan respected" : "Plan respecté", `${Math.round(recap.planPct)}%`],
+    ],
+    curve,
+  };
+}
+
+function drawCard(canvas, { spec, theme, seed, photo, lang }) {
   const g = canvas.getContext("2d", { willReadFrequently: true });
   canvas.width = S; canvas.height = S;
   const p = paintBackground(g, theme, seed, photo);
   const font = (w, s, mono) => `${w} ${s}px ${mono ? "ui-monospace, SFMono-Regular, Menlo, monospace" : "Inter, system-ui, sans-serif"}`;
-  const pnl = pnlOf(trade);
-  const ex = trade.execution || {};
+  const pnl = spec.value;
+  const mono = theme === "mono" || theme === "graphite";
 
-  // En-tête : pastille symbole + date
+  // En-tête
   g.fillStyle = "rgba(255,255,255,0.14)"; g.beginPath(); g.roundRect(70, 70, 64, 64, 18); g.fill();
-  g.fillStyle = p.text; g.font = font(800, 30); g.textAlign = "center"; g.fillText(String(trade.dir || "").toLowerCase() === "short" ? "↘" : "↗", 102, 113);
-  g.textAlign = "left"; g.font = font(800, 40); g.fillText(trade.symbol || "—", 152, 104);
-  g.fillStyle = p.sub; g.font = font(500, 26); g.fillText(`${frDate(trade.date)}${ex.entry_time ? " · " + String(ex.entry_time).slice(0, 5) : ""}${trade.setup ? " · " + trade.setup : ""}`, 152, 138);
-  const side = String(trade.dir || "").toUpperCase();
-  if (side) {
-    g.font = font(800, 24); const w = g.measureText(side).width + 36;
-    g.fillStyle = theme === "mono" ? (pnl >= 0 ? "#fff" : "rgba(255,255,255,0.18)") : pnl >= 0 ? "rgba(34,197,94,0.9)" : "rgba(239,68,68,0.9)"; g.beginPath(); g.roundRect(S - 70 - w, 82, w, 44, 22); g.fill();
-    g.fillStyle = theme === "mono" && pnl >= 0 ? "#000" : "#fff"; g.textAlign = "center"; g.fillText(side, S - 70 - w / 2, 113); g.textAlign = "left";
+  g.fillStyle = p.text; g.font = font(800, 30); g.textAlign = "center"; g.fillText(spec.icon, 102, 113);
+  g.textAlign = "left"; g.font = font(800, 40); g.fillText(spec.title, 152, 104);
+  g.fillStyle = p.sub; g.font = font(500, 26); g.fillText(spec.subtitle, 152, 138);
+  if (spec.badge) {
+    g.font = font(800, 24); const w = g.measureText(spec.badge).width + 36;
+    g.fillStyle = mono ? (pnl >= 0 ? "#fff" : "rgba(255,255,255,0.18)") : pnl >= 0 ? "rgba(34,197,94,0.9)" : "rgba(239,68,68,0.9)"; g.beginPath(); g.roundRect(S - 70 - w, 82, w, 44, 22); g.fill();
+    g.fillStyle = mono && pnl >= 0 ? "#000" : "#fff"; g.textAlign = "center"; g.fillText(spec.badge, S - 70 - w / 2, 113); g.textAlign = "left";
   }
 
-  // Courbe : P&L cumulé du compte jusqu'à ce trade
+  // Courbe
+  const curve = spec.curve;
   if (curve.length > 1) {
     const x0 = 70, x1 = S - 70, y0 = 210, y1 = 450;
     const mn = Math.min(...curve), mx = Math.max(...curve);
@@ -118,25 +167,18 @@ function drawCard(canvas, { trade, curve, theme, seed, photo, lang }) {
     g.beginPath(); curve.forEach((v, i) => (i ? g.lineTo(X(i), Y(v)) : g.moveTo(X(i), Y(v)))); g.stroke(); g.restore();
     const lx = X(curve.length - 1), ly = Y(curve[curve.length - 1]);
     g.fillStyle = "#fff"; g.beginPath(); g.arc(lx, ly, 9, 0, Math.PI * 2); g.fill();
-    g.strokeStyle = theme === "mono" ? "#000" : pnl >= 0 ? "#22c55e" : "#ef4444"; g.lineWidth = 4; g.stroke();
+    g.strokeStyle = mono ? "#000" : pnl >= 0 ? "#22c55e" : "#ef4444"; g.lineWidth = 4; g.stroke();
   }
 
-  // Gros P&L
+  // Gros chiffre
   g.textAlign = "center";
   g.save(); g.shadowColor = "rgba(0,0,0,0.55)"; g.shadowBlur = 40; g.shadowOffsetY = 6;
-  g.fillStyle = p.text; g.font = font(800, 150);
+  g.fillStyle = p.text; g.font = font(800, money(pnl).length > 11 ? 128 : 150);
   g.fillText(money(pnl), S / 2, 640); g.restore();
-  if (trade.r != null && trade.r !== "") { g.fillStyle = p.sub; g.font = font(700, 34, true); g.fillText(`${Number(trade.r) >= 0 ? "+" : ""}${Number(trade.r).toFixed(2)}R`, S / 2, 700); }
+  if (spec.under) { g.fillStyle = p.sub; g.font = font(700, 34, true); g.fillText(spec.under, S / 2, 700); }
 
-  // Détails d'exécution
-  const dur = durationMin(trade);
-  const rows = [
-    [lang === "en" ? "Entry" : "Entrée", ex.entry_price != null ? Number(ex.entry_price).toLocaleString("en-US", { maximumFractionDigits: 2 }) : "—"],
-    [lang === "en" ? "Exit" : "Sortie", ex.exit_price != null ? Number(ex.exit_price).toLocaleString("en-US", { maximumFractionDigits: 2 }) : "—"],
-    [lang === "en" ? "Size" : "Taille", ex.size != null ? `${ex.size} ${lang === "en" ? "contracts" : "contrats"}` : "—"],
-    [lang === "en" ? "Duration" : "Durée", dur != null ? (dur >= 60 ? `${Math.floor(dur / 60)}h${String(dur % 60).padStart(2, "0")}` : `${dur} min`) : "—"],
-  ];
-  rows.forEach(([k, v], i) => {
+  // Détails
+  spec.rows.forEach(([k, v], i) => {
     const y = 780 + i * 46;
     g.textAlign = "right"; g.fillStyle = p.sub; g.font = font(500, 28); g.fillText(k, S / 2 - 24, y);
     g.textAlign = "left"; g.fillStyle = p.text; g.font = font(700, 28, true); g.fillText(v, S / 2 + 24, y);
@@ -155,6 +197,11 @@ export default function TradeCard({ trades, lang = "fr", defaultTheme = "graphit
   const [theme, setTheme] = useState(defaultTheme);
   const [seed, setSeed] = useState(7);
   const [photo, setPhoto] = useState(null);
+  const [mode, setMode] = useState("trade");
+  const months = useMemo(() => monthsOf(trades), [trades]);
+  const [month, setMonth] = useState("");
+  const activeMonth = month || months[0] || "";
+  const recap = useMemo(() => (activeMonth ? monthlyRecap(trades, activeMonth) : null), [trades, activeMonth]);
   const ref = useRef(null);
   const trade = recent.find((t) => String(t.id) === tradeId) || recent[0] || null;
 
@@ -166,9 +213,10 @@ export default function TradeCard({ trades, lang = "fr", defaultTheme = "graphit
     return [0, ...slice.map((t) => (c += pnlOf(t)))];
   }, [sorted, trade]);
 
+  const spec = useMemo(() => (mode === "month" ? (recap ? monthSpec(recap, lang) : null) : trade ? tradeSpec(trade, curve, lang) : null), [mode, recap, trade, curve, lang]);
   useEffect(() => {
-    if (trade && ref.current) drawCard(ref.current, { trade, curve, theme, seed, photo, lang });
-  }, [trade, curve, theme, seed, photo, lang]);
+    if (spec && ref.current) drawCard(ref.current, { spec, theme, seed, photo, lang });
+  }, [spec, theme, seed, photo, lang]);
 
   const onPhoto = (e) => {
     const file = e.target.files?.[0];
@@ -185,7 +233,7 @@ export default function TradeCard({ trades, lang = "fr", defaultTheme = "graphit
       if (!blob) return;
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
-      a.download = `trade-${trade.symbol || "card"}-${trade.date}.png`;
+      a.download = mode === "month" ? `mois-${activeMonth}.png` : `trade-${trade.symbol || "card"}-${trade.date}.png`;
       a.click();
       setTimeout(() => URL.revokeObjectURL(a.href), 2000);
     }, "image/png");
@@ -197,12 +245,26 @@ export default function TradeCard({ trades, lang = "fr", defaultTheme = "graphit
     <div className="grid items-start gap-5 md:grid-cols-[minmax(0,440px)_1fr]">
       <canvas ref={ref} className="aspect-square w-full rounded-2xl shadow-[0_30px_80px_-20px_rgba(0,0,0,0.8)]" />
       <div className="space-y-4">
-        <label className="block">
-          <span className="text-[10px] font-bold tracking-[.16em] text-prism-muted2">TRADE</span>
-          <select value={String(trade.id)} onChange={(e) => setTradeId(e.target.value)} className="mt-1.5 h-10 w-full rounded-lg border border-prism-line bg-prism-panel px-3 text-sm">
-            {recent.map((t) => <option key={t.id} value={String(t.id)}>{frDate(t.date)} · {t.symbol} · {String(t.dir || "").toUpperCase()} · {money(pnlOf(t))}</option>)}
-          </select>
-        </label>
+        <div className="flex overflow-hidden rounded-lg border border-prism-line">
+          {[["trade", en ? "One trade" : "Un trade"], ["month", en ? "Whole month" : "Le mois"]].map(([k, label]) => (
+            <button key={k} type="button" onClick={() => setMode(k)} className={`h-9 flex-1 text-xs font-bold ${mode === k ? "bg-prism-text text-prism-bg" : "text-prism-muted hover:text-prism-text"}`}>{label}</button>
+          ))}
+        </div>
+        {mode === "trade" ? (
+          <label className="block">
+            <span className="text-[10px] font-bold tracking-[.16em] text-prism-muted2">TRADE</span>
+            <select value={String(trade.id)} onChange={(e) => setTradeId(e.target.value)} className="mt-1.5 h-10 w-full rounded-lg border border-prism-line bg-prism-panel px-3 text-sm">
+              {recent.map((t) => <option key={t.id} value={String(t.id)}>{frDate(t.date)} · {t.symbol} · {String(t.dir || "").toUpperCase()} · {money(pnlOf(t))}</option>)}
+            </select>
+          </label>
+        ) : (
+          <label className="block">
+            <span className="text-[10px] font-bold tracking-[.16em] text-prism-muted2">{en ? "MONTH" : "MOIS"}</span>
+            <select value={activeMonth} onChange={(e) => setMonth(e.target.value)} className="mt-1.5 h-10 w-full rounded-lg border border-prism-line bg-prism-panel px-3 text-sm capitalize">
+              {months.map((m) => { const [y, mo] = m.split("-").map(Number); return <option key={m} value={m}>{new Date(y, mo - 1, 1).toLocaleDateString(en ? "en-US" : "fr-FR", { month: "long", year: "numeric" })}</option>; })}
+            </select>
+          </label>
+        )}
         <div>
           <span className="text-[10px] font-bold tracking-[.16em] text-prism-muted2">{en ? "STYLE" : "STYLE"}</span>
           <div className="mt-1.5 flex flex-wrap gap-2">
@@ -223,7 +285,7 @@ export default function TradeCard({ trades, lang = "fr", defaultTheme = "graphit
           </div>
           <p className="mt-1.5 text-[11px] text-prism-muted2">{en ? "Your car, your setup, your desk… it stays on your device." : "Ta voiture, ton setup, ton bureau… la photo reste sur ton appareil."}</p>
         </div>
-        <button type="button" onClick={save} className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-prism-accent text-xs font-extrabold tracking-[.14em] text-black">
+        <button type="button" onClick={save} className="inline-flex h-11 w-full items-center justify-center gap-2 rounded-lg bg-prism-accent text-xs font-extrabold tracking-[.14em] text-prism-bg">
           <Download className="h-4 w-4" />{en ? "SAVE CARD (1080×1080)" : "ENREGISTRER LA CARTE (1080×1080)"}
         </button>
       </div>
