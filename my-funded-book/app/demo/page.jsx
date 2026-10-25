@@ -5,15 +5,17 @@
 
 import { useState } from "react";
 import Link from "next/link";
-import { ArrowRight, LayoutDashboard, NotebookPen } from "lucide-react";
+import { ArrowRight, Cpu, LayoutDashboard, NotebookPen } from "lucide-react";
 import { DemoProvider } from "@/components/DemoProvider";
 import BrandMark from "@/components/BrandMark";
 import DashboardPage from "../(app)/dashboard/page";
 import JournalPage from "../(app)/journal/page";
+import AnalyticsPage from "../(app)/analytics/page";
 
 const TABS = [
   ["dashboard", "Dashboard", LayoutDashboard],
   ["journal", "Journal", NotebookPen],
+  ["analytics", "Analyse", Cpu],
 ];
 
 export default function DemoPage() {
@@ -41,7 +43,7 @@ export default function DemoPage() {
             <span className="ml-auto self-center font-mono text-[10px] text-prism-muted2 md:hidden">DÉMO · données fictives</span>
           </nav>
         </header>
-        {tab === "dashboard" ? <DashboardPage /> : <JournalPage />}
+        {tab === "dashboard" ? <DashboardPage /> : tab === "analytics" ? <AnalyticsPage /> : <JournalPage />}
         <section className="border-t border-prism-line px-4 py-10 text-center">
           <p className="term-title text-3xl">Ton propre journal, <span className="text-prism-accent">en 2 minutes.</span></p>
           <p className="mt-2 text-sm text-prism-muted">14 jours gratuits · puis $19/mois · annulable en 1 clic</p>
