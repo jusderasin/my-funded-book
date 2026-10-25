@@ -5,6 +5,17 @@ import { Maximize2, Minus, Plus, X } from "lucide-react";
 import { LogTradeModal } from "@/components/modals";
 import { fmtMoney, frDate } from "@/lib/format";
 
+// Le canvas ne comprend pas les variables CSS : on lit l'accent du thème actif
+// et on le convertit en "r,g,b" pour construire des rgba().
+function accentRgb() {
+  if (typeof document === "undefined") return "198,244,50";
+  const hex = getComputedStyle(document.documentElement).getPropertyValue("--prism-accent").trim().replace("#", "");
+  if (!/^[0-9a-f]{6}$/i.test(hex)) return "198,244,50";
+  const n = parseInt(hex, 16);
+  return `${(n >> 16) & 255},${(n >> 8) & 255},${n & 255}`;
+}
+
+
 /**
  * Galaxie des trades — sphère 3D en canvas (sans dépendance).
  * Chaque trade est une étoile : vert = gain, rouge = perte, taille = |P&L|.
@@ -113,12 +124,13 @@ export default function TradeGalaxy({ trades, lang = "fr", className = "h-[340px
       frame += 1;
       if (!drag) rotY += velocity;
       const scale = Math.min(width, height) * 0.36 * zoom;
+      const acc = accentRgb();
       context.clearRect(0, 0, width, height);
 
       // Halo du noyau.
       const glow = context.createRadialGradient(width / 2, height / 2, 0, width / 2, height / 2, scale * 1.2);
-      glow.addColorStop(0, "color-mix(in srgb, var(--prism-accent) 16%, transparent)");
-      glow.addColorStop(0.45, "color-mix(in srgb, var(--prism-accent) 4%, transparent)");
+      glow.addColorStop(0, `rgba(${acc},0.16)`);
+      glow.addColorStop(0.45, `rgba(${acc},0.04)`);
       glow.addColorStop(1, "rgba(0,0,0,0)");
       context.fillStyle = glow;
       context.fillRect(0, 0, width, height);
@@ -139,7 +151,7 @@ export default function TradeGalaxy({ trades, lang = "fr", className = "h-[340px
           const p = project(point, scale);
           if (step) context.lineTo(p.x, p.y); else context.moveTo(p.x, p.y);
         }
-        context.strokeStyle = ringIndex ? "rgba(255,255,255,.08)" : "color-mix(in srgb, var(--prism-accent) 22%, transparent)";
+        context.strokeStyle = ringIndex ? "rgba(255,255,255,.08)" : `rgba(${acc},0.22)`;
         context.lineWidth = 1;
         context.stroke();
       });
@@ -154,7 +166,7 @@ export default function TradeGalaxy({ trades, lang = "fr", className = "h-[340px
           const p = project([Math.cos(angle) * radius, y, Math.sin(angle) * radius], scale);
           if (step) context.lineTo(p.x, p.y); else context.moveTo(p.x, p.y);
         }
-        context.strokeStyle = "color-mix(in srgb, var(--prism-accent) 5%, transparent)";
+        context.strokeStyle = `rgba(${acc},0.05)`;
         context.stroke();
       }
 
@@ -205,7 +217,7 @@ export default function TradeGalaxy({ trades, lang = "fr", className = "h-[340px
       clusters.forEach((cluster) => {
         const p = project(cluster.pos.map((value) => value * 1.12), scale);
         if (p.depth > 0.1) return;
-        context.fillStyle = "color-mix(in srgb, var(--prism-accent) 85%, transparent)";
+        context.fillStyle = `rgba(${acc},0.85)`;
         context.fillText(`${cluster.setup.toUpperCase()} · ${cluster.count}`, p.x + 8, p.y - 8);
       });
 
