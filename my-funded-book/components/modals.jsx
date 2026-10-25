@@ -287,6 +287,7 @@ export function LogTradeModal({ editing, onClose }) {
           tags: Array.isArray(editing.tags) ? editing.tags : [],
           strategy_checks: Array.isArray(editing.strategy_checks) ? editing.strategy_checks : [],
           psychology: { ...DEFAULT_PSYCHOLOGY, ...(editing.psychology || {}) },
+          mfe_r: editing.execution?.mfe_r ?? "", mae_r: editing.execution?.mae_r ?? "",
         }
       : blank()
   );
@@ -404,6 +405,10 @@ export function LogTradeModal({ editing, onClose }) {
       account_id: f.account_id || null,
       outcome: f.outcome || null,
     };
+    // MFE / MAE en R : rangés dans execution (jsonb) sans toucher au reste de l'exécution.
+    const rOrNull = (v) => (v === "" || v == null || !Number.isFinite(Number(v)) ? null : Math.abs(Number(v)));
+    const mfe = rOrNull(f.mfe_r); const mae = rOrNull(f.mae_r);
+    if (mfe != null || mae != null || editing?.execution) row.execution = { ...(editing?.execution || {}), mfe_r: mfe, mae_r: mae };
     // Un break-even est toujours neutre.
     if (row.outcome === "BE") { row.r = 0; row.pnl = 0; }
     const result = editing ? await updateTrade(editing.id, row) : await addTrade(row);
@@ -643,6 +648,15 @@ export function LogTradeModal({ editing, onClose }) {
                 })}
               </div>
             </section>
+
+            <div className="grid grid-cols-2 gap-3">
+              <QlField label={en ? "MFE · best R reached" : "MFE · R max en ta faveur"}>
+                <input type="number" inputMode="decimal" step="0.1" min="0" className={`${QL_INPUT} font-mono`} value={f.mfe_r ?? ""} onChange={(e) => set("mfe_r", e.target.value)} placeholder="3.1" />
+              </QlField>
+              <QlField label={en ? "MAE · worst R against you" : "MAE · R max contre toi"}>
+                <input type="number" inputMode="decimal" step="0.1" min="0" className={`${QL_INPUT} font-mono`} value={f.mae_r ?? ""} onChange={(e) => set("mae_r", e.target.value)} placeholder="0.6" />
+              </QlField>
+            </div>
 
             <QlField label={en ? "Mistakes" : "Erreurs"}>
               <div className="flex flex-wrap gap-1.5">

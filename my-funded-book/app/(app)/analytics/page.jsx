@@ -6,6 +6,7 @@ import { useBook } from "@/components/BookProvider";
 import { Radar } from "@/components/charts";
 import { Heat3D } from "@/components/analytics/charts";
 import EquityLab from "@/components/analytics/EquityLab";
+import { AskPanel, BehaviorPanel, ComparePanel } from "@/components/analytics/KovaPanels";
 import MonthlyWrapped from "@/components/analytics/MonthlyWrapped";
 import TradeCard from "@/components/analytics/TradeCard";
 import { bestWindow, drawdownCurve, equityLab, heatGrid, monthlyRecap, monthsOf, rDistribution, sharpe } from "@/lib/analytics";
@@ -143,10 +144,25 @@ export default function AnalyticsPage() {
           <Kpi label={en ? "BEST / LEAK WINDOW" : "CRÉNEAU + / −"} value={winLabel(windows.best)} sub={`${en ? "leak" : "fuite"} : ${winLabel(windows.worst)}${avgSize ? ` · ${avgSize.toFixed(1)} ct` : ""}`} />
         </div>
 
+        {/* Questions au journal */}
+        <Panel title={en ? "ASK YOUR JOURNAL" : "DEMANDE À TON JOURNAL"} sub={en ? "Ask in plain words, get the exact numbers from your trades." : "Pose ta question en français, la réponse vient de tes vrais chiffres."} className="mb-5">
+          <AskPanel trades={trades} lang={lang} />
+        </Panel>
+
         {/* Equity Lab */}
         <Panel title="EQUITY LAB" sub={en ? "Your executions like a backtest: curve, stability terrain, behaviour map and robustness." : "Tes exécutions comme un backtest : courbe, terrain de stabilité, carte comportementale et robustesse."} className="mb-5">
           <EquityLab key={`${accountId}-${period}-${lab.length}`} rows={lab} lang={lang} />
         </Panel>
+
+        {/* Comportements + comparateur */}
+        <div className="mb-5 grid gap-5 xl:grid-cols-2">
+          <Panel title={en ? "DETECTED BEHAVIOURS" : "COMPORTEMENTS DÉTECTÉS"} sub={en ? "Spotted on their own, no tagging needed, with what they cost you." : "Repérés tout seuls, sans rien taguer, avec ce qu'ils te coûtent."}>
+            <BehaviorPanel trades={trades} lang={lang} />
+          </Panel>
+          <Panel title={en ? "CONTEXT COMPARATOR" : "COMPARATEUR DE CONTEXTES"} sub={en ? "Two contexts side by side to decide which one to keep." : "Deux contextes côte à côte pour décider lequel garder."}>
+            <ComparePanel trades={trades} lang={lang} />
+          </Panel>
+        </div>
 
         {/* Modules */}
         <div className="grid gap-5 lg:grid-cols-5">

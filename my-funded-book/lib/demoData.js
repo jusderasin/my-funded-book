@@ -73,7 +73,7 @@ export function demoTrades(today = new Date()) {
         screenshot_url: null,
         screenshot_url_2: null,
         strategy_checks: [],
-        execution: { mode: "day", entry_time: `${pad(hour)}:${pad(minute)}:00`, exit_time: `${pad(hour)}:${pad(Math.min(59, minute + 4 + Math.floor(rand() * 20)))}:00`, entry_price: entry, exit_price: Math.round(exit * 4) / 4, size: qty },
+        execution: { mode: "day", entry_time: `${pad(hour)}:${pad(minute)}:00`, exit_time: `${pad(hour)}:${pad(Math.min(59, minute + 4 + Math.floor(rand() * 20)))}:00`, entry_price: entry, exit_price: Math.round(exit * 4) / 4, size: qty, mfe_r: Math.round((r > 0 ? r + rand() * 1.8 : rand() * 0.9) * 10) / 10, mae_r: Math.round((r < 0 ? Math.abs(r) : rand() * 0.8) * 10) / 10 },
       });
     }
   }
