@@ -55,7 +55,7 @@ function Stat({ label, value, tone }) {
   );
 }
 
-export default function MonthlyWrapped({ recap, name, lang = "fr", onClose }) {
+export default function MonthlyWrapped({ recap, name, lang = "fr", onClose, themeStyle }) {
   const en = lang === "en";
   const [i, setI] = useState(0);
   const [paused, setPaused] = useState(false);
@@ -104,7 +104,7 @@ export default function MonthlyWrapped({ recap, name, lang = "fr", onClose }) {
 
   // Portal sur <body> : un parent transformé de l'app casserait le position: fixed.
   return createPortal(
-    <div className="fixed inset-0 z-[150] flex flex-col bg-black text-prism-text" role="dialog" aria-modal="true">
+    <div className="fixed inset-0 z-[150] flex flex-col bg-black text-prism-text" role="dialog" aria-modal="true" style={themeStyle}>
       <style>{`
         @keyframes wrappedIn { from { opacity: 0; transform: translateY(18px) scale(.96); filter: blur(6px); } to { opacity: 1; transform: none; filter: none; } }
         .wrapped-in { animation: wrappedIn .7s cubic-bezier(.2,.8,.2,1) both; }
@@ -176,7 +176,7 @@ export default function MonthlyWrapped({ recap, name, lang = "fr", onClose }) {
 
 // Dessine la carte récap sur un canvas 1080×1920 et la télécharge en PNG.
 function exportStory(recap, { title, name, L }) {
-  const css = getComputedStyle(document.documentElement);
+  const css = getComputedStyle(document.querySelector("[role=dialog]") || document.documentElement);
   const v = (k, d) => (css.getPropertyValue(k).trim() || d);
   const WIN = v("--prism-win", "#22c55e"); const LOSS = v("--prism-loss", "#ef4444"); const ACC = v("--prism-accent", "#3b82f6");
   const c = document.createElement("canvas");

@@ -122,3 +122,139 @@ export function monthlyRecap(trades, month) {
     byDay,
   };
 }
+
+// ---------------------------------------------------------------------------
+// Equity Lab (vue façon PROTOS) : une ligne par trade avec tout ce qu'il faut
+// pour la courbe, le panneau « trade inspecté » et la carte comportementale.
+// ---------------------------------------------------------------------------
+
+const ROLL = 20;
+
+export function equityLab(trades, startBalance = 0) {
+  let cum = 0; let cumR = 0; let peak = 0;
+  const list = chrono(trades);
+  const rows = list.map((t, i) => {
+    const pnl = pnlOf(t); const r = rOf(t);
+    cum += pnl; cumR += r; peak = Math.max(peak, cum);
+    const win = list.slice(Math.max(0, i - ROLL + 1), i + 1);
+    const rollExp = win.reduce((s, x) => s + rOf(x), 0) / win.length;
+    return {
+      i, trade: t, pnl, r, cum, cumR,
+      equity: startBalance + cum,
+      dd: cum - peak,
+      dur: durationMin(t),
+      plan: !!t.plan,
+      size: Number(t.execution?.size) || null,
+      rollExp,
+      phase: win.length < 5 ? "WARMUP" : rollExp > 0.15 ? "EDGE +" : rollExp < -0.15 ? "EDGE −" : "FRAGILE",
+    };
+  });
+  return rows;
+}
+
+// Résumé d'une fenêtre de trades (période visible).
+export function windowStats(rows) {
+  const n = rows.length;
+  if (!n) return { n: 0, pnl: 0, exp: 0, wr: 0, pf: 0, maxDD: 0 };
+  const pnl = rows.reduce((s, x) => s + x.pnl, 0);
+  const gp = rows.filter((x) => x.pnl > 0).reduce((s, x) => s + x.pnl, 0);
+  const gl = Math.abs(rows.filter((x) => x.pnl < 0).reduce((s, x) => s + x.pnl, 0));
+  let c = 0; let pk = 0; let mdd = 0;
+  rows.forEach((x) => { c += x.pnl; pk = Math.max(pk, c); mdd = Math.min(mdd, c - pk); });
+  return { n, pnl, exp: rows.reduce((s, x) => s + x.r, 0) / n, wr: (rows.filter((x) => x.pnl > 0).length / n) * 100, pf: gl ? gp / gl : gp ? 99 : 0, maxDD: mdd };
+}
+
+// Sharpe annualisé sur le P&L journalier.
+export function sharpe(trades) {
+  const byDay = {};
+  (trades || []).forEach((t) => { byDay[t.date] = (byDay[t.date] || 0) + pnlOf(t); });
+  const v = Object.values(byDay);
+  if (v.length < 3) return 0;
+  const m = v.reduce((a, b) => a + b, 0) / v.length;
+  const sd = Math.sqrt(v.reduce((s, x) => s + (x - m) ** 2, 0) / (v.length - 1));
+  return sd ? (m / sd) * Math.sqrt(252) : 0;
+}
+
+// Terrain de stabilité : espérance glissante (en R) pour plusieurs horizons × temps.
+export const HORIZONS = [5, 10, 20, 40];
+export function stabilitySurface(rows, cols = 40) {
+  const n = rows.length;
+  if (n < 6) return null;
+  const step = Math.max(1, n / cols);
+  const xs = [];
+  for (let k = 0; k < Math.min(cols, n); k++) xs.push(Math.min(n - 1, Math.round(k * step)));
+  const z = HORIZONS.map((h) => xs.map((i) => {
+    const w = rows.slice(Math.max(0, i - h + 1), i + 1);
+    return w.reduce((s, x) => s + x.r, 0) / w.length;
+  }));
+  const amp = Math.max(0.5, ...z.flat().map(Math.abs));
+  return { xs, z, amp };
+}
+
+// Détecteurs anti-overfit / robustesse, à partir des lignes de l'Equity Lab.
+export function detectors(rows, lang = "fr") {
+  const en = lang === "en";
+  const n = rows.length;
+  const out = [];
+  out.push({
+    key: "sample", label: en ? "Sample size" : "Taille d'échantillon", value: n,
+    level: n >= 100 ? "ok" : n >= 30 ? "warn" : "bad",
+    text: n >= 100 ? (en ? "Large enough for a first diagnosis." : "Échantillon suffisant pour un pré-diagnostic.") : n >= 30 ? (en ? "Usable, but still noisy." : "Exploitable, mais encore bruité.") : (en ? "Too few trades: conclusions are fragile." : "Trop peu de trades : conclusions fragiles."),
+  });
+  if (n >= 10) {
+    const half = Math.floor(n / 2);
+    const a = rows.slice(0, half).reduce((s, x) => s + x.r, 0) / half;
+    const b = rows.slice(half).reduce((s, x) => s + x.r, 0) / (n - half);
+    out.push({
+      key: "drift", label: en ? "1st half → 2nd half" : "1re moitié → 2e moitié", value: `${a.toFixed(2)} → ${b.toFixed(2)}R`,
+      level: b >= a * 0.7 && b > 0 ? "ok" : b > 0 ? "warn" : "bad",
+      text: b >= a ? (en ? "Your edge is holding or improving." : "Ton edge tient ou s'améliore.") : (en ? "Your expectancy is degrading over time." : "Ton espérance se dégrade avec le temps."),
+    });
+  }
+  if (n >= ROLL) {
+    const roll = rows.slice(ROLL - 1);
+    const pos = (roll.filter((x) => x.rollExp > 0).length / roll.length) * 100;
+    out.push({
+      key: "persist", label: en ? "Edge persistence" : "Persistance de l'edge", value: `${pos.toFixed(0)}%`,
+      level: pos >= 70 ? "ok" : pos >= 45 ? "warn" : "bad",
+      text: en ? `Rolling ${ROLL}-trade expectancy is positive ${pos.toFixed(0)}% of the time.` : `Espérance glissante sur ${ROLL} trades positive ${pos.toFixed(0)}% du temps.`,
+    });
+  }
+  const gains = rows.filter((x) => x.pnl > 0).map((x) => x.pnl).sort((p, q) => q - p);
+  if (gains.length >= 5) {
+    const top = Math.max(1, Math.round(gains.length * 0.1));
+    const share = (gains.slice(0, top).reduce((s, v) => s + v, 0) / gains.reduce((s, v) => s + v, 0)) * 100;
+    out.push({
+      key: "conc", label: en ? "Gain concentration" : "Concentration des gains", value: `${share.toFixed(0)}%`,
+      level: share <= 35 ? "ok" : share <= 55 ? "warn" : "bad",
+      text: en ? `Your best ${top} trades make ${share.toFixed(0)}% of gross gains.` : `Tes ${top} meilleurs trades font ${share.toFixed(0)}% des gains bruts.`,
+    });
+  }
+  if (n >= 5) {
+    const planned = rows.filter((x) => x.plan); const off = rows.filter((x) => !x.plan);
+    const e = (l) => (l.length ? l.reduce((s, x) => s + x.r, 0) / l.length : 0);
+    if (planned.length && off.length) out.push({
+      key: "plan", label: en ? "Plan vs off-plan" : "Plan vs hors plan", value: `${e(planned).toFixed(2)} / ${e(off).toFixed(2)}R`,
+      level: e(planned) > e(off) ? "ok" : "warn",
+      text: e(planned) > e(off) ? (en ? "Following your plan pays." : "Suivre ton plan paie.") : (en ? "Off-plan trades do as well: is your plan useful?" : "Hors plan aussi bon : ton plan sert-il vraiment ?"),
+    });
+  }
+  return out;
+}
+
+// Score de robustesse 0-100 (moyenne des détecteurs).
+export function robustness(dets) {
+  if (!dets.length) return 0;
+  const pts = { ok: 100, warn: 55, bad: 15 };
+  return Math.round(dets.reduce((s, d) => s + pts[d.level], 0) / dets.length);
+}
+
+// Thème noir & blanc (essai) : variables posées sur le conteneur de la page Analyse.
+export const MONO_VARS = {
+  "--prism-bg": "#000000", "--prism-surface": "#030303", "--prism-panel": "#070707", "--prism-panel2": "#111111",
+  "--prism-line": "rgba(255,255,255,0.10)", "--prism-line2": "rgba(255,255,255,0.16)",
+  "--prism-text": "#ffffff", "--prism-muted": "#a3a3a3", "--prism-muted2": "#6b6b6b",
+  "--prism-accent": "#ffffff", "--prism-accent-soft": "#e5e5e5", "--prism-accent-dim": "rgba(255,255,255,0.08)",
+  "--prism-win": "#f5f5f5", "--prism-loss": "#7c7c7c",
+  "--accent": "#ffffff", "--loss": "#7c7c7c", "--line": "rgba(255,255,255,0.10)", "--panel2": "#111111", "--muted": "#a3a3a3",
+};
