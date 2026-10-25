@@ -11,6 +11,7 @@ import { frDate } from "@/lib/format";
 
 const S = 1080;
 const THEMES = [
+  { id: "mono", fr: "Noir & blanc", en: "Black & white" },
   { id: "graphite", fr: "Graphite", en: "Graphite" },
   { id: "midnight", fr: "Minuit", en: "Midnight" },
   { id: "bronze", fr: "Bronze", en: "Bronze" },
@@ -41,6 +42,7 @@ function paintBackground(g, theme, seed, photo) {
     return { text: "#fff", sub: "rgba(255,255,255,0.72)", line: "#fff" };
   }
   const palettes = {
+    mono: { base: ["#000000", "#141414"], blobs: ["#ffffff", "#6b6b6b", "#2a2a2a"], text: "#fff", sub: "rgba(255,255,255,0.6)", line: "#fff" },
     graphite: { base: ["#c9c9cc", "#a7a7ab"], blobs: ["#ffffff", "#8d8d92", "#e4e4e7"], text: "#fff", sub: "rgba(255,255,255,0.78)", line: "#fff" },
     midnight: { base: ["#05060a", "#0b1020"], blobs: ["#1d4ed8", "#7c3aed", "#0ea5e9"], text: "#fff", sub: "rgba(255,255,255,0.6)", line: "#93c5fd" },
     bronze: { base: ["#2a1a10", "#5a3a22"], blobs: ["#d6a46c", "#8a5a33", "#f2d3a6"], text: "#fff", sub: "rgba(255,240,220,0.75)", line: "#f7dcb4" },
@@ -102,8 +104,8 @@ function drawCard(canvas, { trade, curve, theme, seed, photo, lang }) {
   const side = String(trade.dir || "").toUpperCase();
   if (side) {
     g.font = font(800, 24); const w = g.measureText(side).width + 36;
-    g.fillStyle = pnl >= 0 ? "rgba(34,197,94,0.9)" : "rgba(239,68,68,0.9)"; g.beginPath(); g.roundRect(S - 70 - w, 82, w, 44, 22); g.fill();
-    g.fillStyle = "#fff"; g.textAlign = "center"; g.fillText(side, S - 70 - w / 2, 113); g.textAlign = "left";
+    g.fillStyle = theme === "mono" ? (pnl >= 0 ? "#fff" : "rgba(255,255,255,0.18)") : pnl >= 0 ? "rgba(34,197,94,0.9)" : "rgba(239,68,68,0.9)"; g.beginPath(); g.roundRect(S - 70 - w, 82, w, 44, 22); g.fill();
+    g.fillStyle = theme === "mono" && pnl >= 0 ? "#000" : "#fff"; g.textAlign = "center"; g.fillText(side, S - 70 - w / 2, 113); g.textAlign = "left";
   }
 
   // Courbe : P&L cumulé du compte jusqu'à ce trade
@@ -116,7 +118,7 @@ function drawCard(canvas, { trade, curve, theme, seed, photo, lang }) {
     g.beginPath(); curve.forEach((v, i) => (i ? g.lineTo(X(i), Y(v)) : g.moveTo(X(i), Y(v)))); g.stroke(); g.restore();
     const lx = X(curve.length - 1), ly = Y(curve[curve.length - 1]);
     g.fillStyle = "#fff"; g.beginPath(); g.arc(lx, ly, 9, 0, Math.PI * 2); g.fill();
-    g.strokeStyle = pnl >= 0 ? "#22c55e" : "#ef4444"; g.lineWidth = 4; g.stroke();
+    g.strokeStyle = theme === "mono" ? "#000" : pnl >= 0 ? "#22c55e" : "#ef4444"; g.lineWidth = 4; g.stroke();
   }
 
   // Gros P&L
@@ -145,12 +147,12 @@ function drawCard(canvas, { trade, curve, theme, seed, photo, lang }) {
   g.textAlign = "right"; g.fillStyle = p.sub; g.font = font(500, 24); g.fillText(lang === "en" ? "trading journal" : "journal de trading", S - 70, S - 62);
 }
 
-export default function TradeCard({ trades, lang = "fr" }) {
+export default function TradeCard({ trades, lang = "fr", defaultTheme = "graphite" }) {
   const en = lang === "en";
   const sorted = useMemo(() => chrono(trades), [trades]);
   const recent = useMemo(() => sorted.slice().reverse().slice(0, 60), [sorted]);
   const [tradeId, setTradeId] = useState("");
-  const [theme, setTheme] = useState("graphite");
+  const [theme, setTheme] = useState(defaultTheme);
   const [seed, setSeed] = useState(7);
   const [photo, setPhoto] = useState(null);
   const ref = useRef(null);
