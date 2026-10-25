@@ -30,7 +30,7 @@ export default function DemoPage() {
               <span className="mr-2 rounded bg-prism-accent px-1.5 py-0.5 text-[9px] font-extrabold tracking-[.12em] text-black">DÉMO</span>
               Données fictives · tout est cliquable · rien n&apos;est enregistré
             </p>
-            <Link href="/login?tab=signup" className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md bg-prism-accent px-3 text-[11px] font-extrabold tracking-[.1em] text-black shadow-[0_0_24px_rgba(198,244,50,.35)]">
+            <Link href="/login?tab=signup" className="inline-flex h-9 shrink-0 items-center gap-1.5 rounded-md bg-prism-accent px-3 text-[11px] font-extrabold tracking-[.1em] text-black shadow-[0_0_24px_color-mix(in_srgb,var(--prism-accent)_35%,transparent)]">
               ESSAI GRATUIT <ArrowRight className="h-3.5 w-3.5" />
             </Link>
           </div>

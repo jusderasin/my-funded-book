@@ -182,7 +182,7 @@ export default function AccountWizard({ onClose, onCreated }) {
             <h2 className="text-xl font-bold">{T.steps[step]}</h2>
             <div className="mt-3 flex items-center gap-1.5">
               {T.steps.map((_, i) => (
-                <span key={i} className={`h-1.5 rounded-full transition-all ${i === step ? "w-6 bg-prism-accent" : i < step ? "w-1.5 bg-[rgba(198,244,50,0.55)]" : "w-1.5 bg-prism-line2"}`} />
+                <span key={i} className={`h-1.5 rounded-full transition-all ${i === step ? "w-6 bg-prism-accent" : i < step ? "w-1.5 bg-[color-mix(in_srgb,var(--prism-accent)_55%,transparent)]" : "w-1.5 bg-prism-line2"}`} />
               ))}
             </div>
           </div>

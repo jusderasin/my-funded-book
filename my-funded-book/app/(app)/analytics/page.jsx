@@ -1,6 +1,6 @@
 "use client";
 
-import { useEffect, useMemo, useState } from "react";
+import { useMemo, useState } from "react";
 import { Cpu, Play } from "lucide-react";
 import { useBook } from "@/components/BookProvider";
 import { Radar } from "@/components/charts";
@@ -8,13 +8,12 @@ import { Heat3D } from "@/components/analytics/charts";
 import EquityLab from "@/components/analytics/EquityLab";
 import MonthlyWrapped from "@/components/analytics/MonthlyWrapped";
 import TradeCard from "@/components/analytics/TradeCard";
-import { LAB_THEMES, MONO_VARS, bestWindow, drawdownCurve, equityLab, heatGrid, monthlyRecap, monthsOf, rDistribution, sharpe } from "@/lib/analytics";
+import { bestWindow, drawdownCurve, equityLab, heatGrid, monthlyRecap, monthsOf, rDistribution, sharpe } from "@/lib/analytics";
 import { computeStats } from "@/lib/stats";
 import { fmtMoney } from "@/lib/format";
 
 const DAYS_FR = ["Lun", "Mar", "Mer", "Jeu", "Ven", "Sam", "Dim"];
 const DAYS_EN = ["Mon", "Tue", "Wed", "Thu", "Fri", "Sat", "Sun"];
-const THEME_KEY = "mtb-analytics-theme";
 
 function Panel({ title, sub, right, children, className = "" }) {
   return (
@@ -52,12 +51,8 @@ export default function AnalyticsPage() {
   const [accountId, setAccountId] = useState("all");
   const [period, setPeriod] = useState("all");
   const [wrapped, setWrapped] = useState(null);
-  const [themeId, setThemeId] = useState("mono");
   const [recapMonth, setRecapMonth] = useState("");
 
-  useEffect(() => { try { const v = localStorage.getItem(THEME_KEY); if (LAB_THEMES.some((t) => t.id === v)) setThemeId(v); } catch {} }, []);
-  const pickTheme = (id) => { setThemeId(id); try { localStorage.setItem(THEME_KEY, id); } catch {} };
-  const theme = LAB_THEMES.find((t) => t.id === themeId) || LAB_THEMES[0];
 
   const account = accounts.find((a) => a.id === accountId) || null;
   const byAccount = useMemo(() => scopedTrades.filter((t) => accountId === "all" || t.account_id === accountId), [scopedTrades, accountId]);
@@ -87,12 +82,9 @@ export default function AnalyticsPage() {
   const winLabel = (w) => (w ? `${dayLabels[w.d]} ${String(w.h).padStart(2, "0")}h` : "—");
   const monthName = (m) => { const [y, mo] = m.split("-").map(Number); return new Date(y, mo - 1, 1).toLocaleDateString(en ? "en-US" : "fr-FR", { month: "short", year: "numeric" }); };
   const periods = en ? { all: "All", "30": "30d", "90": "90d", "365": "1y" } : { all: "Tout", "30": "30 j", "90": "90 j", "365": "1 an" };
-  const themeStyle = theme.vars || undefined;
-  // Le récap plein écran est sombre par nature : le thème clair y passe en noir & blanc.
-  const recapStyle = theme.id === "liquid" ? MONO_VARS : themeStyle;
 
   return (
-    <div style={themeStyle} className={theme.vars ? "min-h-full bg-prism-bg" : ""}>
+    <div>
       <div className="mx-auto max-w-[1440px] px-4 py-6 text-prism-text sm:px-8">
         {/* Barre d'en-tête façon terminal */}
         <header className="mb-5 flex flex-wrap items-center gap-3 border-b border-prism-line pb-4">
@@ -110,19 +102,12 @@ export default function AnalyticsPage() {
               <button key={k} type="button" onClick={() => setPeriod(k)} className={`h-9 px-3 text-[11px] font-semibold ${period === k ? "bg-prism-text text-prism-bg" : "text-prism-muted hover:text-prism-text"}`}>{label}</button>
             ))}
           </div>
-          <div className="flex items-center gap-1 rounded-md border border-prism-line p-1" title={en ? "Trial themes" : "Thèmes à l'essai"}>
-            {LAB_THEMES.map((t) => (
-              <button key={t.id} type="button" onClick={() => pickTheme(t.id)} className={`inline-flex h-7 items-center gap-1.5 rounded px-2 text-[11px] font-semibold ${themeId === t.id ? "bg-prism-text text-prism-bg" : "text-prism-muted hover:text-prism-text"}`}>
-                <span className="inline-block h-2.5 w-2.5 rounded-full border border-current" style={{ background: t.swatch }} />{en ? t.en : t.fr}
-              </button>
-            ))}
-          </div>
         </header>
 
         {/* Partage */}
         <div className="mb-5 grid gap-5 xl:grid-cols-[minmax(0,1fr)_360px]">
           <Panel title={en ? "TRADE CARD" : "CARTE DE TRADE"} sub={en ? "Turn any trade into a card ready for Instagram." : "Transforme n'importe quel trade en carte prête pour Instagram."}>
-            <TradeCard key={theme.id} trades={trades} lang={lang} defaultTheme={theme.card} />
+            <TradeCard trades={trades} lang={lang} />
           </Panel>
           <Panel title={en ? "MONTHLY RECAP" : "RÉCAP DU MOIS"} sub={en ? "Your month, stat by stat, ready to share." : "Ton mois, stat par stat, prêt à partager."}>
             {months.length ? (
@@ -174,7 +159,7 @@ export default function AnalyticsPage() {
         </div>
       </div>
 
-      {wrapped && <MonthlyWrapped recap={wrapped} name={profile.display_name || profile.name || ""} lang={lang} themeStyle={recapStyle} onClose={() => setWrapped(null)} />}
+      {wrapped && <MonthlyWrapped recap={wrapped} name={profile.display_name || profile.name || ""} lang={lang} onClose={() => setWrapped(null)} />}
     </div>
   );
 }

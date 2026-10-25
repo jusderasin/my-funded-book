@@ -117,8 +117,8 @@ export default function TradeGalaxy({ trades, lang = "fr", className = "h-[340px
 
       // Halo du noyau.
       const glow = context.createRadialGradient(width / 2, height / 2, 0, width / 2, height / 2, scale * 1.2);
-      glow.addColorStop(0, "rgba(198,244,50,.16)");
-      glow.addColorStop(0.45, "rgba(198,244,50,.04)");
+      glow.addColorStop(0, "color-mix(in srgb, var(--prism-accent) 16%, transparent)");
+      glow.addColorStop(0.45, "color-mix(in srgb, var(--prism-accent) 4%, transparent)");
       glow.addColorStop(1, "rgba(0,0,0,0)");
       context.fillStyle = glow;
       context.fillRect(0, 0, width, height);
@@ -139,7 +139,7 @@ export default function TradeGalaxy({ trades, lang = "fr", className = "h-[340px
           const p = project(point, scale);
           if (step) context.lineTo(p.x, p.y); else context.moveTo(p.x, p.y);
         }
-        context.strokeStyle = ringIndex ? "rgba(255,255,255,.08)" : "rgba(198,244,50,.22)";
+        context.strokeStyle = ringIndex ? "rgba(255,255,255,.08)" : "color-mix(in srgb, var(--prism-accent) 22%, transparent)";
         context.lineWidth = 1;
         context.stroke();
       });
@@ -154,7 +154,7 @@ export default function TradeGalaxy({ trades, lang = "fr", className = "h-[340px
           const p = project([Math.cos(angle) * radius, y, Math.sin(angle) * radius], scale);
           if (step) context.lineTo(p.x, p.y); else context.moveTo(p.x, p.y);
         }
-        context.strokeStyle = "rgba(198,244,50,.05)";
+        context.strokeStyle = "color-mix(in srgb, var(--prism-accent) 5%, transparent)";
         context.stroke();
       }
 
@@ -205,7 +205,7 @@ export default function TradeGalaxy({ trades, lang = "fr", className = "h-[340px
       clusters.forEach((cluster) => {
         const p = project(cluster.pos.map((value) => value * 1.12), scale);
         if (p.depth > 0.1) return;
-        context.fillStyle = "rgba(198,244,50,.85)";
+        context.fillStyle = "color-mix(in srgb, var(--prism-accent) 85%, transparent)";
         context.fillText(`${cluster.setup.toUpperCase()} · ${cluster.count}`, p.x + 8, p.y - 8);
       });
 
@@ -323,7 +323,7 @@ export default function TradeGalaxy({ trades, lang = "fr", className = "h-[340px
       </div>
       {!stars.length && <p className="absolute inset-0 grid place-items-center text-sm text-prism-muted">{en ? "Log trades to light up your galaxy." : "Logue des trades pour allumer ta galaxie."}</p>}
       {hover && (
-        <div className="pointer-events-none absolute z-10 min-w-[160px] rounded-md border border-prism-accent/40 bg-black/85 px-3 py-2 text-[11px] shadow-[0_0_30px_-8px_rgba(198,244,50,.6)] backdrop-blur" style={{ left: Math.min(hover.x + 14, (wrapRef.current?.clientWidth || 0) - 180), top: Math.max(8, hover.y - 70) }}>
+        <div className="pointer-events-none absolute z-10 min-w-[160px] rounded-md border border-prism-accent/40 bg-black/85 px-3 py-2 text-[11px] shadow-[0_0_30px_-8px_color-mix(in_srgb,var(--prism-accent)_60%,transparent)] backdrop-blur" style={{ left: Math.min(hover.x + 14, (wrapRef.current?.clientWidth || 0) - 180), top: Math.max(8, hover.y - 70) }}>
           <p className="font-mono text-prism-muted">{frDate(hover.star.trade.date)} · {hover.star.trade.session || "—"}</p>
           <p className="mt-0.5 font-bold text-prism-text">{hover.star.trade.symbol || "—"} · {String(hover.star.trade.dir || "").toUpperCase()} · {hover.star.setup}</p>
           <p className={`mt-0.5 font-mono font-bold ${hover.star.pnl < 0 ? "text-prism-loss" : "text-prism-win"}`}>{fmtMoney(hover.star.pnl)}</p>
@@ -352,7 +352,7 @@ function MiniReport({ picked, wrap, en, onClose, onOpen }) {
   const r = Number(trade.r) || 0;
   const notes = String(trade.why || "").trim();
   return (
-    <div className="absolute z-20 max-h-[calc(100%-16px)] overflow-y-auto rounded-md border border-prism-accent/40 bg-black/90 text-[11px] shadow-[0_0_40px_-10px_rgba(198,244,50,.6)] backdrop-blur" style={{ left, top, width }}>
+    <div className="absolute z-20 max-h-[calc(100%-16px)] overflow-y-auto rounded-md border border-prism-accent/40 bg-black/90 text-[11px] shadow-[0_0_40px_-10px_color-mix(in_srgb,var(--prism-accent)_60%,transparent)] backdrop-blur" style={{ left, top, width }}>
       {trade.screenshot_url && <button type="button" onClick={onOpen} className="block w-full"><img src={trade.screenshot_url} alt="" className="h-28 w-full object-cover" /></button>}
       <div className="p-3">
         <div className="flex items-start justify-between gap-2">

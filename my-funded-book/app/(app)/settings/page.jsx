@@ -2,7 +2,8 @@
 
 import { useEffect, useMemo, useState } from "react";
 import Link from "next/link";
-import { useBook } from "@/components/BookProvider";
+import { applyTheme, useBook } from "@/components/BookProvider";
+import { SITE_THEMES, themeFromDb } from "@/lib/themes";
 import { PushNotifications } from "@/components/PushNotifications";
 import { ApiTokens } from "@/components/ApiTokens";
 import { createClient } from "@/lib/supabase/client";
@@ -164,6 +165,14 @@ export default function SettingsPage() {
     saveQuickR(DEFAULT_QUICK_R);
   }
 
+  // Le thème s'applique tout de suite, puis est enregistré sur le profil pour
+  // suivre le compte sur le téléphone et les autres appareils.
+  const currentTheme = themeFromDb(profile.theme).id;
+  async function pickTheme(theme) {
+    applyTheme(theme);
+    await saveProfile({ theme: theme.db });
+  }
+
   function replayTutorial() {
     if (typeof window !== "undefined") window.dispatchEvent(new Event("mtb-replay-tutorial"));
   }
@@ -283,6 +292,22 @@ export default function SettingsPage() {
 
       {tab === "profile" && (
         <div className="space-y-3.5">
+          <div className={cardCls}>
+            <div className={sectionLabel}>{lang === "en" ? "Theme" : "Thème"}</div>
+            <div className="grid gap-2 sm:grid-cols-3">
+              {SITE_THEMES.map((theme) => (
+                <button key={theme.id} type="button" onClick={() => pickTheme(theme)}
+                  className={`flex items-center gap-3 rounded-xl border p-3 text-left transition ${currentTheme === theme.id ? "border-prism-accent bg-prism-accentDim" : "border-line hover:border-line2"}`}>
+                  <span className="h-9 w-9 shrink-0 rounded-lg border border-line2" style={{ background: theme.swatch }} />
+                  <span>
+                    <b className="block text-[13px]">{lang === "en" ? theme.en : theme.fr}</b>
+                    <span className="text-[11px] text-muted2">{currentTheme === theme.id ? (lang === "en" ? "Active" : "Actif") : (lang === "en" ? "Apply" : "Appliquer")}</span>
+                  </span>
+                </button>
+              ))}
+            </div>
+            <div className="mt-2 text-[11px] text-muted2">{lang === "en" ? "Saved on your account: it follows you on your phone and every device." : "Enregistré sur ton compte : il te suit sur ton téléphone et tous tes appareils."}</div>
+          </div>
           <div className={cardCls}>
             <div className={sectionLabel}>{lang === "en" ? "Profile" : "Profil"}</div>
             <div className="grid gap-3 sm:grid-cols-2">

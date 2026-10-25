@@ -134,7 +134,7 @@ export function SegTabs({ tabs, active, onChange }) {
 export function PrimaryBtn({ children, className = "", ...props }) {
   return (
     <button
-      className={`inline-flex items-center justify-center gap-1.5 rounded-md bg-accent px-4 py-2.5 text-[11px] font-bold uppercase tracking-[.14em] text-[#061014] shadow-[0_0_18px_rgba(198,244,50,.18)] transition hover:brightness-110 ${className}`}
+      className={`inline-flex items-center justify-center gap-1.5 rounded-md bg-accent px-4 py-2.5 text-[11px] font-bold uppercase tracking-[.14em] text-[#061014] shadow-[0_0_18px_color-mix(in_srgb,var(--prism-accent)_18%,transparent)] transition hover:brightness-110 ${className}`}
       {...props}
     >
       {children}

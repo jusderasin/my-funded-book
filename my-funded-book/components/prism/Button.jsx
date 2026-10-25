@@ -37,7 +37,7 @@ export default function Button({
   const sizeCls = sizeClasses[size] || sizeClasses.md;
 
   const variantClasses = {
-    primary: "prism-primary bg-prism-accent text-[#061014] hover:bg-prism-accentSoft active:bg-prism-accent shadow-[0_0_20px_rgba(198,244,50,.20)]",
+    primary: "prism-primary bg-prism-accent text-[#061014] hover:bg-prism-accentSoft active:bg-prism-accent shadow-[0_0_20px_color-mix(in_srgb,var(--prism-accent)_20%,transparent)]",
     ghost:   "bg-transparent text-white border border-prism-line hover:bg-white/[0.03] hover:border-prism-line2",
     icon:    "bg-prism-panel border border-prism-line hover:border-prism-line2 text-prism-muted hover:text-white",
   };

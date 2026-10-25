@@ -154,7 +154,7 @@ export default function PrismPage() {
                   <label key={key} className="block">{label}<input type="color" value={team[editing].look[key]} onChange={(event) => updateMember(editing, { look: { [key]: event.target.value } })} className="mt-1 h-9 w-full cursor-pointer rounded-md border border-prism-line bg-prism-surface" /></label>
                 ))}
               </div>
-              <label className="mt-3 flex items-center gap-2 text-xs text-prism-muted"><input type="checkbox" checked={!!team[editing].look.glasses} onChange={(event) => updateMember(editing, { look: { glasses: event.target.checked } })} className="accent-[#c6f432]" />{en ? "Glasses" : "Lunettes"}</label>
+              <label className="mt-3 flex items-center gap-2 text-xs text-prism-muted"><input type="checkbox" checked={!!team[editing].look.glasses} onChange={(event) => updateMember(editing, { look: { glasses: event.target.checked } })} className="accent-[var(--prism-accent)]" />{en ? "Glasses" : "Lunettes"}</label>
               <p className="mt-3 text-[10px] text-prism-muted2">{en ? "Saved on this device." : "Enregistré sur cet appareil."}</p>
             </div>
           </div>
@@ -163,7 +163,7 @@ export default function PrismPage() {
         <div className="mt-4 grid gap-4 lg:grid-cols-[1fr_320px]">
           <div className="term-panel flex min-h-[520px] flex-col p-4 sm:p-5">
             <div className="mb-3 flex items-center justify-between gap-2 border-b border-prism-line pb-3">
-              <span className="inline-flex min-w-0 items-center gap-2 text-[11px] text-prism-muted"><span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-prism-accent shadow-[0_0_10px_rgba(198,244,50,.9)]" /><span className="truncate"><b className="text-prism-text">{current.name}</b> · {current.role[en ? "en" : "fr"]} · {provider.label}{config.provider !== "prism" && ` · ${config.model || provider.defaultModel}`}</span></span>
+              <span className="inline-flex min-w-0 items-center gap-2 text-[11px] text-prism-muted"><span className="h-2 w-2 shrink-0 animate-pulse rounded-full bg-prism-accent shadow-[0_0_10px_color-mix(in_srgb,var(--prism-accent)_90%,transparent)]" /><span className="truncate"><b className="text-prism-text">{current.name}</b> · {current.role[en ? "en" : "fr"]} · {provider.label}{config.provider !== "prism" && ` · ${config.model || provider.defaultModel}`}</span></span>
               <div className="flex gap-1.5">
                 {messages.length > 0 && <button type="button" onClick={() => setMessages([])} className="grid h-8 w-8 place-items-center rounded-md border border-prism-line text-prism-muted hover:text-prism-text" aria-label={en ? "Clear" : "Effacer"}><Trash2 className="h-3.5 w-3.5" /></button>}
                 <button type="button" onClick={() => setShowSettings((value) => !value)} className="grid h-8 w-8 place-items-center rounded-md border border-prism-line text-prism-muted hover:text-prism-accent lg:hidden" aria-label="AI settings"><Settings2 className="h-3.5 w-3.5" /></button>
