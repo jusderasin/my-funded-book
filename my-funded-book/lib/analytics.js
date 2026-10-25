@@ -21,15 +21,6 @@ export function heatGrid(trades) {
   return { cells, counted, days, hours, maxAbs };
 }
 
-// Chaque trade en barre signée + équité cumulée par-dessus (vue « delta »).
-export function tradeDelta(trades) {
-  let cum = 0;
-  return chrono(trades).map((t) => {
-    cum += pnlOf(t);
-    return { id: t.id, date: t.date, symbol: t.symbol, pnl: pnlOf(t), r: rOf(t), cum };
-  });
-}
-
 // Distribution des R avec espérance, médiane et écart-type.
 export function rDistribution(trades) {
   const rs = (trades || []).filter((t) => t.r != null && t.r !== "").map(rOf);
@@ -54,13 +45,6 @@ export function drawdownCurve(trades, startBalance = 0) {
     points.push({ date: t.date, eq, dd: eq - peak });
   });
   return { points, maxDD };
-}
-
-// Durée de détention contre R obtenu (nuage de points).
-export function durationScatter(trades) {
-  return (trades || [])
-    .map((t) => ({ id: t.id, min: durationMin(t), r: rOf(t), pnl: pnlOf(t), symbol: t.symbol, date: t.date }))
-    .filter((p) => p.min != null);
 }
 
 // Session × direction : P&L et win rate, pour les cartes de synthèse.
@@ -249,8 +233,8 @@ export function robustness(dets) {
   return Math.round(dets.reduce((s, d) => s + pts[d.level], 0) / dets.length);
 }
 
-// Thème noir & blanc (essai) : variables posées sur le conteneur de la page Analyse.
-export const MONO_VARS = {
+// Thèmes à l'essai sur la page Analyse : variables posées sur le conteneur de la page.
+const MONO = {
   "--prism-bg": "#000000", "--prism-surface": "#030303", "--prism-panel": "#070707", "--prism-panel2": "#111111",
   "--prism-line": "rgba(255,255,255,0.10)", "--prism-line2": "rgba(255,255,255,0.16)",
   "--prism-text": "#ffffff", "--prism-muted": "#a3a3a3", "--prism-muted2": "#6b6b6b",
@@ -258,3 +242,30 @@ export const MONO_VARS = {
   "--prism-win": "#f5f5f5", "--prism-loss": "#7c7c7c",
   "--accent": "#ffffff", "--loss": "#7c7c7c", "--line": "rgba(255,255,255,0.10)", "--panel2": "#111111", "--muted": "#a3a3a3",
 };
+// Gris clair façon LIQUID : fond argent, cartes blanches, texte noir.
+const LIQUID = {
+  "--prism-bg": "#dcdce0", "--prism-surface": "#e9e9ec", "--prism-panel": "#f4f4f6", "--prism-panel2": "#ffffff",
+  "--prism-line": "rgba(0,0,0,0.08)", "--prism-line2": "rgba(0,0,0,0.14)",
+  "--prism-text": "#0b0b0c", "--prism-muted": "#55555c", "--prism-muted2": "#86868e",
+  "--prism-accent": "#0b0b0c", "--prism-accent-soft": "#2a2a2e", "--prism-accent-dim": "rgba(0,0,0,0.06)",
+  "--prism-win": "#0b0b0c", "--prism-loss": "#a3a3ab",
+  "--accent": "#0b0b0c", "--loss": "#a3a3ab", "--line": "rgba(0,0,0,0.10)", "--panel2": "#e4e4e8", "--muted": "#55555c",
+  colorScheme: "light",
+};
+// Bleu nuit façon Caba : graphiques bleu (gain) et violet (perte).
+const CABA = {
+  "--prism-bg": "#04060e", "--prism-surface": "#070a16", "--prism-panel": "#0a0e1d", "--prism-panel2": "#11173a",
+  "--prism-line": "rgba(124,140,255,0.13)", "--prism-line2": "rgba(124,140,255,0.22)",
+  "--prism-text": "#eef1ff", "--prism-muted": "#9aa3c7", "--prism-muted2": "#626b92",
+  "--prism-accent": "#7c5cff", "--prism-accent-soft": "#a78bfa", "--prism-accent-dim": "rgba(124,92,255,0.15)",
+  "--prism-win": "#4f8bff", "--prism-loss": "#b14cff",
+  "--lab-line": "#6ea0ff",
+  "--accent": "#7c5cff", "--loss": "#b14cff", "--line": "rgba(124,140,255,0.13)", "--panel2": "#11173a", "--muted": "#9aa3c7",
+};
+export const LAB_THEMES = [
+  { id: "classic", fr: "Classique", en: "Classic", vars: null, card: "graphite", swatch: "var(--prism-accent)" },
+  { id: "mono", fr: "Noir & blanc", en: "Black & white", vars: MONO, card: "mono", swatch: "linear-gradient(90deg,#fff 50%,#000 50%)" },
+  { id: "liquid", fr: "Liquid", en: "Liquid", vars: LIQUID, card: "graphite", swatch: "linear-gradient(135deg,#f4f4f6,#9a9aa2)" },
+  { id: "caba", fr: "Caba", en: "Caba", vars: CABA, card: "caba", swatch: "linear-gradient(135deg,#4f8bff,#b14cff)" },
+];
+export const MONO_VARS = MONO;

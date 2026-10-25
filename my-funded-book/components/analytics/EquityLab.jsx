@@ -44,7 +44,7 @@ function Chart2D({ rows, metric, onInspect, inspected, en }) {
   const ticks = [0, 0.25, 0.5, 0.75, 1].map((k) => lo + span * (1 - k));
   const fmt = (v) => (metric === "cumR" ? `${v >= 0 ? "+" : ""}${v.toFixed(1)}R` : fmtMoney(v));
   const dates = [0, 0.25, 0.5, 0.75, 1].map((k) => Math.round(k * (rows.length - 1)));
-  const lineCol = metric === "dd" ? LOSS : TEXT;
+  const lineCol = metric === "dd" ? LOSS : "var(--lab-line, var(--prism-text, #fff))";
   const ins = inspected != null ? rows.findIndex((x) => x.i === inspected) : -1;
   return (
     <svg viewBox={`0 0 ${W} ${H}`} className="h-auto w-full select-none"
@@ -134,7 +134,7 @@ function BehaviourMap({ rows, inspected, onInspect, en }) {
         <div key={label} className="contents">
           <span className="font-mono text-[9.5px] tracking-[.08em] text-prism-muted2">{label}</span>
           <svg viewBox={`0 0 ${W} ${lh}`} preserveAspectRatio="none" className="h-4 w-full" onMouseMove={(e) => { const b = e.currentTarget.getBoundingClientRect(); const k = Math.floor(((e.clientX - b.left) / b.width) * n); if (rows[k]) onInspect(rows[k].i); }}>
-            <rect width={W} height={lh} fill="rgba(255,255,255,0.025)" />
+            <rect width={W} height={lh} fill={LINE} />
             {rows.map((x, k) => { const [col, a] = f(x); return <rect key={k} x={(k / n) * W} width={W / n + 0.6} height={lh} fill={col} opacity={col === "transparent" ? 0 : 0.12 + a * 0.85} />; })}
             {inspected != null && rows.findIndex((x) => x.i === inspected) >= 0 && <rect x={(rows.findIndex((x) => x.i === inspected) / n) * W} width={Math.max(2, W / n)} height={lh} fill="none" stroke={TEXT} strokeWidth="2" />}
           </svg>
@@ -180,7 +180,7 @@ function Bar({ label, value, pct, tone }) {
   return (
     <div className="mt-2">
       <div className="flex justify-between text-[11px]"><span className="text-prism-muted">{label}</span><span className="font-mono">{value}</span></div>
-      <div className="mt-1 h-1 rounded bg-white/10"><div className="h-full rounded" style={{ width: `${Math.max(2, Math.min(100, pct))}%`, background: tone === "loss" ? LOSS : tone === "win" ? WIN : TEXT }} /></div>
+      <div className="mt-1 h-1 rounded bg-prism-line2"><div className="h-full rounded" style={{ width: `${Math.max(2, Math.min(100, pct))}%`, background: tone === "loss" ? LOSS : tone === "win" ? WIN : TEXT }} /></div>
     </div>
   );
 }
@@ -211,10 +211,10 @@ export default function EquityLab({ rows, lang = "fr" }) {
           <span className="ml-auto font-mono text-[10.5px] text-prism-muted2">{frDate(visible[0]?.trade.date)} → {frDate(visible[visible.length - 1]?.trade.date)}</span>
           <button type="button" onClick={() => setWin([0, rows.length - 1])} className="h-8 rounded-md border border-prism-line px-2.5 text-[11px] text-prism-muted hover:text-prism-text">↺</button>
         </div>
-        <div className="rounded-lg border border-prism-line bg-black/30 p-2" onMouseLeave={() => setInspected(null)}>
+        <div className="rounded-lg border border-prism-line bg-prism-surface p-2" onMouseLeave={() => setInspected(null)}>
           {view === "2d" ? <Chart2D rows={visible} metric={metric} inspected={inspected} onInspect={setInspected} en={en} /> : <Terrain3D rows={visible} en={en} />}
         </div>
-        <div className="rounded-lg border border-prism-line bg-black/30 p-3" onMouseLeave={() => setInspected(null)}>
+        <div className="rounded-lg border border-prism-line bg-prism-surface p-3" onMouseLeave={() => setInspected(null)}>
           <p className="mb-2 flex flex-wrap items-center gap-3 font-mono text-[10px] tracking-[.1em] text-prism-muted">
             {en ? "SYNCHRONISED BEHAVIOUR MAP" : "CARTE COMPORTEMENTALE SYNCHRONISÉE"}
             <span className="inline-flex items-center gap-1"><i className="inline-block h-2 w-3" style={{ background: LOSS }} />{en ? "loss" : "perte"}</span>
@@ -242,7 +242,7 @@ export default function EquityLab({ rows, lang = "fr" }) {
           <div className="flex items-center justify-between font-mono text-[10px] tracking-[.12em] text-prism-muted2"><span>{en ? "INSPECTED TRADE" : "TRADE INSPECTÉ"}</span><span>#{cur.i + 1} / {rows.length}</span></div>
           <p className={`mt-1.5 font-mono text-xl font-bold ${cur.pnl >= 0 ? "text-prism-win" : "text-prism-loss"}`}>{signedR(cur.r)} · {fmtMoney(cur.pnl)}</p>
           <p className="font-mono text-[10.5px] text-prism-muted2">{frDate(tr.date)}{tr.execution?.entry_time ? ` ${String(tr.execution.entry_time).slice(0, 5)}` : ""}{tr.execution?.exit_time ? ` → ${String(tr.execution.exit_time).slice(0, 5)}` : ""} · {tr.symbol}</p>
-          <div className="mt-2 divide-y divide-white/5">
+          <div className="mt-2 divide-y divide-prism-line">
             <Row k="Direction" v={String(tr.dir || "—").toUpperCase()} />
             <Row k="Setup" v={tr.setup || "—"} />
             <Row k={en ? "Equity after trade" : "Équité après trade"} v={fmtMoney(cur.equity)} />

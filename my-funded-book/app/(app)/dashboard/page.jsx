@@ -4,7 +4,7 @@ import Link from "next/link";
 import { useMemo, useState } from "react";
 import { ArrowUpRight, ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
 import { Area } from "@/components/charts";
-import TradeGalaxy from "@/components/TradeGalaxy";
+import TradeCard from "@/components/analytics/TradeCard";
 import WeeklyReportCard from "@/components/WeeklyReportCard";
 import { useBook } from "@/components/BookProvider";
 import { EmptyState, ProgressBar } from "@/components/prism/TerminalPrimitives";
@@ -58,7 +58,7 @@ export default function DashboardPage() {
   const T = en ? {
     s1: "01 / COMMAND OVERVIEW", title: "DATASET PULSE", intro: "Every module responds to the filters. A research layer on your own executions — what works, what bleeds.",
     trades: "Logged trades", winRate: "Win rate", net: "Net P&L", pf: "Profit factor", plan: "Plan respected",
-    s0: "02 / NEURAL MAP", title0: "YOUR TRADING GALAXY", intro0: "Every star is a trade. Constellations group your setups. Drag to rotate, click a star to open the trade.",
+    s0: "00 / SHARE", title0: "TRADE CARD", intro0: "Turn a trade or a whole month into a card ready for Instagram.",
     s2: "03 / PLAYBOOK DISTRIBUTION", title2: "WHERE YOUR EDGE APPEARS", intro2: "Frequency and P&L by setup and direction. Counts describe your sample, not a guarantee.",
     setups: "SETUP FREQUENCY", split: "DIRECTION SPLIT", curve: "EQUITY OVER TIME",
     s3: "04 / P&L CALENDAR", title3: "DAY BY DAY", yearly: "YEARLY PERFORMANCE", week: "WEEK",
@@ -68,7 +68,7 @@ export default function DashboardPage() {
   } : {
     s1: "01 / VUE D'ENSEMBLE", title: "DATASET PULSE", intro: "Chaque module répond aux filtres. Une couche d'analyse sur tes propres exécutions — ce qui marche, ce qui saigne.",
     trades: "Trades loggés", winRate: "Win rate", net: "P&L net", pf: "Profit factor", plan: "Plan respecté",
-    s0: "02 / CARTE NEURONALE", title0: "TA GALAXIE DE TRADES", intro0: "Chaque étoile est un trade. Les constellations regroupent tes setups. Glisse pour tourner, clique une étoile pour ouvrir le trade.",
+    s0: "00 / PARTAGE", title0: "CARTE DE TRADE", intro0: "Transforme un trade ou tout un mois en carte prête pour Instagram.",
     s2: "03 / DISTRIBUTION DU PLAYBOOK", title2: "OÙ TON EDGE APPARAÎT", intro2: "Fréquence et P&L par setup et direction. Les chiffres décrivent ton échantillon, pas une garantie.",
     setups: "FRÉQUENCE DES SETUPS", split: "RÉPARTITION LONG / SHORT", curve: "ÉQUITY DANS LE TEMPS",
     s3: "04 / CALENDRIER P&L", title3: "JOUR PAR JOUR", yearly: "PERFORMANCE ANNUELLE", week: "SEM.",
@@ -123,6 +123,13 @@ export default function DashboardPage() {
     <main className="min-h-full px-4 py-8 sm:px-8 sm:py-12">
       <div className="mx-auto max-w-[1180px] space-y-14">
         <section>
+          <SectionHead eyebrow={T.s0} title={T.title0} intro={T.intro0} />
+          <div className="term-panel mt-6 p-4 sm:p-5">
+            <TradeCard trades={trades} lang={lang} />
+          </div>
+        </section>
+
+        <section>
           <SectionHead eyebrow={T.s1} title={T.title} intro={T.intro} />
           <div className="mt-6 flex flex-wrap items-center gap-2">
             <FilterSelect value={range} onChange={setRange} options={[["all", en ? "All time" : "Tout"], ["7", "7 j"], ["30", "30 j"], ["90", "90 j"]]} />
@@ -146,13 +153,6 @@ export default function DashboardPage() {
             <ArrowUpRight className="h-5 w-5 text-prism-accent transition group-hover:translate-x-0.5" />
           </Link>
           <div className="mt-4"><WeeklyReportCard trades={scopedTrades} lang={lang} prismHref={demo ? "/login" : "/prism"} /></div>
-        </section>
-
-        <section>
-          <SectionHead eyebrow={T.s0} title={T.title0} intro={T.intro0} />
-          <div className="term-panel mt-6 overflow-hidden bg-[radial-gradient(ellipse_at_center,rgba(198,244,50,.05),transparent_65%)]">
-            <TradeGalaxy trades={trades} lang={lang} />
-          </div>
         </section>
 
         <section>
