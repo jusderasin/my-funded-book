@@ -24,7 +24,7 @@ export function Heat3D({ grid, lang = "fr" }) {
   const labels = lang === "en" ? DAYS_EN : DAYS_FR;
   const a = 22; // demi-largeur d'une tuile
   const b = a * tilt; // demi-hauteur (inclinaison)
-  const H = 120; // hauteur max d'une barre
+  const H = 110; // hauteur max d'une barre
   const cols = hours.length; const rows = days.length;
   const ox = rows * a + 56; const oy = H + 30;
   const W = (cols + rows) * a + 96; const VH = oy + (cols + rows) * b + 40;

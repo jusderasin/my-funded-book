@@ -12,8 +12,11 @@ export function heatGrid(trades) {
   const { cells, counted, minHour, maxHour } = heatmap(trades);
   const hasWeekend = Object.keys(cells).some((k) => Number(k.split("-")[0]) >= 5);
   const days = hasWeekend ? [0, 1, 2, 3, 4, 5, 6] : [0, 1, 2, 3, 4];
+  // Au moins 8 colonnes horaires autour des trades, sinon la scène 3D est écrasée.
+  let lo = minHour; let hi = maxHour;
+  while (hi - lo + 1 < 8) { if (lo > 0) lo -= 1; if (hi - lo + 1 < 8 && hi < 23) hi += 1; if (lo === 0 && hi === 23) break; }
   const hours = [];
-  for (let h = minHour; h <= maxHour; h++) hours.push(h);
+  for (let h = lo; h <= hi; h++) hours.push(h);
   const maxAbs = Math.max(1, ...Object.values(cells).map((c) => Math.abs(c.pnl)));
   return { cells, counted, days, hours, maxAbs };
 }

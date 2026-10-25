@@ -6,6 +6,7 @@ import { useBook } from "@/components/BookProvider";
 import { Radar } from "@/components/charts";
 import { DeltaBars, DrawdownChart, DurationScatter, Heat3D, RDistribution } from "@/components/analytics/charts";
 import MonthlyWrapped from "@/components/analytics/MonthlyWrapped";
+import TradeCard from "@/components/analytics/TradeCard";
 import { bestWindow, drawdownCurve, durationScatter, heatGrid, monthlyRecap, monthsOf, rDistribution, tradeDelta } from "@/lib/analytics";
 import { computeStats } from "@/lib/stats";
 import { fmtMoney } from "@/lib/format";
@@ -138,6 +139,10 @@ export default function AnalyticsPage() {
           </button>
         </div>
       )}
+
+      <Panel code="00 / SHARE" title={en ? "TRADE CARD" : "CARTE DE TRADE"} sub={en ? "Turn any trade into a card ready for Instagram." : "Transforme n'importe quel trade en carte prête pour Instagram."} className="mb-6">
+        <TradeCard trades={trades} lang={lang} />
+      </Panel>
 
       {/* Tuiles quant */}
       <div className="mb-6 grid grid-cols-2 gap-3 md:grid-cols-3 xl:grid-cols-6">
