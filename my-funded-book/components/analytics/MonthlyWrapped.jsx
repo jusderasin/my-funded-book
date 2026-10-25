@@ -4,6 +4,7 @@
 // puis une carte finale exportable en PNG format story (1080×1920) pour Instagram.
 
 import { useEffect, useMemo, useState } from "react";
+import { createPortal } from "react-dom";
 import { ChevronLeft, ChevronRight, Download, Pause, Play, X } from "lucide-react";
 import { fmtMoney, frDate } from "@/lib/format";
 
@@ -97,8 +98,12 @@ export default function MonthlyWrapped({ recap, name, lang = "fr", onClose }) {
   };
   const title = monthLabel(recap.month, lang);
   const s = slides[i].key;
+  const [mounted, setMounted] = useState(false);
+  useEffect(() => setMounted(true), []);
+  if (!mounted) return null;
 
-  return (
+  // Portal sur <body> : un parent transformé de l'app casserait le position: fixed.
+  return createPortal(
     <div className="fixed inset-0 z-[150] flex flex-col bg-black text-prism-text" role="dialog" aria-modal="true">
       <style>{`
         @keyframes wrappedIn { from { opacity: 0; transform: translateY(18px) scale(.96); filter: blur(6px); } to { opacity: 1; transform: none; filter: none; } }
@@ -164,7 +169,8 @@ export default function MonthlyWrapped({ recap, name, lang = "fr", onClose }) {
       {/* zones de navigation tap gauche / droite */}
       <button type="button" onClick={() => setI((v) => Math.max(0, v - 1))} className="absolute bottom-6 left-4 z-10 grid h-10 w-10 place-items-center rounded-full bg-white/10 disabled:opacity-30" disabled={i === 0} aria-label="prev"><ChevronLeft className="h-5 w-5" /></button>
       <button type="button" onClick={() => setI((v) => Math.min(last, v + 1))} className="absolute bottom-6 right-4 z-10 grid h-10 w-10 place-items-center rounded-full bg-white/10 disabled:opacity-30" disabled={i === last} aria-label="next"><ChevronRight className="h-5 w-5" /></button>
-    </div>
+    </div>,
+    document.body
   );
 }
 
