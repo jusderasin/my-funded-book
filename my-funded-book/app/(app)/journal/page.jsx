@@ -25,6 +25,7 @@ import { ConfirmModal } from "@/components/prism/TerminalPrimitives";
 import { createClient } from "@/lib/supabase/client";
 import { uploadFile } from "@/lib/upload";
 import { fmtMoney, frDate } from "@/lib/format";
+import { dayGrade, parseVoiceRecap } from "@/lib/behaviors";
 
 /* ------------------------------------------------------------------ */
 /* Dates — toujours en heure locale (jamais new Date("YYYY-MM-DD"))    */
@@ -149,7 +150,7 @@ const WIN_BG = "bg-[rgba(34,197,94,0.12)]";
 
 const emptyForm = () => ({
   mode: "day", end_date: "", entry_time: "", exit_time: "", symbol: "", dir: "long",
-  entry_price: "", exit_price: "", size: "1", r: "", planned: "", pnl: "", outcome: null,
+  entry_price: "", exit_price: "", size: "1", r: "", planned: "", pnl: "", outcome: null, mfe: "", mae: "",
   setup: "", tags: [], checks: [], rating: 0, followed: "", emotions: "", why: "", account_id: "",
 });
 
@@ -459,6 +460,8 @@ export default function JournalPage() {
         exit_price: num(f.exit_price),
         size: num(f.size),
         planned_profit: num(f.planned),
+        mfe_r: num(f.mfe) != null ? Math.abs(num(f.mfe)) : null,
+        mae_r: num(f.mae) != null ? Math.abs(num(f.mae)) : null,
         rating: f.rating || null,
         followed_rules: f.followed || null,
         controlled_emotions: f.emotions || null,
@@ -578,7 +581,7 @@ export default function JournalPage() {
             )}
           </div>
 
-          <DailyReview key={`${date}-${dailyReviews.some((r) => r.date === date) ? "saved" : "new"}`} date={date} T={T} review={dailyReviews.find((r) => r.date === date)} onSave={saveDailyReview} />
+          <DailyReview key={`${date}-${dailyReviews.some((r) => r.date === date) ? "saved" : "new"}`} date={date} T={T} review={dailyReviews.find((r) => r.date === date)} onSave={saveDailyReview} dayTrades={scopedTrades.filter((t) => t.date === date)} lang={lang} />
         </div>
       </aside>
 
@@ -719,6 +722,8 @@ export default function JournalPage() {
                 </>}
                 <Field label={T.rr}><input inputMode="decimal" className={INPUT} placeholder="2.5" value={f.r} onChange={(e) => put("r", e.target.value)} /></Field>
                 {showFull && <Field label={T.planned}><Money value={f.planned} onChange={(v) => put("planned", v)} placeholder="200" /></Field>}
+                {showFull && <Field label={lang === "en" ? "MFE (BEST R)" : "MFE (R MAX ATTEINT)"}><input inputMode="decimal" className={INPUT} placeholder="3.1" value={f.mfe} onChange={(e) => put("mfe", e.target.value)} /></Field>}
+                {showFull && <Field label={lang === "en" ? "MAE (WORST R)" : "MAE (R MAX CONTRE)"}><input inputMode="decimal" className={INPUT} placeholder="0.6" value={f.mae} onChange={(e) => put("mae", e.target.value)} /></Field>}
                 <Field label={<>{T.realized}{computedPnl !== null && f.pnl === "" && <span className="ml-1 normal-case tracking-normal text-prism-accent">· {T.auto}</span>}</>}>
                   <Money value={f.pnl} onChange={(v) => put("pnl", v)} placeholder={computedPnl !== null ? String(computedPnl) : "150"} />
                 </Field>
@@ -1070,7 +1075,7 @@ function Row({ label, value, tone = "" }) {
   return <div className="flex justify-between gap-3"><dt className="text-prism-muted">{label}</dt><dd className={tone}>{value}</dd></div>;
 }
 
-function DailyReview({ date, T, review, onSave }) {
+function DailyReview({ date, T, review, onSave, dayTrades = [], lang = "fr" }) {
   const [open, setOpen] = useState(false);
   const [draft, setDraft] = useState(() => ({
     mindset: review?.mindset || "",
@@ -1080,6 +1085,51 @@ function DailyReview({ date, T, review, onSave }) {
   }));
   const [saving, setSaving] = useState(false);
   const set = (k, v) => setDraft((d) => ({ ...d, [k]: v }));
+  const en = lang === "en";
+  const grade = dayGrade(dayTrades);
+
+  // Récap vocal : dictée dans le navigateur (Web Speech API), puis les champs
+  // sont pré-remplis à partir de ce qui a été dit. Rien n'est envoyé ailleurs.
+  const recRef = useRef(null);
+  const [listening, setListening] = useState(false);
+  const [heard, setHeard] = useState("");
+  const [voiceError, setVoiceError] = useState("");
+  function toggleVoice() {
+    if (listening) { recRef.current?.stop(); return; }
+    const Rec = typeof window !== "undefined" && (window.SpeechRecognition || window.webkitSpeechRecognition);
+    if (!Rec) { setVoiceError(en ? "Voice dictation isn't available in this browser. Try Chrome or Edge." : "La dictée vocale n'est pas disponible dans ce navigateur. Essaie Chrome ou Edge."); return; }
+    const rec = new Rec();
+    rec.lang = en ? "en-US" : "fr-FR";
+    rec.continuous = true;
+    rec.interimResults = true;
+    let finalText = "";
+    rec.onresult = (event) => {
+      let interim = "";
+      for (let i = event.resultIndex; i < event.results.length; i++) {
+        const part = event.results[i][0].transcript;
+        if (event.results[i].isFinal) finalText += part.trim() + (/[.!?]$/.test(part.trim()) ? " " : ". "); else interim += part;
+      }
+      setHeard((finalText + interim).trim());
+    };
+    rec.onerror = (event) => setVoiceError(event.error === "not-allowed" ? (en ? "Microphone access was refused." : "L'accès au micro a été refusé.") : (en ? "Dictation stopped." : "Dictée interrompue."));
+    rec.onend = () => {
+      setListening(false);
+      const text = finalText.trim();
+      if (!text) return;
+      const parsed = parseVoiceRecap(text, lang);
+      setDraft((d) => ({
+        mindset: parsed.mindset || d.mindset,
+        respected_plan: parsed.respected_plan ?? d.respected_plan,
+        lesson: (parsed.lesson || d.lesson || "").slice(0, 500),
+        intention: (parsed.intention || d.intention || "").slice(0, 500),
+      }));
+    };
+    setVoiceError(""); setHeard("");
+    recRef.current = rec;
+    rec.start();
+    setListening(true);
+  }
+  useEffect(() => () => recRef.current?.abort?.(), []);
   async function save() {
     setSaving(true);
     await onSave(date, { mindset: draft.mindset || null, respected_plan: draft.respected_plan, lesson: draft.lesson || null, intention: draft.intention || null });
@@ -1093,6 +1143,16 @@ function DailyReview({ date, T, review, onSave }) {
       </button>
       {open && (
         <div className="mt-4 space-y-3">
+          <div className="rounded-md border border-prism-line p-2.5">
+            <div className="flex items-center gap-2">
+              <button type="button" onClick={toggleVoice} className={`inline-flex h-9 flex-1 items-center justify-center gap-2 rounded-md border text-[11px] font-bold tracking-[.1em] ${listening ? "animate-pulse border-prism-loss text-prism-loss" : "border-prism-line text-prism-text hover:border-prism-line2"}`}>
+                <span className={`inline-block h-2 w-2 rounded-full ${listening ? "bg-prism-loss" : "bg-prism-accent"}`} />
+                {listening ? (en ? "STOP · I'M LISTENING" : "STOP · J'ÉCOUTE") : (en ? "VOICE RECAP · 30 S" : "RÉCAP VOCAL · 30 S")}
+              </button>
+              {grade && <span className="grid h-9 min-w-[3.2rem] place-items-center rounded-md border border-prism-line font-mono text-[11px]"><span className="text-[8px] leading-none text-prism-muted2">{en ? "GRADE" : "NOTE"}</span><b className="text-sm leading-none">{grade}</b></span>}
+            </div>
+            <p className="mt-1.5 text-[10.5px] text-prism-muted2">{heard || voiceError || (en ? "Talk about your session: plan, mindset, lesson, tomorrow. The fields below fill in on their own." : "Raconte ta séance : plan, état d'esprit, leçon, demain. Les champs ci-dessous se remplissent tout seuls.")}</p>
+          </div>
           <div>
             <span className={LABEL}>{T.mindset}</span>
             <div className="grid grid-cols-2 gap-1.5">

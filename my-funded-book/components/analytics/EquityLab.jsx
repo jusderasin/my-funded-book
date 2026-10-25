@@ -252,6 +252,10 @@ export default function EquityLab({ rows, lang = "fr" }) {
           </div>
           <Bar label={en ? "Size of the result" : "Taille du résultat"} value={signedR(cur.r)} pct={(Math.abs(cur.r) / maxAbsR) * 100} tone={cur.r >= 0 ? "win" : "loss"} />
           <Bar label={en ? "Rolling expectancy (20)" : "Espérance glissante (20)"} value={signedR(cur.rollExp)} pct={(Math.abs(cur.rollExp) / maxAbsR) * 100} tone={cur.rollExp >= 0 ? "win" : "loss"} />
+          {tr.execution?.mae_r != null && tr.execution.mae_r !== "" && <Bar label={en ? "MAE · risk taken" : "MAE · risque subi"} value={`${Number(tr.execution.mae_r).toFixed(2)}R`} pct={(Number(tr.execution.mae_r) / maxAbsR) * 100} tone="loss" />}
+          {Number(tr.execution?.mfe_r) > 0 && <Bar label={en ? "MFE · potential reached" : "MFE · potentiel atteint"} value={`${Number(tr.execution.mfe_r).toFixed(2)}R`} pct={(Number(tr.execution.mfe_r) / maxAbsR) * 100} tone="win" />}
+          {Number(tr.execution?.mfe_r) > 0 && cur.r > 0 && <Bar label={en ? "Exit efficiency" : "Efficacité de sortie"} value={`${Math.round((cur.r / Number(tr.execution.mfe_r)) * 100)}%`} pct={(cur.r / Number(tr.execution.mfe_r)) * 100} />}
+          {Number(tr.execution?.mfe_r) > 0 && <p className="mt-2 text-[11px] text-prism-muted">{en ? `Exited at ${signedR(cur.r)}, price offered +${Number(tr.execution.mfe_r).toFixed(2)}R.` : `Sorti à ${signedR(cur.r)}, le prix a offert +${Number(tr.execution.mfe_r).toFixed(2)}R.`}</p>}
           <Row k={en ? "Plan respected" : "Plan respecté"} v={cur.plan ? (en ? "YES" : "OUI") : (en ? "NO" : "NON")} tone={cur.plan ? undefined : "loss"} />
         </div>
 
