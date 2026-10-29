@@ -276,7 +276,7 @@ export function LogTradeModal({ editing, onClose }) {
   const blank = () => ({
     symbol: recentSymbols[0] || "MNQ", date: todayISO(), dir: "long", session: sessionNow(), grade: "A",
     r: "", pnl: "", setup: "", strategy_checks: [], tags: [], emotion: null, psychology: DEFAULT_PSYCHOLOGY,
-    why: "", plan: true, account_id: defaultAccountId, outcome: "", partials: [], final_r: "",
+    why: "", plan: true, account_id: defaultAccountId, outcome: "", partials: [], final_r: "", final: { qty: "", price: "", pnl: "" },
   });
 
   const [f, setF] = useState(() =>
@@ -288,8 +288,9 @@ export function LogTradeModal({ editing, onClose }) {
           strategy_checks: Array.isArray(editing.strategy_checks) ? editing.strategy_checks : [],
           psychology: { ...DEFAULT_PSYCHOLOGY, ...(editing.psychology || {}) },
           mfe_r: editing.execution?.mfe_r ?? "", mae_r: editing.execution?.mae_r ?? "",
-          partials: Array.isArray(editing.execution?.partials) ? editing.execution.partials.map((p) => ({ pct: p.pct ?? "", r: p.r ?? "" })) : [],
+          partials: Array.isArray(editing.execution?.partials) ? editing.execution.partials.map((p) => ({ qty: p.qty ?? "", price: p.price ?? "", r: p.r ?? "", pnl: p.pnl ?? "", pct: p.pct ?? "" })) : [],
           final_r: editing.execution?.final_r ?? "",
+          final: { qty: "", price: "", pnl: "", ...(editing.execution?.final || {}) },
         }
       : blank()
   );
@@ -377,13 +378,21 @@ export function LogTradeModal({ editing, onClose }) {
     .filter((tg) => tg !== MISSED_TAG && !isMistakeTag(tg) && !f.tags.some((x) => x.toLowerCase() === tg.toLowerCase()))
     .slice(0, 12);
 
-  // TP partiels : chaque sortie = % de la position à x R, le reste sort au TP final.
+  // TP partiels : chaque sortie = contrats clôturés à un prix, x R, gain en $.
+  // Le reste de la position sort au TP final ; le total donne le P&L et le R du trade.
   const partials = Array.isArray(f.partials) ? f.partials : [];
+  const fin = f.final || { qty: "", price: "", pnl: "" };
+  const num = (v) => (v === "" || v == null || !Number.isFinite(Number(v)) ? null : Number(v));
   const setPartial = (i, k, v) => set("partials", partials.map((p, j) => (j === i ? { ...p, [k]: v } : p)));
-  const partialPct = partials.reduce((sum, p) => sum + (Number(p.pct) || 0), 0);
-  const restPct = Math.max(0, 100 - partialPct);
-  const blendedR = partials.length && f.final_r !== "" && Number.isFinite(Number(f.final_r))
-    ? Math.round((partials.reduce((sum, p) => sum + (Number(p.pct) || 0) * (Number(p.r) || 0), 0) + restPct * Number(f.final_r)) / 100 * 100) / 100
+  const setFinal = (k, v) => set("final", { ...fin, [k]: v });
+  const exits = [...partials, { ...fin, r: f.final_r }];
+  const totalQty = exits.reduce((sum, p) => sum + (num(p.qty) || 0), 0);
+  const partialPnl = exits.some((p) => num(p.pnl) != null) ? Math.round(exits.reduce((sum, p) => sum + (num(p.pnl) || 0), 0) * 100) / 100 : null;
+  // R moyen pondéré par les contrats (à parts égales si aucun contrat saisi).
+  const rExits = exits.filter((p) => num(p.r) != null);
+  const rQty = rExits.reduce((sum, p) => sum + (num(p.qty) || 0), 0);
+  const blendedR = partials.length && rExits.length
+    ? Math.round((rQty ? rExits.reduce((sum, p) => sum + num(p.r) * (num(p.qty) || 0), 0) / rQty : rExits.reduce((sum, p) => sum + num(p.r), 0) / rExits.length) * 100) / 100
     : null;
 
   function pickOutcome(o) {
@@ -419,9 +428,11 @@ export function LogTradeModal({ editing, onClose }) {
     // MFE / MAE en R : rangés dans execution (jsonb) sans toucher au reste de l'exécution.
     const rOrNull = (v) => (v === "" || v == null || !Number.isFinite(Number(v)) ? null : Math.abs(Number(v)));
     const mfe = rOrNull(f.mfe_r); const mae = rOrNull(f.mae_r);
-    const cleanPartials = partials.filter((p) => p.r !== "" && Number.isFinite(Number(p.r))).map((p) => ({ pct: Number(p.pct) || null, r: Number(p.r) }));
-    const finalR = f.final_r === "" || !Number.isFinite(Number(f.final_r)) ? null : Number(f.final_r);
-    if (mfe != null || mae != null || cleanPartials.length || editing?.execution) row.execution = { ...(editing?.execution || {}), mfe_r: mfe, mae_r: mae, partials: cleanPartials, final_r: cleanPartials.length ? finalR : null };
+    const cleanPartials = partials
+      .map((p) => ({ qty: num(p.qty), price: num(p.price), r: num(p.r), pnl: num(p.pnl), pct: totalQty && num(p.qty) ? Math.round((num(p.qty) / totalQty) * 100) : num(p.pct) }))
+      .filter((p) => p.qty != null || p.r != null || p.pnl != null);
+    const finalExit = { qty: num(fin.qty), price: num(fin.price), pnl: num(fin.pnl) };
+    if (mfe != null || mae != null || cleanPartials.length || editing?.execution) row.execution = { ...(editing?.execution || {}), mfe_r: mfe, mae_r: mae, partials: cleanPartials, final_r: cleanPartials.length ? num(f.final_r) : null, final: cleanPartials.length ? finalExit : null };
     // Un break-even est toujours neutre.
     if (row.outcome === "BE") { row.r = 0; row.pnl = 0; }
     const result = editing ? await updateTrade(editing.id, row) : await addTrade(row);
@@ -519,45 +530,53 @@ export function LogTradeModal({ editing, onClose }) {
         </div>
         {/* 2b. TP partiels */}
         {partials.length === 0 ? (
-          <button type="button" onClick={() => set("partials", [{ pct: "50", r: "" }])} className="-mt-2 text-[11px] font-semibold text-prism-muted hover:text-prism-accent">
-            + {en ? "Add partial take-profits" : "Ajouter des TP partiels"}
+          <button type="button" onClick={() => set("partials", [{ qty: "", price: "", r: "", pnl: "" }])}
+            className="-mt-2 flex w-full items-center justify-between rounded-xl border border-dashed border-prism-line2 px-3.5 py-3 text-left text-xs font-semibold text-prism-muted transition hover:border-prism-accent hover:text-prism-accent">
+            <span>{en ? "Took partial profits? Log each exit (contracts, price, R, $)" : "Tu as pris des TP partiels ? Note chaque sortie (contrats, prix, R, $)"}</span>
+            <span className="text-prism-accent">+</span>
           </button>
         ) : (
-          <QlField label={en ? "Partial take-profits" : "TP partiels"}>
-            <div className="space-y-2">
+          <section className="rounded-xl border border-[color-mix(in_srgb,var(--prism-accent)_30%,transparent)] bg-[color-mix(in_srgb,var(--prism-accent)_5%,transparent)] p-3">
+            <div className="mb-2 flex items-center justify-between">
+              <p className="text-xs font-bold text-white">{en ? "Partial take-profits" : "TP partiels"}</p>
+              <button type="button" onClick={() => setF((s) => ({ ...s, partials: [], final_r: "", final: { qty: "", price: "", pnl: "" } }))} className="text-[11px] text-prism-muted hover:text-prism-loss">{en ? "Remove all" : "Tout retirer"}</button>
+            </div>
+            <div className="grid COLS gap-1.5 px-0.5 pb-1 text-[9px] font-bold uppercase tracking-[.12em] text-prism-muted2">
+              <span>{en ? "Exit" : "Sortie"}</span><span>{en ? "Contracts" : "Contrats"}</span><span>{en ? "Price" : "Prix"}</span><span>R</span><span>Gain $</span><span />
+            </div>
+            <div className="space-y-1.5">
               {partials.map((p, i) => (
-                <div key={i} className="grid grid-cols-[auto_1fr_1fr_auto] items-center gap-2">
-                  <span className="w-6 font-mono text-[11px] text-prism-muted2">P{i + 1}</span>
-                  <div className="relative">
-                    <input type="number" inputMode="decimal" min="0" max="100" className={`${QL_INPUT} ${QL_TXT} pr-7 font-mono`} value={p.pct} onChange={(e) => setPartial(i, "pct", e.target.value)} placeholder="50" />
-                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-prism-muted2">%</span>
-                  </div>
-                  <div className="relative">
-                    <input type="number" inputMode="decimal" step="0.1" className={`${QL_INPUT} ${QL_TXT} pr-7 font-mono`} value={p.r} onChange={(e) => setPartial(i, "r", e.target.value)} placeholder="1.5" />
-                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-prism-muted2">R</span>
-                  </div>
-                  <button type="button" aria-label={en ? "Remove" : "Retirer"} onClick={() => set("partials", partials.filter((_, j) => j !== i))} className="h-8 w-8 rounded-md text-prism-muted hover:text-prism-loss">×</button>
+                <div key={i} className="grid COLS items-center gap-1.5">
+                  <span className="rounded-md bg-prism-accentDim py-1 text-center font-mono text-[11px] font-bold text-prism-accent">TP{i + 1}</span>
+                  <div className="relative"><input type="number" inputMode="decimal" step="any" className={`${QL_INPUT} ${QL_TXT} h-10 px-2 pr-6 font-mono text-[13px] `} value={p.qty ?? ""} onChange={(e) => (v) => setPartial(i, "qty", v)(e.target.value)} placeholder="2" /><span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-prism-muted2">ct</span></div>
+                  <div className="relative"><input type="number" inputMode="decimal" step="any" className={`${QL_INPUT} ${QL_TXT} h-10 px-2 pr-6 font-mono text-[13px] `} value={p.price ?? ""} onChange={(e) => (v) => setPartial(i, "price", v)(e.target.value)} placeholder="21450" /><span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-prism-muted2"></span></div>
+                  <div className="relative"><input type="number" inputMode="decimal" step="any" className={`${QL_INPUT} ${QL_TXT} h-10 px-2 pr-6 font-mono text-[13px] `} value={p.r ?? ""} onChange={(e) => (v) => setPartial(i, "r", v)(e.target.value)} placeholder="1.5" /><span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-prism-muted2">R</span></div>
+                  <div className="relative"><input type="number" inputMode="decimal" step="any" className={`${QL_INPUT} ${QL_TXT} h-10 px-2 pr-6 font-mono text-[13px] text-prism-win`} value={p.pnl ?? ""} onChange={(e) => (v) => setPartial(i, "pnl", v)(e.target.value)} placeholder="300" /><span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-prism-muted2">$</span></div>
+                  <button type="button" aria-label={en ? "Remove" : "Retirer"} onClick={() => set("partials", partials.filter((_, j) => j !== i))} className="h-8 text-prism-muted hover:text-prism-loss">×</button>
                 </div>
               ))}
-              <div className="grid grid-cols-[auto_1fr_1fr_auto] items-center gap-2">
-                <span className="w-6 font-mono text-[11px] text-prism-muted2">TP</span>
-                <span className={`font-mono text-xs ${partialPct > 100 ? "text-prism-loss" : "text-prism-muted"}`}>{en ? "rest" : "reste"} {restPct}%</span>
-                <div className="relative">
-                  <input type="number" inputMode="decimal" step="0.1" className={`${QL_INPUT} ${QL_TXT} pr-7 font-mono`} value={f.final_r} onChange={(e) => set("final_r", e.target.value)} placeholder="3" />
-                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-prism-muted2">R</span>
-                </div>
-                <span className="w-8" />
-              </div>
-              <div className="flex items-center justify-between gap-2 pt-1">
-                <button type="button" onClick={() => set("partials", [...partials, { pct: String(Math.min(50, restPct)), r: "" }])} className="text-[11px] font-semibold text-prism-muted hover:text-prism-accent">+ {en ? "Another partial" : "Un autre partiel"}</button>
-                {blendedR != null && (
-                  <button type="button" onClick={() => set("r", String(blendedR))} className={`rounded-md border px-2 py-1 font-mono text-[11px] ${String(blendedR) === String(f.r) ? QL_ON : QL_OFF}`}>
-                    {en ? "Average" : "Moyenne"} {blendedR > 0 ? "+" : ""}{blendedR}R{String(blendedR) === String(f.r) ? " ✓" : ` · ${en ? "use" : "utiliser"}`}
-                  </button>
-                )}
+              <div className="grid COLS items-center gap-1.5">
+                <span className="rounded-md border border-prism-line2 py-1 text-center font-mono text-[10px] font-bold text-prism-muted">{en ? "REST" : "RESTE"}</span>
+                <div className="relative"><input type="number" inputMode="decimal" step="any" className={`${QL_INPUT} ${QL_TXT} h-10 px-2 pr-6 font-mono text-[13px] `} value={fin.qty ?? ""} onChange={(e) => (v) => setFinal("qty", v)(e.target.value)} placeholder="1" /><span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-prism-muted2">ct</span></div>
+                <div className="relative"><input type="number" inputMode="decimal" step="any" className={`${QL_INPUT} ${QL_TXT} h-10 px-2 pr-6 font-mono text-[13px] `} value={fin.price ?? ""} onChange={(e) => (v) => setFinal("price", v)(e.target.value)} placeholder="21480" /><span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-prism-muted2"></span></div>
+                <div className="relative"><input type="number" inputMode="decimal" step="any" className={`${QL_INPUT} ${QL_TXT} h-10 px-2 pr-6 font-mono text-[13px] `} value={f.final_r ?? ""} onChange={(e) => (v) => set("final_r", v)(e.target.value)} placeholder="3" /><span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-prism-muted2">R</span></div>
+                <div className="relative"><input type="number" inputMode="decimal" step="any" className={`${QL_INPUT} ${QL_TXT} h-10 px-2 pr-6 font-mono text-[13px] text-prism-win`} value={fin.pnl ?? ""} onChange={(e) => (v) => setFinal("pnl", v)(e.target.value)} placeholder="600" /><span className="pointer-events-none absolute right-2 top-1/2 -translate-y-1/2 text-[10px] text-prism-muted2">$</span></div>
+                <span />
               </div>
             </div>
-          </QlField>
+            <button type="button" onClick={() => set("partials", [...partials, { qty: "", price: "", r: "", pnl: "" }])} className="mt-2 text-[11px] font-semibold text-prism-muted hover:text-prism-accent">+ {en ? "Add a partial" : "Ajouter un partiel"}</button>
+            <div className="mt-3 grid grid-cols-3 gap-2 border-t border-prism-line pt-3">
+              <div><p className="text-[9px] font-bold uppercase tracking-[.12em] text-prism-muted2">{en ? "Contracts" : "Contrats"}</p><p className="font-mono text-sm font-bold text-white">{totalQty || "—"}</p></div>
+              <div><p className="text-[9px] font-bold uppercase tracking-[.12em] text-prism-muted2">{en ? "Average R" : "R moyen"}</p><p className="font-mono text-sm font-bold text-white">{blendedR != null ? `${blendedR > 0 ? "+" : ""}${blendedR}R` : "—"}</p></div>
+              <div><p className="text-[9px] font-bold uppercase tracking-[.12em] text-prism-muted2">{en ? "Total P&L" : "P&L total"}</p><p className={`font-mono text-sm font-bold ${partialPnl == null ? "text-white" : partialPnl >= 0 ? "text-prism-win" : "text-prism-loss"}`}>{partialPnl != null ? `${partialPnl < 0 ? "-" : "+"}$${Math.abs(partialPnl).toLocaleString("en-US")}` : "—"}</p></div>
+            </div>
+            {(blendedR != null || partialPnl != null) && (
+              <button type="button" onClick={() => setF((s) => ({ ...s, ...(blendedR != null ? { r: String(blendedR) } : {}), ...(partialPnl != null ? { pnl: String(partialPnl) } : {}) }))}
+                className="mt-3 h-9 w-full rounded-lg bg-prism-accent text-[11px] font-extrabold tracking-[.1em] text-black">
+                {en ? "USE AS TRADE R & P&L" : "METTRE DANS LE R ET LE P&L DU TRADE"}
+              </button>
+            )}
+          </section>
         )}
 
         {f.outcome === "SL" && <p className="-mt-3 text-[11px] text-prism-muted2">{en ? "Loss sign is added automatically." : "Le signe « - » est ajouté automatiquement."}</p>}

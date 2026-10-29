@@ -97,8 +97,8 @@ function tradeSpec(trade, curve, lang) {
   const ex = trade.execution || {};
   const dur = durationMin(trade);
   const price = (v) => (v != null ? Number(v).toLocaleString("en-US", { maximumFractionDigits: 2 }) : "—");
-  const partials = Array.isArray(ex.partials) ? ex.partials.filter((p) => p && p.r != null) : [];
-  const partialRow = partials.length ? [[en ? "Partials" : "Partiels", partials.map((p) => `${p.pct ? p.pct + "% @ " : ""}${p.r}R`).join(" · ")]] : [];
+  const partials = Array.isArray(ex.partials) ? ex.partials.filter((p) => p && (p.r != null || p.pnl != null)) : [];
+  const partialRow = partials.length ? [[en ? "Partials" : "Partiels", partials.map((p) => [p.qty ? `${p.qty}ct` : p.pct ? `${p.pct}%` : "", p.r != null ? `${p.r}R` : "", p.pnl != null ? money(Number(p.pnl)) : ""].filter(Boolean).join(" ")).join(" · ")]] : [];
   return {
     icon: String(trade.dir || "").toLowerCase() === "short" ? "↘" : "↗",
     title: trade.symbol || "—",
