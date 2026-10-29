@@ -5,7 +5,7 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
-import { CalendarClock, Globe2, Newspaper, Plane, Radio, Satellite, Tv, Waves, X } from "lucide-react";
+import { BadgeCheck, CalendarClock, Globe2, Newspaper, Plane, Radio, Satellite, Ship, Tv, Waves, X } from "lucide-react";
 import { useBook } from "@/components/BookProvider";
 
 const WorldGlobe = dynamic(() => import("@/components/world/WorldGlobe"), { ssr: false, loading: () => <div className="grid h-full place-items-center text-xs text-prism-muted">Chargement du globe…</div> });
@@ -27,7 +27,6 @@ const CHANNELS = [
 const Flag = ({ iso }) => (iso && iso.length === 2
   ? <img src={`https://flagcdn.com/w80/${iso.toLowerCase()}.png`} alt="" className="h-9 w-[54px] rounded-md border border-prism-line object-cover" />
   : <Globe2 className="h-9 w-9 text-prism-accent" />);
-const gdeltDate = (s) => (s ? new Date(`${s.slice(0, 4)}-${s.slice(4, 6)}-${s.slice(6, 8)}T${s.slice(9, 11)}:${s.slice(11, 13)}:00Z`) : null);
 const ago = (d, en) => {
   if (!d) return "";
   const m = Math.max(1, Math.round((Date.now() - d.getTime()) / 60000));
@@ -58,10 +57,13 @@ export default function WorldPage() {
   const en = lang === "en";
   const [countries, setCountries] = useState(null);
   const [flights, setFlights] = useState([]);
+  const [ships, setShips] = useState({ ships: [], needsKey: false });
+  const [onlyConfirmed, setOnlyConfirmed] = useState(false);
+  const [sourceFilter, setSourceFilter] = useState("");
   const [sats, setSats] = useState([]);
   const [quakes, setQuakes] = useState([]);
   const [calendar, setCalendar] = useState([]);
-  const [layers, setLayers] = useState({ flights: true, sats: true, quakes: true });
+  const [layers, setLayers] = useState({ flights: true, ships: true, sats: true, quakes: true });
   const [selected, setSelected] = useState(null);
   const [news, setNews] = useState({ loading: false, items: [], error: "" });
   const [channel, setChannel] = useState(CHANNELS[0].id);
@@ -75,7 +77,8 @@ export default function WorldPage() {
     getJson("/api/world?kind=sats").then(setSats).catch(() => {});
     getJson("/api/world?kind=calendar").then(setCalendar).catch(() => {});
     const loadLive = () => {
-      getJson("/api/world?kind=flights").then((d) => { setFlights(d); setUpdated(new Date()); }).catch(() => {});
+      getJson("/api/world?kind=flights").then((d) => { setFlights(Array.isArray(d) ? d : []); setUpdated(new Date()); }).catch(() => {});
+      getJson("/api/world?kind=ships").then((d) => setShips({ ships: d.ships || [], needsKey: !!d.needsKey })).catch(() => {});
       getJson("https://earthquake.usgs.gov/earthquakes/feed/v1.0/summary/2.5_day.geojson")
         .then((d) => setQuakes(d.features.map((f) => ({ lat: f.geometry.coordinates[1], lng: f.geometry.coordinates[0], mag: f.properties.mag, place: f.properties.place, time: f.properties.time }))))
         .catch(() => {});
@@ -86,15 +89,20 @@ export default function WorldPage() {
   }, []);
 
   // Actus du pays sélectionné (ou du monde).
-  const topic = selected?.ADMIN || (en ? "global economy" : "global economy");
+  const topic = selected?.ADMIN || "";
+  const iso = selected?.ISO_A2 || "";
   useEffect(() => {
     let live = true;
     setNews({ loading: true, items: [], error: "" });
-    getJson(`/api/world?kind=news&q=${encodeURIComponent(topic)}`)
+    setSourceFilter("");
+    getJson(`/api/world?kind=news&q=${encodeURIComponent(topic)}&iso=${iso}`)
       .then((items) => live && setNews({ loading: false, items: Array.isArray(items) ? items : [], error: "" }))
       .catch(() => live && setNews({ loading: false, items: [], error: en ? "News feed unavailable, try again in a moment." : "Flux d'actus indisponible, réessaie dans un instant." }));
     return () => { live = false; };
-  }, [topic, en]);
+  }, [topic, iso, en]);
+
+  const newsSources = useMemo(() => [...new Set(news.items.flatMap((a) => a.sources || [a.source]))], [news.items]);
+  const shownNews = news.items.filter((a) => (!onlyConfirmed || a.confirmed) && (!sourceFilter || (a.sources || [a.source]).includes(sourceFilter)));
 
   const currency = selected ? CURRENCY[selected.ISO_A2] : null;
   const events = useMemo(() => {
@@ -110,6 +118,7 @@ export default function WorldPage() {
 
   const toggles = [
     ["flights", Plane, en ? "Flights" : "Avions", flights.length],
+    ["ships", Ship, en ? "Ships" : "Bateaux", ships.needsKey ? "—" : ships.ships.length],
     ["sats", Satellite, "Satellites", sats.length],
     ["quakes", Waves, en ? "Quakes" : "Séismes", quakes.length],
   ];
@@ -127,7 +136,7 @@ export default function WorldPage() {
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_400px]">
         <section className="term-panel relative h-[460px] overflow-hidden sm:h-[640px]" style={{ background: "radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--prism-accent) 7%, transparent), transparent 60%), var(--prism-bg)" }}>
-          <WorldGlobe countries={countries} flights={flights} sats={sats} quakes={quakes} layers={layers} accent={accent} selected={selected} onSelect={setSelected} />
+          <WorldGlobe countries={countries} flights={flights} ships={ships.ships} sats={sats} quakes={quakes} layers={layers} accent={accent} selected={selected} onSelect={setSelected} />
           <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
             {toggles.map(([k, Icon, label, n]) => (
               <button key={k} type="button" onClick={() => setLayers((l) => ({ ...l, [k]: !l[k] }))}
@@ -136,8 +145,12 @@ export default function WorldPage() {
               </button>
             ))}
           </div>
+          {layers.ships && ships.needsKey && (
+            <p className="absolute left-3 top-14 max-w-[300px] rounded-lg bg-black/60 px-3 py-2 text-[10.5px] leading-4 text-white/75 backdrop-blur">{en ? "Ships need a free aisstream.io key (AISSTREAM_API_KEY on Vercel)." : "Les bateaux demandent une clé gratuite aisstream.io (AISSTREAM_API_KEY sur Vercel)."}</p>
+          )}
           <div className="pointer-events-none absolute bottom-3 left-3 flex flex-wrap gap-3 rounded-lg bg-black/45 px-3 py-2 text-[10px] text-white/70 backdrop-blur">
             <span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-amber-400" />{en ? "aircraft" : "avion"}</span>
+            <span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-emerald-400" />{en ? "ship" : "bateau"}</span>
             <span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-sky-300" />satellite</span>
             <span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-white" />{en ? `stations (${issCount})` : `stations (${issCount})`}</span>
             <span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-red-500" />{en ? "earthquake" : "séisme"}</span>
@@ -186,18 +199,38 @@ export default function WorldPage() {
             )}
           </Panel>
 
-          <Panel icon={Newspaper} title={en ? "LIVE NEWS" : "ACTUS EN DIRECT"} right={<span className="font-mono text-[10px] text-prism-muted2">GDELT · 48 h</span>}>
-            <div className="max-h-[300px] space-y-1 overflow-y-auto pr-1">
+          <Panel icon={Newspaper} title={en ? "VERIFIED NEWS" : "ACTUS VÉRIFIÉES"} right={
+            <button type="button" onClick={() => setOnlyConfirmed((v) => !v)} className={`inline-flex h-6 items-center gap-1 rounded-md border px-2 text-[10px] font-bold ${onlyConfirmed ? "border-prism-accent text-prism-accent" : "border-prism-line text-prism-muted hover:text-prism-text"}`}>
+              <BadgeCheck className="h-3 w-3" />{en ? "Cross-checked only" : "Recoupées seulement"}
+            </button>
+          }>
+            {newsSources.length > 1 && (
+              <div className="mb-2 flex flex-wrap gap-1">
+                {newsSources.map((src) => (
+                  <button key={src} type="button" onClick={() => setSourceFilter((v) => (v === src ? "" : src))} className={`rounded px-1.5 py-0.5 text-[10px] font-semibold ${sourceFilter === src ? "bg-prism-accent text-black" : "bg-white/[0.05] text-prism-muted hover:text-prism-text"}`}>{src}</button>
+                ))}
+              </div>
+            )}
+            <div className="max-h-[340px] space-y-1 overflow-y-auto pr-1">
               {news.loading && <p className="text-xs text-prism-muted2">{en ? "Loading…" : "Chargement…"}</p>}
               {news.error && <p className="text-xs text-prism-loss">{news.error}</p>}
-              {!news.loading && !news.error && !news.items.length && <p className="text-xs text-prism-muted2">{en ? "No recent article." : "Aucun article récent."}</p>}
-              {news.items.map((a) => (
+              {!news.loading && !news.error && !shownNews.length && <p className="text-xs text-prism-muted2">{selected ? (en ? "No recent article from our sources about this country." : "Aucun article récent de nos sources sur ce pays.") : en ? "No recent article." : "Aucun article récent."}</p>}
+              {shownNews.map((a) => (
                 <a key={a.url} href={a.url} target="_blank" rel="noopener noreferrer" className="block rounded-md px-1.5 py-1.5 hover:bg-white/[0.04]">
                   <p className="line-clamp-2 text-[12.5px] leading-snug">{a.title}</p>
-                  <p className="mt-0.5 font-mono text-[10px] text-prism-muted2">{a.domain} · {ago(gdeltDate(a.date), en)}</p>
+                  <p className="mt-1 flex flex-wrap items-center gap-1.5 text-[10px] text-prism-muted2">
+                    <span className={`rounded px-1.5 py-px font-bold ${a.tier === "officiel" ? "bg-sky-400/15 text-sky-300" : "bg-white/[0.06] text-prism-muted"}`}>{a.source}</span>
+                    {a.confirmed && (
+                      <span className="inline-flex items-center gap-0.5 rounded bg-prism-win/15 px-1.5 py-px font-bold text-prism-win" title={(a.sources || []).join(", ")}>
+                        <BadgeCheck className="h-3 w-3" />{a.tier === "officiel" && (a.sources || []).length < 2 ? (en ? "official" : "officiel") : `${(a.sources || []).length} sources`}
+                      </span>
+                    )}
+                    <span className="font-mono">{a.date ? ago(new Date(a.date), en) : ""}</span>
+                  </p>
                 </a>
               ))}
             </div>
+            <p className="mt-2 border-t border-prism-line pt-2 text-[10px] leading-4 text-prism-muted2">{en ? "Sources: Fed, ECB, Investing.com, FXStreet, CNBC, MarketWatch, BBC, Al Jazeera. “N sources” = same story reported by several outlets." : "Sources : Fed, BCE, Investing.com, FXStreet, CNBC, MarketWatch, BBC, Al Jazeera. « N sources » = même info reprise par plusieurs médias."}</p>
           </Panel>
         </div>
       </div>

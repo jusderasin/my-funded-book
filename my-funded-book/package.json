@@ -20,7 +20,8 @@
     "react-dom": "^18.3.1",
     "satellite.js": "^5.0.0",
     "stripe": "^17.2.0",
-    "web-push": "^3.6.7"
+    "web-push": "^3.6.7",
+    "ws": "^8.18.0"
   },
   "devDependencies": {
     "autoprefixer": "^10.4.20",
