@@ -7,7 +7,7 @@
 import { useEffect, useMemo, useRef, useState } from "react";
 import { Download, ImagePlus, Shuffle, X } from "lucide-react";
 import { chrono, durationMin } from "@/lib/reports";
-import { monthlyRecap, monthsOf } from "@/lib/analytics";
+import { monthlyRecap, monthsOf, weeklyRecap, weeksOf } from "@/lib/analytics";
 import { frDate } from "@/lib/format";
 
 const S = 1080;
@@ -97,6 +97,8 @@ function tradeSpec(trade, curve, lang) {
   const ex = trade.execution || {};
   const dur = durationMin(trade);
   const price = (v) => (v != null ? Number(v).toLocaleString("en-US", { maximumFractionDigits: 2 }) : "—");
+  const partials = Array.isArray(ex.partials) ? ex.partials.filter((p) => p && p.r != null) : [];
+  const partialRow = partials.length ? [[en ? "Partials" : "Partiels", partials.map((p) => `${p.pct ? p.pct + "% @ " : ""}${p.r}R`).join(" · ")]] : [];
   return {
     icon: String(trade.dir || "").toLowerCase() === "short" ? "↘" : "↗",
     title: trade.symbol || "—",
@@ -107,24 +109,32 @@ function tradeSpec(trade, curve, lang) {
     rows: [
       [en ? "Entry" : "Entrée", price(ex.entry_price)],
       [en ? "Exit" : "Sortie", price(ex.exit_price)],
-      [en ? "Size" : "Taille", ex.size != null ? `${ex.size} ${en ? "contracts" : "contrats"}` : "—"],
+      ...(partialRow.length ? [] : [[en ? "Size" : "Taille", ex.size != null ? `${ex.size} ${en ? "contracts" : "contrats"}` : "—"]]),
       [en ? "Duration" : "Durée", dur != null ? (dur >= 60 ? `${Math.floor(dur / 60)}h${String(dur % 60).padStart(2, "0")}` : `${dur} min`) : "—"],
+      ...partialRow,
     ],
     curve,
   };
 }
 
+const weekLabel = (week, en) => {
+  const d = new Date(week + "T00:00:00Z"); const e = new Date(d); e.setUTCDate(e.getUTCDate() + 6);
+  const f = (x, o) => x.toLocaleDateString(en ? "en-US" : "fr-FR", { timeZone: "UTC", ...o });
+  return `${f(d, { day: "numeric", month: "short" })} → ${f(e, { day: "numeric", month: "short", year: "numeric" })}`;
+};
+
 function monthSpec(recap, lang) {
   const en = lang === "en";
-  const [y, m] = recap.month.split("-").map(Number);
-  const name = new Date(y, m - 1, 1).toLocaleDateString(en ? "en-US" : "fr-FR", { month: "long", year: "numeric" });
+  let name;
+  if (recap.week) name = (en ? "Week of " : "Semaine du ") + weekLabel(recap.week, en).split(" → ")[0];
+  else { const [y, m] = recap.month.split("-").map(Number); name = new Date(y, m - 1, 1).toLocaleDateString(en ? "en-US" : "fr-FR", { month: "long", year: "numeric" }); }
   let c = 0;
   const curve = [0, ...Object.keys(recap.byDay).sort().map((d) => (c += recap.byDay[d]))];
   return {
     icon: "◷",
     title: name.charAt(0).toUpperCase() + name.slice(1),
     subtitle: `${recap.count} trades · ${recap.days} ${en ? "trading days" : "jours tradés"}`,
-    badge: en ? "MONTH" : "MOIS",
+    badge: recap.week ? (en ? "WEEK" : "SEMAINE") : en ? "MONTH" : "MOIS",
     value: recap.net,
     under: `${recap.totalR >= 0 ? "+" : ""}${recap.totalR.toFixed(1)}R`,
     rows: [
@@ -202,6 +212,10 @@ export default function TradeCard({ trades, lang = "fr", defaultTheme = "mono" }
   const [month, setMonth] = useState("");
   const activeMonth = month || months[0] || "";
   const recap = useMemo(() => (activeMonth ? monthlyRecap(trades, activeMonth) : null), [trades, activeMonth]);
+  const weeks = useMemo(() => weeksOf(trades), [trades]);
+  const [week, setWeek] = useState("");
+  const activeWeek = week || weeks[0] || "";
+  const wRecap = useMemo(() => (activeWeek ? weeklyRecap(trades, activeWeek) : null), [trades, activeWeek]);
   const ref = useRef(null);
   const trade = recent.find((t) => String(t.id) === tradeId) || recent[0] || null;
 
@@ -213,7 +227,7 @@ export default function TradeCard({ trades, lang = "fr", defaultTheme = "mono" }
     return [0, ...slice.map((t) => (c += pnlOf(t)))];
   }, [sorted, trade]);
 
-  const spec = useMemo(() => (mode === "month" ? (recap ? monthSpec(recap, lang) : null) : trade ? tradeSpec(trade, curve, lang) : null), [mode, recap, trade, curve, lang]);
+  const spec = useMemo(() => (mode === "month" ? (recap ? monthSpec(recap, lang) : null) : mode === "week" ? (wRecap ? monthSpec(wRecap, lang) : null) : trade ? tradeSpec(trade, curve, lang) : null), [mode, recap, wRecap, trade, curve, lang]);
   useEffect(() => {
     if (spec && ref.current) drawCard(ref.current, { spec, theme, seed, photo, lang });
   }, [spec, theme, seed, photo, lang]);
@@ -233,7 +247,7 @@ export default function TradeCard({ trades, lang = "fr", defaultTheme = "mono" }
       if (!blob) return;
       const a = document.createElement("a");
       a.href = URL.createObjectURL(blob);
-      a.download = mode === "month" ? `mois-${activeMonth}.png` : `trade-${trade.symbol || "card"}-${trade.date}.png`;
+      a.download = mode === "month" ? `mois-${activeMonth}.png` : mode === "week" ? `semaine-${activeWeek}.png` : `trade-${trade.symbol || "card"}-${trade.date}.png`;
       a.click();
       setTimeout(() => URL.revokeObjectURL(a.href), 2000);
     }, "image/png");
@@ -246,7 +260,7 @@ export default function TradeCard({ trades, lang = "fr", defaultTheme = "mono" }
       <canvas ref={ref} className="aspect-square w-full rounded-2xl shadow-[0_30px_80px_-20px_rgba(0,0,0,0.8)]" />
       <div className="space-y-4">
         <div className="flex overflow-hidden rounded-lg border border-prism-line">
-          {[["trade", en ? "One trade" : "Un trade"], ["month", en ? "Whole month" : "Le mois"]].map(([k, label]) => (
+          {[["trade", en ? "One trade" : "Un trade"], ["week", en ? "Week" : "La semaine"], ["month", en ? "Whole month" : "Le mois"]].map(([k, label]) => (
             <button key={k} type="button" onClick={() => setMode(k)} className={`h-9 flex-1 text-xs font-bold ${mode === k ? "bg-prism-text text-prism-bg" : "text-prism-muted hover:text-prism-text"}`}>{label}</button>
           ))}
         </div>
@@ -255,6 +269,13 @@ export default function TradeCard({ trades, lang = "fr", defaultTheme = "mono" }
             <span className="text-[10px] font-bold tracking-[.16em] text-prism-muted2">TRADE</span>
             <select value={String(trade.id)} onChange={(e) => setTradeId(e.target.value)} className="mt-1.5 h-10 w-full rounded-lg border border-prism-line bg-prism-panel px-3 text-sm">
               {recent.map((t) => <option key={t.id} value={String(t.id)}>{frDate(t.date)} · {t.symbol} · {String(t.dir || "").toUpperCase()} · {money(pnlOf(t))}</option>)}
+            </select>
+          </label>
+        ) : mode === "week" ? (
+          <label className="block">
+            <span className="text-[10px] font-bold tracking-[.16em] text-prism-muted2">{en ? "WEEK" : "SEMAINE"}</span>
+            <select value={activeWeek} onChange={(e) => setWeek(e.target.value)} className="mt-1.5 h-10 w-full rounded-lg border border-prism-line bg-prism-panel px-3 text-sm">
+              {weeks.map((w) => <option key={w} value={w}>{weekLabel(w, en)}</option>)}
             </select>
           </label>
         ) : (
