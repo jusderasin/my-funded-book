@@ -2,7 +2,7 @@
 
 import Link from "next/link";
 import { usePathname } from "next/navigation";
-import { Award, BarChart3, Cpu, Bell, Sparkles, Building2, ClipboardList, FlaskConical, Images, LayoutDashboard, Moon, Settings, Sun, Target, Trophy, X } from "lucide-react";
+import { Award, BarChart3, Cpu, Bell, Globe2, Sparkles, Building2, ClipboardList, FlaskConical, Images, LayoutDashboard, Moon, Settings, Sun, Target, Trophy, X } from "lucide-react";
 import { useEffect, useState } from "react";
 import BrandMark from "@/components/BrandMark";
 import { useBook } from "@/components/BookProvider";
@@ -17,6 +17,7 @@ export const NAV_ITEMS = [
   { icon: Sparkles, label: "PRISM IA", href: "/prism" },
   { icon: BarChart3, label: "Rapports", href: "/reports" },
   { icon: Cpu, label: "Analyse", href: "/analytics" },
+  { icon: Globe2, label: "Monde", href: "/world" },
   { icon: Target, label: "Stratégies", href: "/playbook" },
   { icon: FlaskConical, label: "Backtest", href: "/backtest" },
   { icon: Trophy, label: "Classement", href: "/leaderboard" },

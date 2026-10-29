@@ -13,10 +13,12 @@
     "@react-pdf/renderer": "^4.1.5",
     "@supabase/ssr": "^0.5.2",
     "@supabase/supabase-js": "^2.45.4",
+    "globe.gl": "^2.45.3",
     "lucide-react": "^0.454.0",
     "next": "14.2.15",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
+    "satellite.js": "^5.0.0",
     "stripe": "^17.2.0",
     "web-push": "^3.6.7"
   },
