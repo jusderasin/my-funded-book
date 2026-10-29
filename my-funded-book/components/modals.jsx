@@ -276,7 +276,7 @@ export function LogTradeModal({ editing, onClose }) {
   const blank = () => ({
     symbol: recentSymbols[0] || "MNQ", date: todayISO(), dir: "long", session: sessionNow(), grade: "A",
     r: "", pnl: "", setup: "", strategy_checks: [], tags: [], emotion: null, psychology: DEFAULT_PSYCHOLOGY,
-    why: "", plan: true, account_id: defaultAccountId, outcome: "",
+    why: "", plan: true, account_id: defaultAccountId, outcome: "", partials: [], final_r: "",
   });
 
   const [f, setF] = useState(() =>
@@ -288,6 +288,8 @@ export function LogTradeModal({ editing, onClose }) {
           strategy_checks: Array.isArray(editing.strategy_checks) ? editing.strategy_checks : [],
           psychology: { ...DEFAULT_PSYCHOLOGY, ...(editing.psychology || {}) },
           mfe_r: editing.execution?.mfe_r ?? "", mae_r: editing.execution?.mae_r ?? "",
+          partials: Array.isArray(editing.execution?.partials) ? editing.execution.partials.map((p) => ({ pct: p.pct ?? "", r: p.r ?? "" })) : [],
+          final_r: editing.execution?.final_r ?? "",
         }
       : blank()
   );
@@ -375,6 +377,15 @@ export function LogTradeModal({ editing, onClose }) {
     .filter((tg) => tg !== MISSED_TAG && !isMistakeTag(tg) && !f.tags.some((x) => x.toLowerCase() === tg.toLowerCase()))
     .slice(0, 12);
 
+  // TP partiels : chaque sortie = % de la position à x R, le reste sort au TP final.
+  const partials = Array.isArray(f.partials) ? f.partials : [];
+  const setPartial = (i, k, v) => set("partials", partials.map((p, j) => (j === i ? { ...p, [k]: v } : p)));
+  const partialPct = partials.reduce((sum, p) => sum + (Number(p.pct) || 0), 0);
+  const restPct = Math.max(0, 100 - partialPct);
+  const blendedR = partials.length && f.final_r !== "" && Number.isFinite(Number(f.final_r))
+    ? Math.round((partials.reduce((sum, p) => sum + (Number(p.pct) || 0) * (Number(p.r) || 0), 0) + restPct * Number(f.final_r)) / 100 * 100) / 100
+    : null;
+
   function pickOutcome(o) {
     setF((current) => {
       const next = current.outcome === o ? "" : o;
@@ -408,7 +419,9 @@ export function LogTradeModal({ editing, onClose }) {
     // MFE / MAE en R : rangés dans execution (jsonb) sans toucher au reste de l'exécution.
     const rOrNull = (v) => (v === "" || v == null || !Number.isFinite(Number(v)) ? null : Math.abs(Number(v)));
     const mfe = rOrNull(f.mfe_r); const mae = rOrNull(f.mae_r);
-    if (mfe != null || mae != null || editing?.execution) row.execution = { ...(editing?.execution || {}), mfe_r: mfe, mae_r: mae };
+    const cleanPartials = partials.filter((p) => p.r !== "" && Number.isFinite(Number(p.r))).map((p) => ({ pct: Number(p.pct) || null, r: Number(p.r) }));
+    const finalR = f.final_r === "" || !Number.isFinite(Number(f.final_r)) ? null : Number(f.final_r);
+    if (mfe != null || mae != null || cleanPartials.length || editing?.execution) row.execution = { ...(editing?.execution || {}), mfe_r: mfe, mae_r: mae, partials: cleanPartials, final_r: cleanPartials.length ? finalR : null };
     // Un break-even est toujours neutre.
     if (row.outcome === "BE") { row.r = 0; row.pnl = 0; }
     const result = editing ? await updateTrade(editing.id, row) : await addTrade(row);
@@ -504,6 +517,49 @@ export function LogTradeModal({ editing, onClose }) {
               placeholder={f.outcome === "SL" ? "-250" : "520"} disabled={f.outcome === "BE"} />
           </QlField>
         </div>
+        {/* 2b. TP partiels */}
+        {partials.length === 0 ? (
+          <button type="button" onClick={() => set("partials", [{ pct: "50", r: "" }])} className="-mt-2 text-[11px] font-semibold text-prism-muted hover:text-prism-accent">
+            + {en ? "Add partial take-profits" : "Ajouter des TP partiels"}
+          </button>
+        ) : (
+          <QlField label={en ? "Partial take-profits" : "TP partiels"}>
+            <div className="space-y-2">
+              {partials.map((p, i) => (
+                <div key={i} className="grid grid-cols-[auto_1fr_1fr_auto] items-center gap-2">
+                  <span className="w-6 font-mono text-[11px] text-prism-muted2">P{i + 1}</span>
+                  <div className="relative">
+                    <input type="number" inputMode="decimal" min="0" max="100" className={`${QL_INPUT} ${QL_TXT} pr-7 font-mono`} value={p.pct} onChange={(e) => setPartial(i, "pct", e.target.value)} placeholder="50" />
+                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-prism-muted2">%</span>
+                  </div>
+                  <div className="relative">
+                    <input type="number" inputMode="decimal" step="0.1" className={`${QL_INPUT} ${QL_TXT} pr-7 font-mono`} value={p.r} onChange={(e) => setPartial(i, "r", e.target.value)} placeholder="1.5" />
+                    <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-prism-muted2">R</span>
+                  </div>
+                  <button type="button" aria-label={en ? "Remove" : "Retirer"} onClick={() => set("partials", partials.filter((_, j) => j !== i))} className="h-8 w-8 rounded-md text-prism-muted hover:text-prism-loss">×</button>
+                </div>
+              ))}
+              <div className="grid grid-cols-[auto_1fr_1fr_auto] items-center gap-2">
+                <span className="w-6 font-mono text-[11px] text-prism-muted2">TP</span>
+                <span className={`font-mono text-xs ${partialPct > 100 ? "text-prism-loss" : "text-prism-muted"}`}>{en ? "rest" : "reste"} {restPct}%</span>
+                <div className="relative">
+                  <input type="number" inputMode="decimal" step="0.1" className={`${QL_INPUT} ${QL_TXT} pr-7 font-mono`} value={f.final_r} onChange={(e) => set("final_r", e.target.value)} placeholder="3" />
+                  <span className="pointer-events-none absolute right-3 top-1/2 -translate-y-1/2 text-xs text-prism-muted2">R</span>
+                </div>
+                <span className="w-8" />
+              </div>
+              <div className="flex items-center justify-between gap-2 pt-1">
+                <button type="button" onClick={() => set("partials", [...partials, { pct: String(Math.min(50, restPct)), r: "" }])} className="text-[11px] font-semibold text-prism-muted hover:text-prism-accent">+ {en ? "Another partial" : "Un autre partiel"}</button>
+                {blendedR != null && (
+                  <button type="button" onClick={() => set("r", String(blendedR))} className={`rounded-md border px-2 py-1 font-mono text-[11px] ${String(blendedR) === String(f.r) ? QL_ON : QL_OFF}`}>
+                    {en ? "Average" : "Moyenne"} {blendedR > 0 ? "+" : ""}{blendedR}R{String(blendedR) === String(f.r) ? " ✓" : ` · ${en ? "use" : "utiliser"}`}
+                  </button>
+                )}
+              </div>
+            </div>
+          </QlField>
+        )}
+
         {f.outcome === "SL" && <p className="-mt-3 text-[11px] text-prism-muted2">{en ? "Loss sign is added automatically." : "Le signe « - » est ajouté automatiquement."}</p>}
 
         {/* 3. Instrument + date */}

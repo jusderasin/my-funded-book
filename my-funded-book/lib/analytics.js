@@ -71,7 +71,30 @@ export function monthsOf(trades) {
 
 // Récap mensuel façon « Wrapped ».
 export function monthlyRecap(trades, month) {
-  const list = chrono((trades || []).filter((t) => String(t.date || "").startsWith(month)));
+  const r = periodRecap((trades || []).filter((t) => String(t.date || "").startsWith(month)));
+  return r && { month, ...r };
+}
+
+// Lundi (YYYY-MM-DD) de la semaine d'une date.
+export function weekStartOf(date) {
+  const d = new Date(String(date).slice(0, 10) + "T00:00:00Z");
+  if (Number.isNaN(d.getTime())) return "";
+  d.setUTCDate(d.getUTCDate() - ((d.getUTCDay() + 6) % 7));
+  return d.toISOString().slice(0, 10);
+}
+
+export function weeksOf(trades) {
+  return [...new Set((trades || []).map((t) => weekStartOf(t.date)).filter(Boolean))].sort().reverse();
+}
+
+// Même récap que le mois, sur une semaine (lundi → dimanche).
+export function weeklyRecap(trades, week) {
+  const r = periodRecap((trades || []).filter((t) => weekStartOf(t.date) === week));
+  return r && { week, ...r };
+}
+
+function periodRecap(rows) {
+  const list = chrono(rows);
   if (!list.length) return null;
   const net = list.reduce((s, t) => s + pnlOf(t), 0);
   const wins = list.filter((t) => pnlOf(t) > 0);
@@ -90,7 +113,6 @@ export function monthlyRecap(trades, month) {
   list.forEach((t) => { if (t.setup) setups[t.setup] = (setups[t.setup] || 0) + pnlOf(t); });
   const topSetup = Object.entries(setups).sort((a, b) => b[1] - a[1])[0] || null;
   return {
-    month,
     count: list.length,
     net,
     totalR: list.reduce((s, t) => s + rOf(t), 0),
