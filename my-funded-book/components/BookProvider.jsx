@@ -33,7 +33,16 @@ export function applyTheme(theme) {
   root.style.setProperty("--prism-accent-dim", hexToRgba(accent, 0.13));
   root.style.setProperty("--prism-win", win);
   root.style.setProperty("--prism-loss", loss);
-  root.setAttribute("data-theme", theme.id);
+  // Palette complète (thèmes ajoutés) : posée en inline, retirée pour les thèmes CSS.
+  const pal = theme.palette || {};
+  const set = (name, v) => (v ? root.style.setProperty(name, v) : root.style.removeProperty(name));
+  const line = pal.text ? hexToRgba(pal.text, 0.09) : null; const line2 = pal.text ? hexToRgba(pal.text, 0.15) : null;
+  [["--ink", pal.bg], ["--prism-bg", pal.bg], ["--ink2", pal.surface], ["--prism-surface", pal.surface], ["--panel", pal.panel], ["--prism-panel", pal.panel],
+   ["--panel2", pal.panel2], ["--prism-panel2", pal.panel2], ["--line", line], ["--prism-line", line], ["--line2", line2], ["--prism-line2", line2],
+   ["--prism-text", pal.text], ["--muted", pal.muted], ["--prism-muted", pal.muted], ["--muted2", pal.muted2], ["--prism-muted2", pal.muted2], ["--lab-line", theme.palette ? theme.vars.accent : null]]
+    .forEach(([k, v]) => set(k, v));
+  root.setAttribute("data-theme", theme.base || theme.id);
+  root.setAttribute("data-skin", theme.id);
   try { localStorage.setItem(THEME_CACHE_KEY, theme.id); } catch {}
 }
 
