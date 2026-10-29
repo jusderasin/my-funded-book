@@ -20,12 +20,12 @@ function satPositions(recs, now) {
   return out;
 }
 
-export default function WorldGlobe({ countries, flights, sats, quakes, layers, accent, selected, onSelect }) {
+export default function WorldGlobe({ countries, flights, ships, sats, quakes, layers, accent, selected, onSelect }) {
   const ref = useRef(null);
   const globe = useRef(null);
   const satRecs = useRef([]);
   const state = useRef({});
-  state.current = { countries, flights, quakes, layers, accent, selected, onSelect };
+  state.current = { countries, flights, ships, quakes, layers, accent, selected, onSelect };
 
   // Création du globe (une seule fois).
   useEffect(() => {
@@ -51,7 +51,7 @@ export default function WorldGlobe({ countries, flights, sats, quakes, layers, a
         .pointsMerge(true)
         .pointRadius(0.13)
         .pointAltitude(0.012)
-        .pointColor(() => "#fbbf24")
+        .pointColor((d) => (d.kind === "ship" ? "#34d399" : "#fbbf24"))
         .particleLat("lat")
         .particleLng("lng")
         .particleAltitude((d) => Math.min(0.6, d.alt / EARTH_KM))
@@ -103,9 +103,9 @@ export default function WorldGlobe({ countries, flights, sats, quakes, layers, a
   function draw() {
     const g = globe.current;
     if (!g) return;
-    const { flights: fl, quakes: qk, layers: ly, accent: ac, selected: sel } = state.current;
+    const { flights: fl, ships: sh, quakes: qk, layers: ly, accent: ac, selected: sel } = state.current;
     const satPts = ly.sats ? satPositions(satRecs.current, new Date()) : [];
-    g.pointsData(ly.flights ? fl || [] : []);
+    g.pointsData([...(ly.flights ? fl || [] : []), ...(ly.ships ? (sh || []).map((x) => ({ ...x, kind: "ship" })) : [])]);
     g.particlesData([satPts.filter((s) => !s.station), satPts.filter((s) => s.station)].filter((l) => l.length));
     g.htmlElementsData(satPts.filter((s) => s.name.startsWith("ISS")).slice(0, 1).map((s) => ({ ...s, altitude: Math.min(0.6, s.alt / EARTH_KM) })));
     g.htmlAltitude((d) => d.altitude);
@@ -116,7 +116,7 @@ export default function WorldGlobe({ countries, flights, sats, quakes, layers, a
   useEffect(() => {
     if (countries && globe.current) globe.current.polygonsData(countries);
   }, [countries]);
-  useEffect(draw, [flights, quakes, layers, accent, selected]);
+  useEffect(draw, [flights, ships, quakes, layers, accent, selected]);
   useEffect(() => {
     if (!globe.current) return;
     globe.current.controls().autoRotate = !selected;
