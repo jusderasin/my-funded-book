@@ -5,10 +5,11 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
-import { BadgeCheck, CalendarClock, Globe2, Newspaper, Plane, Radio, Satellite, Ship, Tv, Waves, X } from "lucide-react";
+import { BadgeCheck, CalendarClock, Globe2, Newspaper, Orbit, Plane, Radio, Satellite, Ship, Tv, Waves, X } from "lucide-react";
 import { useBook } from "@/components/BookProvider";
 import { SAT_GROUPS } from "@/components/world/WorldGlobe";
 import MarketSessions from "@/components/world/MarketSessions";
+import PickedCard from "@/components/world/PickedCard";
 
 const WorldGlobe = dynamic(() => import("@/components/world/WorldGlobe"), { ssr: false, loading: () => <div className="grid h-full place-items-center text-xs text-prism-muted">Chargement du globe…</div> });
 
@@ -66,7 +67,9 @@ export default function WorldPage() {
   const [satOn, setSatOn] = useState({ stations: true, starlink: true, gps: true });
   const [quakes, setQuakes] = useState([]);
   const [calendar, setCalendar] = useState([]);
-  const [layers, setLayers] = useState({ flights: true, ships: true, sats: true, quakes: true });
+  const [layers, setLayers] = useState({ flights: true, ships: true, sats: true, orbits: true, quakes: true });
+  const [picked, setPicked] = useState(null);
+  const [route, setRoute] = useState(null);
   const [selected, setSelected] = useState(null);
   const [news, setNews] = useState({ loading: false, items: [], error: "" });
   const [channel, setChannel] = useState(CHANNELS[0].id);
@@ -126,10 +129,21 @@ export default function WorldPage() {
 
   const countryQuakes = selected ? quakes.filter((q) => String(q.place || "").toLowerCase().includes(selected.ADMIN.toLowerCase())) : [];
 
+  // Avion cliqué : on cherche son départ / arrivée.
+  useEffect(() => {
+    setRoute(null);
+    if (picked?.kind !== "flight" || !picked.call) return;
+    let live = true;
+    getJson(`/api/world?kind=route&call=${encodeURIComponent(picked.call)}`).then((r) => live && setRoute(r)).catch(() => live && setRoute({ unknown: true }));
+    return () => { live = false; };
+  }, [picked]);
+  const arc = route?.origin && route?.destination ? { startLat: route.origin.lat, startLng: route.origin.lng, endLat: route.destination.lat, endLng: route.destination.lng } : null;
+
   const toggles = [
     ["flights", Plane, en ? "Flights" : "Avions", flights.length],
     ["ships", Ship, en ? "Ships" : "Bateaux", ships.needsKey ? "—" : ships.ships.length],
     ["sats", Satellite, "Satellites", sats.length],
+    ["orbits", Orbit, en ? "Orbits" : "Orbites", ""],
     ["quakes", Waves, en ? "Quakes" : "Séismes", quakes.length],
   ];
 
@@ -148,12 +162,13 @@ export default function WorldPage() {
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_400px]">
         <section className="term-panel relative h-[460px] overflow-hidden sm:h-[640px]" style={{ background: "radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--prism-accent) 7%, transparent), transparent 60%), var(--prism-bg)" }}>
-          <WorldGlobe countries={countries} flights={flights} ships={ships.ships} sats={sats} quakes={quakes} layers={layers} accent={accent} selected={selected} onSelect={setSelected} />
+          <WorldGlobe countries={countries} flights={flights} ships={ships.ships} sats={sats} quakes={quakes} layers={layers} accent={accent} selected={selected} onSelect={setSelected} picked={picked} onPick={setPicked} route={arc} />
+          {picked && <PickedCard item={picked} route={route} en={en} onClose={() => setPicked(null)} />}
           <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
             {toggles.map(([k, Icon, label, n]) => (
               <button key={k} type="button" onClick={() => setLayers((l) => ({ ...l, [k]: !l[k] }))}
                 className={`fx-shine inline-flex h-8 items-center gap-1.5 rounded-lg border px-2.5 text-[11px] font-bold backdrop-blur ${layers[k] ? "border-prism-accent bg-black/50 text-prism-accent" : "border-white/15 bg-black/40 text-white/50"}`}>
-                <Icon className="h-3.5 w-3.5" />{label}<span className="font-mono opacity-70">{n ? n.toLocaleString("fr-FR") : "…"}</span>
+                <Icon className="h-3.5 w-3.5" />{label}{n !== "" && <span className="font-mono opacity-70">{n ? n.toLocaleString("fr-FR") : "…"}</span>}
               </button>
             ))}
           </div>
@@ -176,6 +191,7 @@ export default function WorldPage() {
             <span className="flex items-center gap-1.5"><Ship className="h-3.5 w-3.5 text-emerald-400" />{en ? "ship" : "bateau"}</span>
             <span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-sky-300" />{en ? "satellites (colour = constellation)" : "satellites (couleur = constellation)"}</span>
             <span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-red-500" />{en ? "earthquake" : "séisme"}</span>
+            <span className="text-white/50">{en ? "click a plane, ship or satellite for details" : "clique un avion, un bateau ou un satellite pour ses infos"}</span>
           </div>
           {selected && (
             <button type="button" onClick={() => setSelected(null)} className="absolute right-3 top-3 inline-flex h-8 items-center gap-1.5 rounded-lg border border-white/15 bg-black/50 px-2.5 text-[11px] font-bold text-white backdrop-blur hover:border-prism-accent">
