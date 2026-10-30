@@ -1,6 +1,7 @@
 // Données « Monde » : proxy + cache des sources publiques que le navigateur ne peut
 // pas appeler directement (CORS, limites de débit, IP cloud bloquées).
-//   ?kind=flights            avions en vol (adsb.lol par zones, OpenSky en complément)
+//   ?kind=flights            avions en vol (adsb.lol par zones)
+//   ?kind=route&call=AFR006  départ / arrivée d'un vol (adsbdb)
 //   ?kind=ships              navires (AIS, aisstream.io : clé AISSTREAM_API_KEY)
 //   ?kind=news&q=France      actus de sources fiables, filtrées par pays et recoupées
 //   ?kind=sats&group=starlink  une constellation de satellites (CelesTrak, TLE)
@@ -53,14 +54,6 @@ async function flights() {
       seen.set(a.hex, { id: a.hex, call: String(a.flight || "").trim(), type: a.t || "", reg: a.r || "", lat: a.lat, lng: a.lon, alt: Math.round((Number(a.alt_geom ?? a.alt_baro) || 0) * 0.3048), speed: Math.round((a.gs || 0) * 1.852), heading: Math.round(a.track || 0) });
     }
   }
-  // Complément mondial (océans, zones non couvertes) si OpenSky répond depuis ce serveur.
-  try {
-    const json = await getJson("https://opensky-network.org/api/states/all", 60, 8000);
-    for (const s of json.states || []) {
-      if (s[5] == null || s[6] == null || s[8] || seen.has(s[0])) continue;
-      seen.set(s[0], { id: s[0], call: String(s[1] || "").trim(), from: s[2], lat: s[6], lng: s[5], alt: Math.round(s[13] ?? s[7] ?? 0), speed: Math.round((s[9] || 0) * 3.6), heading: Math.round(s[10] || 0) });
-    }
-  } catch { /* OpenSky bloque souvent les IP cloud : adsb.lol suffit */ }
   const all = [...seen.values()];
   const step = Math.max(1, Math.ceil(all.length / 6000));
   return all.filter((_, i) => i % step === 0);
@@ -73,14 +66,21 @@ function ships() {
   if (!key) return Promise.resolve({ needsKey: true, ships: [] });
   return new Promise((resolve) => {
     const found = new Map();
+    const info = new Map();
     const ws = new WebSocket("wss://stream.aisstream.io/v0/stream");
-    const done = () => { try { ws.close(); } catch {} resolve({ ships: [...found.values()] }); };
+    const done = () => { try { ws.close(); } catch {} resolve({ ships: [...found.values()].map((x) => ({ ...x, ...info.get(x.id) })) }); };
     const timer = setTimeout(done, 9000);
-    ws.on("open", () => ws.send(JSON.stringify({ APIKey: key, BoundingBoxes: [[[-90, -180], [90, 180]]], FilterMessageTypes: ["PositionReport"] })));
+    ws.on("open", () => ws.send(JSON.stringify({ APIKey: key, BoundingBoxes: [[[-90, -180], [90, 180]]], FilterMessageTypes: ["PositionReport", "ShipStaticData"] })));
     ws.on("message", (raw) => {
       try {
         const msg = JSON.parse(raw.toString());
         const m = msg.MetaData || {};
+        const st = msg.Message?.ShipStaticData;
+        if (st) {
+          const eta = st.Eta?.Month ? { month: st.Eta.Month, day: st.Eta.Day, hour: st.Eta.Hour, minute: st.Eta.Minute } : null;
+          info.set(m.MMSI, { dest: String(st.Destination || "").replace(/@+/g, "").trim(), eta, type: st.Type || null, length: (st.Dimension?.A || 0) + (st.Dimension?.B || 0) || null });
+          return;
+        }
         const p = msg.Message?.PositionReport || {};
         if (m.latitude == null || m.longitude == null) return;
         found.set(m.MMSI, { id: m.MMSI, name: String(m.ShipName || "").trim(), lat: m.latitude, lng: m.longitude, speed: p.Sog ?? null, heading: p.TrueHeading ?? null });
@@ -89,6 +89,14 @@ function ships() {
     });
     ws.on("error", () => { clearTimeout(timer); done(); });
   });
+}
+
+async function route(call) {
+  const json = await getJson(`https://api.adsbdb.com/v0/callsign/${encodeURIComponent(call)}`, 21600, 8000);
+  const r = json.response?.flightroute;
+  if (!r) return { unknown: true };
+  const ap = (a) => a && { iata: a.iata_code, icao: a.icao_code, name: a.name, city: a.municipality, country: a.country_name, iso: a.country_iso_name, lat: a.latitude, lng: a.longitude };
+  return { airline: r.airline?.name || null, flight: r.callsign_iata || r.callsign, origin: ap(r.origin), destination: ap(r.destination) };
 }
 
 async function fetchFeed(source) {
@@ -133,6 +141,11 @@ export async function GET(request) {
   try {
     if (kind === "flights") return NextResponse.json(await cached("flights", 60_000, flights));
     if (kind === "ships") return NextResponse.json(await cached("ships", 3 * 60_000, ships));
+    if (kind === "route") {
+      const call = String(searchParams.get("call") || "").toUpperCase().replace(/[^A-Z0-9]/g, "").slice(0, 8);
+      if (!call) return NextResponse.json({ unknown: true });
+      return NextResponse.json(await cached(`route:${call}`, 6 * 3600_000, () => route(call)).catch(() => ({ unknown: true })));
+    }
     if (kind === "sats") {
       const group = searchParams.get("group") || "stations";
       if (!SAT_SOURCES[group]) return NextResponse.json({ error: "unknown group" }, { status: 400 });

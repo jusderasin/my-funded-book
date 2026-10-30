@@ -1,8 +1,8 @@
 "use client";
 
 // Globe 3D en direct (globe.gl) : pays cliquables, avions et bateaux dessinés et
-// orientés selon leur cap, satellites par constellation propagés en temps réel
-// depuis leurs TLE (CelesTrak), séismes (USGS).
+// orientés selon leur cap (cliquables), satellites par constellation propagés en
+// temps réel depuis leurs TLE (CelesTrak) avec leurs orbites, séismes (USGS).
 
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
@@ -48,18 +48,6 @@ function placeFleet(g, mesh, list, alt) {
   mesh.instanceMatrix.needsUpdate = true;
 }
 
-function satPositions(recs, now) {
-  const gmst = satellite.gstime(now);
-  const out = [];
-  for (const s of recs) {
-    const pv = satellite.propagate(s.rec, now);
-    if (!pv || !pv.position || typeof pv.position === "boolean") continue;
-    const geo = satellite.eciToGeodetic(pv.position, gmst);
-    out.push({ kind: "sat", name: s.name, group: s.group, station: s.station, lat: satellite.degreesLat(geo.latitude), lng: satellite.degreesLong(geo.longitude), alt: geo.height });
-  }
-  return out;
-}
-
 export const SAT_GROUPS = {
   stations: { label: "Stations (ISS…)", color: "#ffffff", size: 3 },
   starlink: { label: "Starlink (SpaceX)", color: "#a5b4fc", size: 1 },
@@ -73,13 +61,107 @@ export const SAT_GROUPS = {
   visual: { label: "Les plus brillants", color: "#7dd3fc", size: 1.4 },
 };
 
-export default function WorldGlobe({ countries, flights, ships, sats, quakes, layers, accent, selected, onSelect }) {
+function satPositions(recs, now) {
+  const gmst = satellite.gstime(now);
+  const out = [];
+  for (const s of recs) {
+    const pv = satellite.propagate(s.rec, now);
+    if (!pv || !pv.position || typeof pv.position === "boolean") continue;
+    const geo = satellite.eciToGeodetic(pv.position, gmst);
+    out.push({ kind: "sat", name: s.name, group: s.group, station: s.station, rec: s.rec, lat: satellite.degreesLat(geo.latitude), lng: satellite.degreesLong(geo.longitude), alt: geo.height });
+  }
+  return out;
+}
+
+// Une orbite complète « figée » dans le repère terrestre actuel : un anneau fermé.
+function orbitPath(rec, now, steps = 120) {
+  const period = (2 * Math.PI) / rec.no; // minutes
+  const gmst = satellite.gstime(now);
+  const pts = [];
+  for (let i = 0; i <= steps; i++) {
+    const pv = satellite.propagate(rec, new Date(now.getTime() + (i / steps) * period * 60_000));
+    if (!pv || !pv.position || typeof pv.position === "boolean") continue;
+    const geo = satellite.eciToGeodetic(pv.position, gmst);
+    pts.push([satellite.degreesLat(geo.latitude), satellite.degreesLong(geo.longitude), Math.min(5, geo.height / EARTH_KM)]);
+  }
+  return pts;
+}
+
+// Coupe le tracé au passage de l'antiméridien (sinon une corde traverse le globe).
+function splitPath(pts) {
+  const parts = [[]];
+  for (let i = 0; i < pts.length; i++) {
+    if (i && Math.abs(pts[i][1] - pts[i - 1][1]) > 180) parts.push([]);
+    parts[parts.length - 1].push(pts[i]);
+  }
+  return parts.filter((p) => p.length > 1);
+}
+const rgba = (hex, a) => `rgba(${parseInt(hex.slice(1, 3), 16)},${parseInt(hex.slice(3, 5), 16)},${parseInt(hex.slice(5, 7), 16)},${a})`;
+
+// Quelques orbites par constellation, réparties sur les plans orbitaux, pour voir sa forme.
+function constellationOrbits(recs, now) {
+  const byGroup = {};
+  for (const s of recs) (byGroup[s.group] ||= []).push(s);
+  const out = [];
+  for (const [group, list] of Object.entries(byGroup)) {
+    const max = group === "starlink" ? 48 : list[0]?.rec.no < 0.01 ? 12 : 24; // orbites hautes (GPS…) : moins de traits
+    const sorted = [...list].sort((a, b) => a.rec.inclo - b.rec.inclo || a.rec.nodeo - b.rec.nodeo);
+    const step = Math.max(1, sorted.length / max);
+    for (let i = 0; i < sorted.length && out.length < 400; i += step) {
+      const color = rgba(SAT_GROUPS[group]?.color || "#7dd3fc", 0.35);
+      for (const pts of splitPath(orbitPath(sorted[Math.floor(i)].rec, now, 90))) out.push({ group, color, pts });
+    }
+  }
+  return out;
+}
+
+export function satDetails(s) {
+  const now = new Date();
+  const pv = satellite.propagate(s.rec, now);
+  const v = pv?.velocity && typeof pv.velocity !== "boolean" ? Math.hypot(pv.velocity.x, pv.velocity.y, pv.velocity.z) : null;
+  return { kind: "sat", name: s.name, group: s.group, lat: s.lat, lng: s.lng, altKm: Math.round(s.alt), speedKms: v, periodMin: (2 * Math.PI) / s.rec.no, inclination: (s.rec.inclo * 180) / Math.PI, norad: s.rec.satnum };
+}
+
+export default function WorldGlobe({ countries, flights, ships, sats, quakes, layers, accent, selected, onSelect, picked, onPick, route }) {
   const ref = useRef(null);
   const globe = useRef(null);
   const fleets = useRef(null);
   const satRecs = useRef([]);
+  const satNow = useRef([]);
+  const orbits = useRef([]);
   const state = useRef({});
-  state.current = { countries, flights, ships, quakes, layers, accent, selected, onSelect };
+  state.current = { countries, flights, ships, quakes, layers, accent, selected, onSelect, picked, onPick, route };
+
+  // Clic : on cherche d'abord l'avion / bateau / satellite le plus proche à l'écran,
+  // sinon c'est un clic sur le pays.
+  function handleClick(ev, poly) {
+    const g = globe.current;
+    const st = state.current;
+    if (!g || !ref.current) return;
+    const box = ref.current.getBoundingClientRect();
+    const mx = ev.clientX - box.left;
+    const my = ev.clientY - box.top;
+    const cam = g.camera().position;
+    const r2 = g.getGlobeRadius() ** 2;
+    let best = null;
+    let bestD = 14;
+    const test = (d, alt, kind) => {
+      const p = g.getCoords(d.lat, d.lng, alt);
+      if (p.x * cam.x + p.y * cam.y + p.z * cam.z < r2) return; // derrière la Terre
+      const s = g.getScreenCoords(d.lat, d.lng, alt);
+      const dist = Math.hypot(s.x - mx, s.y - my);
+      if (dist < bestD) { bestD = dist; best = { kind, d }; }
+    };
+    if (st.layers.flights) for (const d of st.flights || []) test(d, 0.012, "flight");
+    if (st.layers.ships) for (const d of st.ships || []) test(d, 0.004, "ship");
+    if (st.layers.sats) for (const d of satNow.current) test(d, Math.min(5, d.alt / EARTH_KM), "sat");
+    if (best) {
+      st.onPick?.(best.kind === "sat" ? satDetails(best.d) : { ...best.d, kind: best.kind });
+      return;
+    }
+    st.onPick?.(null);
+    if (poly) st.onSelect?.(poly);
+  }
 
   // Création du globe (une seule fois).
   useEffect(() => {
@@ -101,21 +183,35 @@ export default function WorldGlobe({ countries, flights, ships, sats, quakes, la
           g.polygonAltitude((p) => (p === d ? 0.025 : 0.006));
           if (ref.current) ref.current.style.cursor = d ? "pointer" : "grab";
         })
-        .onPolygonClick((d) => state.current.onSelect?.(d.properties))
+        .onPolygonClick((d, ev) => handleClick(ev, d.properties))
+        .onGlobeClick((_, ev) => handleClick(ev, null))
         .particleLat("lat")
         .particleLng("lng")
-        .particleAltitude((d) => Math.min(0.6, d.alt / EARTH_KM))
+        .particleAltitude((d) => Math.min(5, d.alt / EARTH_KM))
         .particlesSize((list) => SAT_GROUPS[list[0]?.group]?.size || 1.4)
         .particlesSizeAttenuation(false)
         .particlesColor((list) => SAT_GROUPS[list[0]?.group]?.color || "#7dd3fc")
-        .ringColor(() => (t) => `rgba(239,68,68,${1 - t})`)
-        .ringMaxRadius((d) => 1.5 + d.mag * 0.9)
-        .ringPropagationSpeed(2)
-        .ringRepeatPeriod(1400)
+        .pathPoints("pts")
+        .pathPointLat((p) => p[0])
+        .pathPointLng((p) => p[1])
+        .pathPointAlt((p) => p[2])
+        .pathColor((d) => (d.hot ? "#ffffff" : d.color))
+        .pathStroke((d) => (d.hot ? 1.2 : null))
+        .pathTransitionDuration(0)
+        .arcColor(() => ["#fbbf24", "#ffffff"])
+        .arcStroke(0.5)
+        .arcDashLength(0.4)
+        .arcDashGap(0.15)
+        .arcDashAnimateTime(2500)
+        .arcAltitudeAutoScale(0.35)
+        .ringColor((d) => (d.pick ? () => "rgba(255,255,255,0.9)" : (t) => `rgba(239,68,68,${1 - t})`))
+        .ringMaxRadius((d) => (d.pick ? 1.2 : 1.5 + d.mag * 0.9))
+        .ringPropagationSpeed((d) => (d.pick ? 1.5 : 2))
+        .ringRepeatPeriod((d) => (d.pick ? 900 : 1400))
         .htmlElementsData([])
         .htmlElement((d) => {
           const el = document.createElement("div");
-          el.innerHTML = `<div style="transform:translate(-50%,-140%);font:700 10px ui-monospace,monospace;color:#fff;background:rgba(0,0,0,.65);border:1px solid rgba(255,255,255,.35);padding:2px 6px;border-radius:6px;white-space:nowrap">🛰 ${d.name}</div>`;
+          el.innerHTML = `<div style="transform:translate(-50%,-140%);font:700 10px ui-monospace,monospace;color:#fff;background:rgba(0,0,0,.65);border:1px solid rgba(255,255,255,.35);padding:2px 6px;border-radius:6px;white-space:nowrap">${d.label}</div>`;
           return el;
         });
       g.controls().autoRotate = true;
@@ -142,11 +238,12 @@ export default function WorldGlobe({ countries, flights, ships, sats, quakes, la
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Satellites : TLE → orbites, repositionnées toutes les 2 s.
+  // Satellites : TLE → orbites, repositionnés toutes les 2-3 s.
   useEffect(() => {
     satRecs.current = (sats || []).map((s) => {
       try { return { name: s.name, group: s.group, station: s.group === "stations", rec: satellite.twoline2satrec(s.l1, s.l2) }; } catch { return null; }
     }).filter(Boolean);
+    orbits.current = constellationOrbits(satRecs.current, new Date());
     draw();
     const id = setInterval(draw, satRecs.current.length > 4000 ? 3000 : 2000);
     return () => clearInterval(id);
@@ -156,22 +253,31 @@ export default function WorldGlobe({ countries, flights, ships, sats, quakes, la
   function draw() {
     const g = globe.current;
     if (!g) return;
-    const { flights: fl, ships: sh, quakes: qk, layers: ly, accent: ac, selected: sel } = state.current;
+    const { quakes: qk, layers: ly, accent: ac, selected: sel, picked: pk } = state.current;
     const satPts = ly.sats ? satPositions(satRecs.current, new Date()) : [];
+    satNow.current = satPts;
     const byGroup = {};
     for (const s of satPts) (byGroup[s.group] ||= []).push(s);
     g.particlesData(Object.values(byGroup));
-    g.htmlElementsData(satPts.filter((s) => s.name.startsWith("ISS")).slice(0, 1).map((s) => ({ ...s, altitude: Math.min(0.6, s.alt / EARTH_KM) })));
-    g.htmlAltitude((d) => d.altitude);
-    g.ringsData(ly.quakes ? qk || [] : []);
+
+    // Satellite choisi : suivi en direct + orbite en surbrillance.
+    const pickedSat = pk?.kind === "sat" ? satPts.find((s) => s.name === pk.name) : null;
+    const labels = satPts.filter((s) => s.name.startsWith("ISS")).slice(0, 1).map((s) => ({ ...s, label: `🛰 ${s.name}` }));
+    if (pickedSat && !pickedSat.name.startsWith("ISS")) labels.push({ ...pickedSat, label: `🛰 ${pickedSat.name}` });
+    if (pk && pk.kind !== "sat") labels.push({ ...pk, alt: pk.kind === "flight" ? 0.03 * EARTH_KM : 0.01 * EARTH_KM, label: pk.kind === "flight" ? `✈ ${pk.call || pk.id}` : `🚢 ${pk.name || pk.id}` });
+    g.htmlElementsData(labels);
+    g.htmlAltitude((d) => Math.min(5, d.alt / EARTH_KM));
+
+    const paths = ly.sats && ly.orbits ? [...orbits.current] : [];
+    if (pickedSat) for (const pts of splitPath(orbitPath(pickedSat.rec, new Date()))) paths.push({ hot: true, pts });
+    g.pathsData(paths);
+
+    const rings = ly.quakes ? [...(qk || [])] : [];
+    if (pk && pk.kind !== "sat") rings.push({ lat: pk.lat, lng: pk.lng, pick: true });
+    g.ringsData(rings);
     g.polygonCapColor((p) => (sel && p.properties.ADMIN === sel.ADMIN ? `${ac}aa` : "rgba(255,255,255,0.03)"));
   }
 
-  useEffect(() => {
-    if (countries && globe.current) globe.current.polygonsData(countries);
-  }, [countries]);
-  useEffect(draw, [quakes, layers, accent, selected]);
-  // Avions et bateaux : repositionnés seulement quand leurs données changent.
   function placeAll() {
     const g = globe.current;
     const f = fleets.current;
@@ -180,7 +286,19 @@ export default function WorldGlobe({ countries, flights, ships, sats, quakes, la
     placeFleet(g, f.planes, ly.flights ? fl || [] : [], 0.012);
     placeFleet(g, f.ships, ly.ships ? sh || [] : [], 0.004);
   }
+
+  useEffect(() => {
+    if (countries && globe.current) globe.current.polygonsData(countries);
+  }, [countries]);
+  useEffect(draw, [quakes, layers, accent, selected, picked]);
+  // Avions et bateaux : repositionnés seulement quand leurs données changent.
   useEffect(placeAll, [flights, ships, layers]);
+  useEffect(() => {
+    const g = globe.current;
+    if (!g) return;
+    g.arcsData(route ? [route] : []);
+    g.controls().autoRotate = !selected && !picked;
+  }, [route, picked, selected]);
   useEffect(() => {
     if (!globe.current) return;
     globe.current.controls().autoRotate = !selected;
