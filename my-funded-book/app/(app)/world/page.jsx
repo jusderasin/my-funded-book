@@ -7,6 +7,8 @@ import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
 import { BadgeCheck, CalendarClock, Globe2, Newspaper, Plane, Radio, Satellite, Ship, Tv, Waves, X } from "lucide-react";
 import { useBook } from "@/components/BookProvider";
+import { SAT_GROUPS } from "@/components/world/WorldGlobe";
+import MarketSessions from "@/components/world/MarketSessions";
 
 const WorldGlobe = dynamic(() => import("@/components/world/WorldGlobe"), { ssr: false, loading: () => <div className="grid h-full place-items-center text-xs text-prism-muted">Chargement du globe…</div> });
 
@@ -60,7 +62,8 @@ export default function WorldPage() {
   const [ships, setShips] = useState({ ships: [], needsKey: false });
   const [onlyConfirmed, setOnlyConfirmed] = useState(false);
   const [sourceFilter, setSourceFilter] = useState("");
-  const [sats, setSats] = useState([]);
+  const [satData, setSatData] = useState({});
+  const [satOn, setSatOn] = useState({ stations: true, starlink: true, gps: true });
   const [quakes, setQuakes] = useState([]);
   const [calendar, setCalendar] = useState([]);
   const [layers, setLayers] = useState({ flights: true, ships: true, sats: true, quakes: true });
@@ -74,7 +77,6 @@ export default function WorldPage() {
     const v = getComputedStyle(document.documentElement).getPropertyValue("--prism-accent").trim();
     if (/^#[0-9a-f]{6}$/i.test(v)) setAccent(v);
     fetch("/countries.geojson").then((r) => r.json()).then((d) => setCountries(d.features)).catch(() => {});
-    getJson("/api/world?kind=sats").then(setSats).catch(() => {});
     getJson("/api/world?kind=calendar").then(setCalendar).catch(() => {});
     const loadLive = () => {
       getJson("/api/world?kind=flights").then((d) => { setFlights(Array.isArray(d) ? d : []); setUpdated(new Date()); }).catch(() => {});
@@ -87,6 +89,15 @@ export default function WorldPage() {
     const id = setInterval(loadLive, 60_000);
     return () => clearInterval(id);
   }, []);
+
+  // Chaque constellation n'est téléchargée qu'à sa première activation.
+  useEffect(() => {
+    Object.keys(satOn).filter((g) => satOn[g] && !satData[g]).forEach((g) => {
+      setSatData((d) => ({ ...d, [g]: [] }));
+      getJson(`/api/world?kind=sats&group=${g}`).then((list) => setSatData((d) => ({ ...d, [g]: Array.isArray(list) ? list : [] }))).catch(() => {});
+    });
+  }, [satOn, satData]);
+  const sats = useMemo(() => Object.keys(satOn).filter((g) => satOn[g]).flatMap((g) => satData[g] || []), [satOn, satData]);
 
   // Actus du pays sélectionné (ou du monde).
   const topic = selected?.ADMIN || "";
@@ -114,7 +125,6 @@ export default function WorldPage() {
   }, [calendar, currency]);
 
   const countryQuakes = selected ? quakes.filter((q) => String(q.place || "").toLowerCase().includes(selected.ADMIN.toLowerCase())) : [];
-  const issCount = sats.filter((s) => s.station).length;
 
   const toggles = [
     ["flights", Plane, en ? "Flights" : "Avions", flights.length],
@@ -134,6 +144,8 @@ export default function WorldPage() {
         <p className="flex items-center gap-2 font-mono text-[11px] text-prism-muted2"><span className="h-2 w-2 animate-pulse rounded-full bg-prism-win" />{updated ? `${en ? "updated" : "mis à jour"} ${updated.toLocaleTimeString(en ? "en-US" : "fr-FR")}` : "…"}</p>
       </header>
 
+      <MarketSessions en={en} />
+
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_400px]">
         <section className="term-panel relative h-[460px] overflow-hidden sm:h-[640px]" style={{ background: "radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--prism-accent) 7%, transparent), transparent 60%), var(--prism-bg)" }}>
           <WorldGlobe countries={countries} flights={flights} ships={ships.ships} sats={sats} quakes={quakes} layers={layers} accent={accent} selected={selected} onSelect={setSelected} />
@@ -145,14 +157,24 @@ export default function WorldPage() {
               </button>
             ))}
           </div>
+          {layers.sats && (
+            <div className="absolute bottom-14 left-3 flex max-w-[calc(100%-1.5rem)] flex-wrap gap-1">
+              {Object.entries(SAT_GROUPS).map(([g, info]) => (
+                <button key={g} type="button" onClick={() => setSatOn((o) => ({ ...o, [g]: !o[g] }))}
+                  className={`inline-flex h-6 items-center gap-1.5 rounded-md border px-2 text-[10px] font-semibold backdrop-blur ${satOn[g] ? "border-white/30 bg-black/60 text-white" : "border-white/10 bg-black/35 text-white/45"}`}>
+                  <i className="h-2 w-2 rounded-full" style={{ background: info.color, opacity: satOn[g] ? 1 : 0.4 }} />{info.label}
+                  {satOn[g] && satData[g] && <span className="font-mono opacity-60">{satData[g].length ? satData[g].length.toLocaleString("fr-FR") : "…"}</span>}
+                </button>
+              ))}
+            </div>
+          )}
           {layers.ships && ships.needsKey && (
             <p className="absolute left-3 top-14 max-w-[300px] rounded-lg bg-black/60 px-3 py-2 text-[10.5px] leading-4 text-white/75 backdrop-blur">{en ? "Ships need a free aisstream.io key (AISSTREAM_API_KEY on Vercel)." : "Les bateaux demandent une clé gratuite aisstream.io (AISSTREAM_API_KEY sur Vercel)."}</p>
           )}
           <div className="pointer-events-none absolute bottom-3 left-3 flex flex-wrap gap-3 rounded-lg bg-black/45 px-3 py-2 text-[10px] text-white/70 backdrop-blur">
-            <span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-amber-400" />{en ? "aircraft" : "avion"}</span>
-            <span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-emerald-400" />{en ? "ship" : "bateau"}</span>
-            <span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-sky-300" />satellite</span>
-            <span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-white" />{en ? `stations (${issCount})` : `stations (${issCount})`}</span>
+            <span className="flex items-center gap-1.5"><Plane className="h-3.5 w-3.5 -rotate-45 fill-amber-400 text-amber-400" />{en ? "aircraft (points to its heading)" : "avion (pointe vers son cap)"}</span>
+            <span className="flex items-center gap-1.5"><Ship className="h-3.5 w-3.5 text-emerald-400" />{en ? "ship" : "bateau"}</span>
+            <span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-sky-300" />{en ? "satellites (colour = constellation)" : "satellites (couleur = constellation)"}</span>
             <span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-red-500" />{en ? "earthquake" : "séisme"}</span>
           </div>
           {selected && (

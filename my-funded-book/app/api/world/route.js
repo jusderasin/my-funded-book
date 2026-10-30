@@ -3,7 +3,7 @@
 //   ?kind=flights            avions en vol (adsb.lol par zones, OpenSky en complément)
 //   ?kind=ships              navires (AIS, aisstream.io : clé AISSTREAM_API_KEY)
 //   ?kind=news&q=France      actus de sources fiables, filtrées par pays et recoupées
-//   ?kind=sats               satellites visibles + stations (CelesTrak, TLE)
+//   ?kind=sats&group=starlink  une constellation de satellites (CelesTrak, TLE)
 //   ?kind=calendar           calendrier économique de la semaine (ForexFactory)
 import { NextResponse } from "next/server";
 import WebSocket from "ws";
@@ -109,16 +109,17 @@ async function news(q, iso) {
   return crossCheck(match).slice(0, 40);
 }
 
-async function sats() {
+// Nom de groupe CelesTrak pour chaque constellation proposée.
+const SAT_SOURCES = { stations: "stations", starlink: "starlink", oneweb: "oneweb", kuiper: "kuiper", gps: "gps-ops", galileo: "galileo", glonass: "glo-ops", beidou: "beidou", iridium: "iridium-NEXT", visual: "visual" };
+
+async function sats(group) {
+  // Starlink dépasse 2 Mo : trop gros pour le cache Next, le cache mémoire suffit.
+  const res = await fetch(`https://celestrak.org/NORAD/elements/gp.php?GROUP=${SAT_SOURCES[group]}&FORMAT=tle`, { cache: "no-store", signal: AbortSignal.timeout(20000) });
+  if (!res.ok) throw new Error(`${res.status}`);
+  const lines = (await res.text()).split(/\r?\n/).map((l) => l.trimEnd()).filter(Boolean);
   const out = [];
-  for (const group of ["stations", "visual"]) {
-    const res = await fetch(`https://celestrak.org/NORAD/elements/gp.php?GROUP=${group}&FORMAT=tle`, { next: { revalidate: 21600 }, signal: AbortSignal.timeout(15000) });
-    if (!res.ok) continue;
-    const lines = (await res.text()).split(/\r?\n/).map((l) => l.trimEnd()).filter(Boolean);
-    for (let i = 0; i + 2 < lines.length; i += 3) out.push({ name: lines[i].trim(), l1: lines[i + 1], l2: lines[i + 2], station: group === "stations" });
-  }
-  const seen = new Set();
-  return out.filter((s) => (seen.has(s.l1.slice(2, 7)) ? false : seen.add(s.l1.slice(2, 7))));
+  for (let i = 0; i + 2 < lines.length; i += 3) out.push({ name: lines[i].trim(), l1: lines[i + 1], l2: lines[i + 2], group });
+  return out;
 }
 
 async function calendar() {
@@ -132,7 +133,11 @@ export async function GET(request) {
   try {
     if (kind === "flights") return NextResponse.json(await cached("flights", 60_000, flights));
     if (kind === "ships") return NextResponse.json(await cached("ships", 3 * 60_000, ships));
-    if (kind === "sats") return NextResponse.json(await cached("sats", 6 * 3600_000, sats));
+    if (kind === "sats") {
+      const group = searchParams.get("group") || "stations";
+      if (!SAT_SOURCES[group]) return NextResponse.json({ error: "unknown group" }, { status: 400 });
+      return NextResponse.json(await cached(`sats:${group}`, 6 * 3600_000, () => sats(group)), { headers: { "Cache-Control": "public, s-maxage=21600, stale-while-revalidate=86400" } });
+    }
     if (kind === "calendar") return NextResponse.json(await cached("calendar", 30 * 60_000, calendar));
     if (kind === "news") {
       const q = String(searchParams.get("q") || "").slice(0, 60);
