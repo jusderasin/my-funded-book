@@ -3,7 +3,7 @@
 // Fiche de l'avion, du bateau ou du satellite cliqué sur le globe.
 
 import { Plane, Satellite, Ship, X } from "lucide-react";
-import { SAT_GROUPS } from "@/components/world/WorldGlobe";
+import { SAT_GROUPS, SHIP_TYPES, airlineName } from "@/lib/worldCatalog";
 
 const km = (a, b) => {
   const R = 6371;
@@ -15,9 +15,6 @@ const km = (a, b) => {
 };
 const fmt = (n, d = 0) => (n == null || Number.isNaN(n) ? "—" : Number(n).toLocaleString("fr-FR", { maximumFractionDigits: d }));
 const dur = (h) => (h == null || !Number.isFinite(h) ? "—" : `${Math.floor(h)} h ${String(Math.round((h % 1) * 60)).padStart(2, "0")}`);
-
-// Types AIS (premier chiffre du code).
-const SHIP_TYPES = { 3: "Pêche / remorqueur / spécial", 4: "Navire rapide", 5: "Pilote / service", 6: "Passagers", 7: "Cargo", 8: "Pétrolier / tanker", 9: "Autre" };
 
 function Row({ label, value }) {
   return (
@@ -50,9 +47,12 @@ function Flight({ f, route, en }) {
   const left = d ? km(f, d) : null;
   const progress = total ? Math.min(100, Math.max(0, (done / (done + left)) * 100)) : null;
   const eta = left != null && speed > 150 ? left / speed : null;
+  // Décollage estimé : distance parcourue à la vitesse de croisière + ~20 min de montée.
+  const since = done != null && speed > 150 ? done / speed + 0.33 : null;
+  const hhmm = (h) => new Date(Date.now() + h * 3600_000).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" });
   return (
     <>
-      <p className="text-[11px] text-white/60">{route?.airline || (route ? (en ? "Unknown airline" : "Compagnie inconnue") : en ? "Looking up route…" : "Recherche de la route…")}</p>
+      <p className="text-[11px] text-white/60">{route?.airline || airlineName(f.call) || (route ? (en ? "Unknown airline" : "Compagnie inconnue") : en ? "Looking up route…" : "Recherche de la route…")}</p>
       {o && d ? (
         <>
           <div className="mt-2 flex items-center gap-2">
@@ -69,7 +69,8 @@ function Flight({ f, route, en }) {
         <p className="mt-2 text-[10.5px] text-white/50">{en ? "Route not published for this flight (private, cargo or military)." : "Route non publiée pour ce vol (privé, cargo ou militaire)."}</p>
       ) : null}
       <div className="mt-2 border-t border-white/10 pt-1.5">
-        {eta != null && <Row label={en ? "Arrives in (approx.)" : "Arrivée dans (env.)"} value={`${dur(eta)} · ${new Date(Date.now() + eta * 3600_000).toLocaleTimeString("fr-FR", { hour: "2-digit", minute: "2-digit" })}`} />}
+        {since != null && <Row label={en ? "Took off (approx.)" : "Décollage (env.)"} value={`${hhmm(-since)} · ${en ? "" : "il y a "}${dur(since)}`} />}
+        {eta != null && <Row label={en ? "Landing (approx.)" : "Atterrissage (env.)"} value={`${hhmm(eta)} · ${en ? "in " : "dans "}${dur(eta)}`} />}
         {total != null && <Row label={en ? "Total distance" : "Distance totale"} value={`${fmt(total)} km`} />}
         {total != null && speed > 150 && <Row label={en ? "Flight time (approx.)" : "Durée du vol (env.)"} value={dur(total / speed + 0.5)} />}
         <Row label={en ? "Speed" : "Vitesse"} value={`${fmt(speed)} km/h`} />
@@ -86,7 +87,7 @@ function Vessel({ s, en }) {
   const knots = s.speed;
   return (
     <>
-      <p className="text-[11px] text-white/60">{SHIP_TYPES[String(s.type || "")[0]] || (en ? "Vessel" : "Navire")}{s.length ? ` · ${s.length} m` : ""}</p>
+      <p className="text-[11px] text-white/60">{SHIP_TYPES[s.cat]?.label.replace(/s( |$)/, "$1") || (en ? "Vessel" : "Navire")}{s.length ? ` · ${s.length} m` : ""}</p>
       <div className="mt-2 border-t border-white/10 pt-1.5">
         <Row label={en ? "Destination" : "Destination"} value={s.dest || "—"} />
         {s.eta && <Row label={en ? "Announced ETA (UTC)" : "Arrivée prévue (UTC)"} value={`${String(s.eta.day).padStart(2, "0")}/${String(s.eta.month).padStart(2, "0")} ${String(s.eta.hour).padStart(2, "0")}:${String(s.eta.minute).padStart(2, "0")}`} />}
@@ -102,7 +103,7 @@ function Sat({ s, en }) {
   const g = SAT_GROUPS[s.group];
   return (
     <>
-      <p className="flex items-center gap-1.5 text-[11px] text-white/60"><i className="h-2 w-2 rounded-full" style={{ background: g?.color }} />{g?.label || s.group}</p>
+      <p className="flex items-center gap-1.5 text-[11px] text-white/60"><i className="h-2 w-2 rounded-full" style={{ background: g?.color }} />{s.family || g?.label || s.group}{s.family && g ? ` · ${g.label}` : ""}</p>
       <div className="mt-2 border-t border-white/10 pt-1.5">
         <Row label="Altitude" value={`${fmt(s.altKm)} km`} />
         <Row label={en ? "Speed" : "Vitesse"} value={s.speedKms ? `${fmt(s.speedKms, 2)} km/s · ${fmt(s.speedKms * 3600)} km/h` : "—"} />
@@ -112,7 +113,7 @@ function Sat({ s, en }) {
         <Row label={en ? "Position" : "Au-dessus de"} value={`${fmt(s.lat, 1)}°, ${fmt(s.lng, 1)}°`} />
         <Row label="NORAD" value={s.norad} />
       </div>
-      <p className="mt-1.5 text-[10px] text-white/45">{en ? "Its full orbit is drawn in white." : "Son orbite complète est tracée en blanc."}</p>
+      <p className="mt-1.5 text-[10px] text-white/45">{en ? "Its full orbit is drawn in white." : "Son orbite est tracée en blanc, sa famille ressort en blanc et les autres satellites s'effacent."}</p>
     </>
   );
 }

@@ -61,12 +61,15 @@ async function flights() {
 
 // Instantané AIS : on écoute le flux mondial quelques secondes et on garde la
 // dernière position de chaque navire.
+// Infos fixes des navires (destination, type) : envoyées rarement, on les garde entre deux appels.
+const shipInfo = new Map();
+
 function ships() {
   const key = process.env.AISSTREAM_API_KEY;
   if (!key) return Promise.resolve({ needsKey: true, ships: [] });
   return new Promise((resolve) => {
     const found = new Map();
-    const info = new Map();
+    const info = shipInfo;
     const ws = new WebSocket("wss://stream.aisstream.io/v0/stream");
     const done = () => { try { ws.close(); } catch {} resolve({ ships: [...found.values()].map((x) => ({ ...x, ...info.get(x.id) })) }); };
     const timer = setTimeout(done, 9000);
@@ -83,7 +86,9 @@ function ships() {
         }
         const p = msg.Message?.PositionReport || {};
         if (m.latitude == null || m.longitude == null) return;
-        found.set(m.MMSI, { id: m.MMSI, name: String(m.ShipName || "").trim(), lat: m.latitude, lng: m.longitude, speed: p.Sog ?? null, heading: p.TrueHeading ?? null });
+        // Cap réel (511 = inconnu), sinon la route suivie.
+        const heading = p.TrueHeading != null && p.TrueHeading < 360 ? p.TrueHeading : p.Cog != null && p.Cog < 360 ? Math.round(p.Cog) : null;
+        found.set(m.MMSI, { id: m.MMSI, name: String(m.ShipName || "").trim(), lat: m.latitude, lng: m.longitude, speed: p.Sog ?? null, heading });
         if (found.size >= 4000) { clearTimeout(timer); done(); }
       } catch { /* message ignoré */ }
     });
@@ -117,16 +122,36 @@ async function news(q, iso) {
   return crossCheck(match).slice(0, 40);
 }
 
-// Nom de groupe CelesTrak pour chaque constellation proposée.
-const SAT_SOURCES = { stations: "stations", starlink: "starlink", oneweb: "oneweb", kuiper: "kuiper", gps: "gps-ops", galileo: "galileo", glonass: "glo-ops", beidou: "beidou", iridium: "iridium-NEXT", visual: "visual" };
+// Groupes CelesTrak de chaque catégorie de satellites proposée.
+const SAT_SOURCES = {
+  stations: ["stations"],
+  starlink: ["starlink"],
+  internet: ["oneweb", "kuiper"],
+  navigation: ["gps-ops", "galileo", "glo-ops", "beidou"],
+  weather: ["weather"],
+  tv: ["geo"],
+  military: ["military"],
+  earth: ["resource"],
+  science: ["science"],
+  iridium: ["iridium-NEXT"],
+};
 
 async function sats(group) {
-  // Starlink dépasse 2 Mo : trop gros pour le cache Next, le cache mémoire suffit.
-  const res = await fetch(`https://celestrak.org/NORAD/elements/gp.php?GROUP=${SAT_SOURCES[group]}&FORMAT=tle`, { cache: "no-store", signal: AbortSignal.timeout(20000) });
-  if (!res.ok) throw new Error(`${res.status}`);
-  const lines = (await res.text()).split(/\r?\n/).map((l) => l.trimEnd()).filter(Boolean);
   const out = [];
-  for (let i = 0; i + 2 < lines.length; i += 3) out.push({ name: lines[i].trim(), l1: lines[i + 1], l2: lines[i + 2], group });
+  for (const src of SAT_SOURCES[group]) {
+    // Starlink dépasse 2 Mo : trop gros pour le cache Next ; le CDN (s-maxage) et la mémoire suffisent.
+    const res = await fetch(`https://celestrak.org/NORAD/elements/gp.php?GROUP=${src}&FORMAT=tle`, { cache: "no-store", signal: AbortSignal.timeout(20000) });
+    if (!res.ok) throw new Error(`${res.status}`);
+    out.push(...parseTle(await res.text(), group, src));
+  }
+  const seen = new Set();
+  return out.filter((x) => (seen.has(x.l1.slice(2, 7)) ? false : seen.add(x.l1.slice(2, 7))));
+}
+
+function parseTle(text, group, src) {
+  const lines = text.split(/\r?\n/).map((l) => l.trimEnd()).filter(Boolean);
+  const out = [];
+  for (let i = 0; i + 2 < lines.length; i += 3) out.push({ name: lines[i].trim(), l1: lines[i + 1], l2: lines[i + 2], group, src });
   return out;
 }
 

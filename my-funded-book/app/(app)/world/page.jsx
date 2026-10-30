@@ -5,9 +5,10 @@
 
 import dynamic from "next/dynamic";
 import { useEffect, useMemo, useState } from "react";
-import { BadgeCheck, CalendarClock, Globe2, Newspaper, Orbit, Plane, Radio, Satellite, Ship, Tv, Waves, X } from "lucide-react";
+import { BadgeCheck, CalendarClock, Globe2, Newspaper, Plane, Radio, Satellite, Ship, Tv, Waves, X } from "lucide-react";
 import { useBook } from "@/components/BookProvider";
-import { SAT_GROUPS } from "@/components/world/WorldGlobe";
+import WorldFilters from "@/components/world/WorldFilters";
+import { airlineCode, shipType } from "@/lib/worldCatalog";
 import MarketSessions from "@/components/world/MarketSessions";
 import PickedCard from "@/components/world/PickedCard";
 
@@ -64,10 +65,12 @@ export default function WorldPage() {
   const [onlyConfirmed, setOnlyConfirmed] = useState(false);
   const [sourceFilter, setSourceFilter] = useState("");
   const [satData, setSatData] = useState({});
-  const [satOn, setSatOn] = useState({ stations: true, starlink: true, gps: true });
+  const [satOn, setSatOn] = useState({ stations: true });
+  const [airline, setAirline] = useState("");
+  const [shipOff, setShipOff] = useState({});
   const [quakes, setQuakes] = useState([]);
   const [calendar, setCalendar] = useState([]);
-  const [layers, setLayers] = useState({ flights: true, ships: true, sats: true, orbits: true, quakes: true });
+  const [layers, setLayers] = useState({ flights: true, ships: true, sats: true, quakes: true });
   const [picked, setPicked] = useState(null);
   const [route, setRoute] = useState(null);
   const [selected, setSelected] = useState(null);
@@ -139,11 +142,14 @@ export default function WorldPage() {
   }, [picked]);
   const arc = route?.origin && route?.destination ? { startLat: route.origin.lat, startLng: route.origin.lng, endLat: route.destination.lat, endLng: route.destination.lng } : null;
 
+  const shipsAll = useMemo(() => ships.ships.map((x) => ({ ...x, cat: shipType(x.type) })), [ships.ships]);
+  const shownFlights = useMemo(() => (airline ? flights.filter((f) => airlineCode(f.call) === airline) : flights), [flights, airline]);
+  const shownShips = useMemo(() => shipsAll.filter((x) => !shipOff[x.cat]), [shipsAll, shipOff]);
+
   const toggles = [
     ["flights", Plane, en ? "Flights" : "Avions", flights.length],
     ["ships", Ship, en ? "Ships" : "Bateaux", ships.needsKey ? "—" : ships.ships.length],
     ["sats", Satellite, "Satellites", sats.length],
-    ["orbits", Orbit, en ? "Orbits" : "Orbites", ""],
     ["quakes", Waves, en ? "Quakes" : "Séismes", quakes.length],
   ];
 
@@ -161,8 +167,9 @@ export default function WorldPage() {
       <MarketSessions en={en} />
 
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_400px]">
+        <div className="min-w-0 space-y-4">
         <section className="term-panel relative h-[460px] overflow-hidden sm:h-[640px]" style={{ background: "radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--prism-accent) 7%, transparent), transparent 60%), var(--prism-bg)" }}>
-          <WorldGlobe countries={countries} flights={flights} ships={ships.ships} sats={sats} quakes={quakes} layers={layers} accent={accent} selected={selected} onSelect={setSelected} picked={picked} onPick={setPicked} route={arc} />
+          <WorldGlobe countries={countries} flights={shownFlights} ships={shownShips} sats={sats} quakes={quakes} layers={layers} accent={accent} selected={selected} onSelect={setSelected} picked={picked} onPick={setPicked} route={arc} />
           {picked && <PickedCard item={picked} route={route} en={en} onClose={() => setPicked(null)} />}
           <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
             {toggles.map(([k, Icon, label, n]) => (
@@ -172,33 +179,18 @@ export default function WorldPage() {
               </button>
             ))}
           </div>
-          {layers.sats && (
-            <div className="absolute bottom-14 left-3 flex max-w-[calc(100%-1.5rem)] flex-wrap gap-1">
-              {Object.entries(SAT_GROUPS).map(([g, info]) => (
-                <button key={g} type="button" onClick={() => setSatOn((o) => ({ ...o, [g]: !o[g] }))}
-                  className={`inline-flex h-6 items-center gap-1.5 rounded-md border px-2 text-[10px] font-semibold backdrop-blur ${satOn[g] ? "border-white/30 bg-black/60 text-white" : "border-white/10 bg-black/35 text-white/45"}`}>
-                  <i className="h-2 w-2 rounded-full" style={{ background: info.color, opacity: satOn[g] ? 1 : 0.4 }} />{info.label}
-                  {satOn[g] && satData[g] && <span className="font-mono opacity-60">{satData[g].length ? satData[g].length.toLocaleString("fr-FR") : "…"}</span>}
-                </button>
-              ))}
-            </div>
-          )}
           {layers.ships && ships.needsKey && (
             <p className="absolute left-3 top-14 max-w-[300px] rounded-lg bg-black/60 px-3 py-2 text-[10.5px] leading-4 text-white/75 backdrop-blur">{en ? "Ships need a free aisstream.io key (AISSTREAM_API_KEY on Vercel)." : "Les bateaux demandent une clé gratuite aisstream.io (AISSTREAM_API_KEY sur Vercel)."}</p>
           )}
-          <div className="pointer-events-none absolute bottom-3 left-3 flex flex-wrap gap-3 rounded-lg bg-black/45 px-3 py-2 text-[10px] text-white/70 backdrop-blur">
-            <span className="flex items-center gap-1.5"><Plane className="h-3.5 w-3.5 -rotate-45 fill-amber-400 text-amber-400" />{en ? "aircraft (points to its heading)" : "avion (pointe vers son cap)"}</span>
-            <span className="flex items-center gap-1.5"><Ship className="h-3.5 w-3.5 text-emerald-400" />{en ? "ship" : "bateau"}</span>
-            <span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-sky-300" />{en ? "satellites (colour = constellation)" : "satellites (couleur = constellation)"}</span>
-            <span className="flex items-center gap-1.5"><i className="h-2 w-2 rounded-full bg-red-500" />{en ? "earthquake" : "séisme"}</span>
-            <span className="text-white/50">{en ? "click a plane, ship or satellite for details" : "clique un avion, un bateau ou un satellite pour ses infos"}</span>
-          </div>
+          <p className="pointer-events-none absolute bottom-3 left-3 rounded-lg bg-black/55 px-3 py-1.5 text-[10.5px] text-white/75 backdrop-blur">{en ? "Hover then click a plane, ship or satellite · drag to rotate · wheel to zoom" : "Survole puis clique un avion, un bateau ou un satellite · glisse pour tourner · molette pour zoomer"}</p>
           {selected && (
             <button type="button" onClick={() => setSelected(null)} className="absolute right-3 top-3 inline-flex h-8 items-center gap-1.5 rounded-lg border border-white/15 bg-black/50 px-2.5 text-[11px] font-bold text-white backdrop-blur hover:border-prism-accent">
               <X className="h-3.5 w-3.5" />{en ? "Whole world" : "Monde entier"}
             </button>
           )}
         </section>
+        <WorldFilters en={en} layers={layers} flights={flights} airline={airline} setAirline={setAirline} ships={shipsAll} shipOff={shipOff} setShipOff={setShipOff} satOn={satOn} setSatOn={setSatOn} satData={satData} />
+        </div>
 
         <div className="space-y-4">
           <section className="term-panel p-4">
