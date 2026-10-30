@@ -1,40 +1,48 @@
 "use client";
 
-// Globe 3D en direct (globe.gl) : pays cliquables, avions et bateaux dessinés et
-// orientés selon leur cap (cliquables), satellites par constellation propagés en
-// temps réel depuis leurs TLE (CelesTrak) avec leurs orbites, séismes (USGS).
+// Globe 3D en direct (globe.gl) : pays cliquables, avions, bateaux et satellites
+// dessinés (silhouettes) et cliquables, séismes (USGS). Le globe tourne seul
+// jusqu'au premier geste de l'utilisateur, puis reste où il l'a laissé.
 
 import { useEffect, useRef } from "react";
 import * as THREE from "three";
 import * as satellite from "satellite.js";
+import { SAT_GROUPS, airlineName, satFamily, SHIP_TYPES } from "@/lib/worldCatalog";
+
+export { SAT_GROUPS };
 
 const EARTH_KM = 6371;
+const PLANE_ALT = 0.012;
+const SHIP_ALT = 0.004;
+const HIT_PX = 16;
 
-// Silhouettes vues du dessus, nez vers +Y (unités du globe : rayon 100).
+// Silhouettes vues de dessus, nez vers +Y (unités du globe : rayon 100).
 const mirror = (half) => [...half, ...half.slice(1, -1).reverse().map(([x, y]) => [-x, y])];
 const PLANE = mirror([[0, 0.5], [0.06, 0.4], [0.06, 0.12], [0.5, -0.06], [0.5, -0.14], [0.06, -0.06], [0.05, -0.3], [0.2, -0.42], [0.2, -0.48], [0, -0.44]]);
 const SHIP = mirror([[0, 0.5], [0.15, 0.22], [0.15, -0.45], [0, -0.45]]);
-function shapeGeometry(points, size) {
-  const shape = new THREE.Shape(points.map(([x, y]) => new THREE.Vector2(x * size, y * size)));
-  return new THREE.ShapeGeometry(shape);
-}
+// Satellite : corps carré + deux panneaux solaires.
+const SAT = mirror([[0, 0.12], [0.1, 0.12], [0.1, 0.03], [0.18, 0.03], [0.18, 0.09], [0.5, 0.09], [0.5, -0.09], [0.18, -0.09], [0.18, -0.03], [0.1, -0.03], [0.1, -0.12], [0, -0.12]]);
 
-// Un seul InstancedMesh par type : des milliers d'avions restent fluides.
-function makeFleet(points, size, color) {
-  const mesh = new THREE.InstancedMesh(shapeGeometry(points, size), new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide, transparent: true, opacity: 0.95 }), 8000);
+function makeMesh(points, size, color, max) {
+  const shape = new THREE.Shape(points.map(([x, y]) => new THREE.Vector2(x * size, y * size)));
+  const mesh = new THREE.InstancedMesh(new THREE.ShapeGeometry(shape), new THREE.MeshBasicMaterial({ color, side: THREE.DoubleSide, transparent: true, opacity: 0.95, depthWrite: false }), max);
   mesh.count = 0;
   mesh.frustumCulled = false;
   return mesh;
 }
 
 const Y = new THREE.Vector3(0, 1, 0);
-const tmp = { up: new THREE.Vector3(), east: new THREE.Vector3(), north: new THREE.Vector3(), fwd: new THREE.Vector3(), right: new THREE.Vector3(), m: new THREE.Matrix4() };
-function placeFleet(g, mesh, list, alt) {
+const V = { up: new THREE.Vector3(), east: new THREE.Vector3(), north: new THREE.Vector3(), fwd: new THREE.Vector3(), right: new THREE.Vector3(), m: new THREE.Matrix4(), c: new THREE.Color(), p: new THREE.Vector3(), s: new THREE.Vector3(1, 1, 1) };
+
+// Avions / bateaux : posés à plat, orientés selon leur cap. Garde la position 3D
+// de chacun pour le clic.
+function placeFleet(g, mesh, list, alt, colorOf) {
+  const pos = [];
   let n = 0;
   for (const d of list) {
-    if (n >= 8000) break;
+    if (n >= mesh.instanceMatrix.count) break;
     const { x, y, z } = g.getCoords(d.lat, d.lng, alt);
-    const { up, east, north, fwd, right, m } = tmp;
+    const { up, east, north, fwd, right, m } = V;
     up.set(x, y, z).normalize();
     east.crossVectors(Y, up).normalize();
     north.crossVectors(up, east);
@@ -42,134 +50,136 @@ function placeFleet(g, mesh, list, alt) {
     fwd.copy(north).multiplyScalar(Math.cos(h)).addScaledVector(east, Math.sin(h));
     right.crossVectors(fwd, up);
     m.makeBasis(right, fwd, up).setPosition(x, y, z);
-    mesh.setMatrixAt(n++, m);
+    mesh.setMatrixAt(n, m);
+    if (colorOf) mesh.setColorAt(n, V.c.set(colorOf(d)));
+    pos.push([x, y, z, d]);
+    n++;
   }
   mesh.count = n;
   mesh.instanceMatrix.needsUpdate = true;
+  if (mesh.instanceColor) mesh.instanceColor.needsUpdate = true;
+  return pos;
 }
 
-export const SAT_GROUPS = {
-  stations: { label: "Stations (ISS…)", color: "#ffffff", size: 3 },
-  starlink: { label: "Starlink (SpaceX)", color: "#a5b4fc", size: 1 },
-  oneweb: { label: "OneWeb", color: "#f472b6", size: 1.3 },
-  kuiper: { label: "Kuiper (Amazon)", color: "#fb923c", size: 1.6 },
-  gps: { label: "GPS (USA)", color: "#4ade80", size: 2.2 },
-  galileo: { label: "Galileo (UE)", color: "#60a5fa", size: 2.2 },
-  glonass: { label: "GLONASS (Russie)", color: "#f87171", size: 2.2 },
-  beidou: { label: "BeiDou (Chine)", color: "#facc15", size: 2.2 },
-  iridium: { label: "Iridium", color: "#2dd4bf", size: 1.6 },
-  visual: { label: "Les plus brillants", color: "#7dd3fc", size: 1.4 },
-};
+// Satellites : toujours face à la caméra pour rester lisibles.
+function orientSats(mesh, pos, camera, scale = 1) {
+  V.s.setScalar(scale);
+  pos.forEach(([x, y, z], i) => mesh.setMatrixAt(i, V.m.compose(V.p.set(x, y, z), camera.quaternion, V.s)));
+  mesh.count = pos.length;
+  mesh.instanceMatrix.needsUpdate = true;
+}
 
-function satPositions(recs, now) {
+function propagate(rec, when, gmst) {
+  const pv = satellite.propagate(rec, when);
+  if (!pv || !pv.position || typeof pv.position === "boolean") return null;
+  const geo = satellite.eciToGeodetic(pv.position, gmst);
+  return { lat: satellite.degreesLat(geo.latitude), lng: satellite.degreesLong(geo.longitude), alt: geo.height, v: pv.velocity };
+}
+
+// Orbite complète « figée » dans le repère terrestre actuel, coupée à l'antiméridien.
+function orbitPaths(rec, now, steps = 160) {
+  const period = (2 * Math.PI) / rec.no;
   const gmst = satellite.gstime(now);
-  const out = [];
-  for (const s of recs) {
-    const pv = satellite.propagate(s.rec, now);
-    if (!pv || !pv.position || typeof pv.position === "boolean") continue;
-    const geo = satellite.eciToGeodetic(pv.position, gmst);
-    out.push({ kind: "sat", name: s.name, group: s.group, station: s.station, rec: s.rec, lat: satellite.degreesLat(geo.latitude), lng: satellite.degreesLong(geo.longitude), alt: geo.height });
-  }
-  return out;
-}
-
-// Une orbite complète « figée » dans le repère terrestre actuel : un anneau fermé.
-function orbitPath(rec, now, steps = 120) {
-  const period = (2 * Math.PI) / rec.no; // minutes
-  const gmst = satellite.gstime(now);
-  const pts = [];
-  for (let i = 0; i <= steps; i++) {
-    const pv = satellite.propagate(rec, new Date(now.getTime() + (i / steps) * period * 60_000));
-    if (!pv || !pv.position || typeof pv.position === "boolean") continue;
-    const geo = satellite.eciToGeodetic(pv.position, gmst);
-    pts.push([satellite.degreesLat(geo.latitude), satellite.degreesLong(geo.longitude), Math.min(5, geo.height / EARTH_KM)]);
-  }
-  return pts;
-}
-
-// Coupe le tracé au passage de l'antiméridien (sinon une corde traverse le globe).
-function splitPath(pts) {
   const parts = [[]];
-  for (let i = 0; i < pts.length; i++) {
-    if (i && Math.abs(pts[i][1] - pts[i - 1][1]) > 180) parts.push([]);
-    parts[parts.length - 1].push(pts[i]);
+  let prev = null;
+  for (let i = 0; i <= steps; i++) {
+    const p = propagate(rec, new Date(now.getTime() + (i / steps) * period * 60_000), gmst);
+    if (!p) continue;
+    if (prev && Math.abs(p.lng - prev.lng) > 180) parts.push([]);
+    parts[parts.length - 1].push([p.lat, p.lng, Math.min(6, p.alt / EARTH_KM)]);
+    prev = p;
   }
-  return parts.filter((p) => p.length > 1);
-}
-const rgba = (hex, a) => `rgba(${parseInt(hex.slice(1, 3), 16)},${parseInt(hex.slice(3, 5), 16)},${parseInt(hex.slice(5, 7), 16)},${a})`;
-
-// Quelques orbites par constellation, réparties sur les plans orbitaux, pour voir sa forme.
-function constellationOrbits(recs, now) {
-  const byGroup = {};
-  for (const s of recs) (byGroup[s.group] ||= []).push(s);
-  const out = [];
-  for (const [group, list] of Object.entries(byGroup)) {
-    const max = group === "starlink" ? 48 : list[0]?.rec.no < 0.01 ? 12 : 24; // orbites hautes (GPS…) : moins de traits
-    const sorted = [...list].sort((a, b) => a.rec.inclo - b.rec.inclo || a.rec.nodeo - b.rec.nodeo);
-    const step = Math.max(1, sorted.length / max);
-    for (let i = 0; i < sorted.length && out.length < 400; i += step) {
-      const color = rgba(SAT_GROUPS[group]?.color || "#7dd3fc", 0.35);
-      for (const pts of splitPath(orbitPath(sorted[Math.floor(i)].rec, now, 90))) out.push({ group, color, pts });
-    }
-  }
-  return out;
+  return parts.filter((x) => x.length > 1).map((pts) => ({ pts }));
 }
 
 export function satDetails(s) {
-  const now = new Date();
-  const pv = satellite.propagate(s.rec, now);
-  const v = pv?.velocity && typeof pv.velocity !== "boolean" ? Math.hypot(pv.velocity.x, pv.velocity.y, pv.velocity.z) : null;
-  return { kind: "sat", name: s.name, group: s.group, lat: s.lat, lng: s.lng, altKm: Math.round(s.alt), speedKms: v, periodMin: (2 * Math.PI) / s.rec.no, inclination: (s.rec.inclo * 180) / Math.PI, norad: s.rec.satnum };
+  const p = propagate(s.rec, new Date(), satellite.gstime(new Date()));
+  const v = p?.v && typeof p.v !== "boolean" ? Math.hypot(p.v.x, p.v.y, p.v.z) : null;
+  return { kind: "sat", name: s.name, group: s.group, family: satFamily(s.name), lat: s.lat, lng: s.lng, altKm: Math.round(s.alt), speedKms: v, periodMin: (2 * Math.PI) / s.rec.no, inclination: (s.rec.inclo * 180) / Math.PI, norad: s.rec.satnum };
 }
+
+const describe = (k, d) => (k === "flight" ? `✈ ${d.call || d.id}${airlineName(d.call) ? ` · ${airlineName(d.call)}` : ""}` : k === "ship" ? `🚢 ${d.name || d.id}` : `🛰 ${d.name}`);
 
 export default function WorldGlobe({ countries, flights, ships, sats, quakes, layers, accent, selected, onSelect, picked, onPick, route }) {
   const ref = useRef(null);
+  const tip = useRef(null);
   const globe = useRef(null);
-  const fleets = useRef(null);
+  const meshes = useRef(null);
+  const hits = useRef({ flight: [], ship: [], sat: [] });
   const satRecs = useRef([]);
-  const satNow = useRef([]);
-  const orbits = useRef([]);
+  const satPos = useRef({});
+  const hoverPoly = useRef(null);
   const state = useRef({});
   state.current = { countries, flights, ships, quakes, layers, accent, selected, onSelect, picked, onPick, route };
 
-  // Clic : on cherche d'abord l'avion / bateau / satellite le plus proche à l'écran,
-  // sinon c'est un clic sur le pays.
-  function handleClick(ev, poly) {
+  // Objet le plus proche du pointeur (à l'écran), en ignorant ce qui est derrière la Terre.
+  function pickAt(mx, my) {
     const g = globe.current;
-    const st = state.current;
-    if (!g || !ref.current) return;
-    const box = ref.current.getBoundingClientRect();
-    const mx = ev.clientX - box.left;
-    const my = ev.clientY - box.top;
-    const cam = g.camera().position;
+    if (!g) return null;
+    const cam = g.camera();
     const r2 = g.getGlobeRadius() ** 2;
+    const w = ref.current.clientWidth;
+    const h = ref.current.clientHeight;
+    const { layers: ly } = state.current;
     let best = null;
-    let bestD = 14;
-    const test = (d, alt, kind) => {
-      const p = g.getCoords(d.lat, d.lng, alt);
-      if (p.x * cam.x + p.y * cam.y + p.z * cam.z < r2) return; // derrière la Terre
-      const s = g.getScreenCoords(d.lat, d.lng, alt);
-      const dist = Math.hypot(s.x - mx, s.y - my);
-      if (dist < bestD) { bestD = dist; best = { kind, d }; }
+    let bestD = HIT_PX;
+    const p = new THREE.Vector3();
+    const scan = (list, kind) => {
+      for (const [x, y, z, d] of list) {
+        if (x * cam.position.x + y * cam.position.y + z * cam.position.z < r2) continue;
+        p.set(x, y, z).project(cam);
+        const dist = Math.hypot(((p.x + 1) / 2) * w - mx, ((1 - p.y) / 2) * h - my);
+        if (dist < bestD) { bestD = dist; best = { kind, d }; }
+      }
     };
-    if (st.layers.flights) for (const d of st.flights || []) test(d, 0.012, "flight");
-    if (st.layers.ships) for (const d of st.ships || []) test(d, 0.004, "ship");
-    if (st.layers.sats) for (const d of satNow.current) test(d, Math.min(5, d.alt / EARTH_KM), "sat");
-    if (best) {
-      st.onPick?.(best.kind === "sat" ? satDetails(best.d) : { ...best.d, kind: best.kind });
-      return;
-    }
-    st.onPick?.(null);
-    if (poly) st.onSelect?.(poly);
+    if (ly.flights) scan(hits.current.flight, "flight");
+    if (ly.ships) scan(hits.current.ship, "ship");
+    if (ly.sats) scan(hits.current.sat, "sat");
+    return best;
   }
 
   // Création du globe (une seule fois).
   useEffect(() => {
     let disposed = false;
     let ro;
+    const el = ref.current;
+    let down = null;
+    let raf = 0;
+    const local = (ev) => { const b = el.getBoundingClientRect(); return [ev.clientX - b.left, ev.clientY - b.top]; };
+    const onDown = (ev) => { down = { x: ev.clientX, y: ev.clientY, t: Date.now() }; };
+    const onUp = (ev) => {
+      if (!down || Math.hypot(ev.clientX - down.x, ev.clientY - down.y) > 6 || Date.now() - down.t > 600) return;
+      const hit = pickAt(...local(ev));
+      const st = state.current;
+      if (hit) st.onPick?.(hit.kind === "sat" ? satDetails(hit.d) : { ...hit.d, kind: hit.kind });
+      else {
+        st.onPick?.(null);
+        if (hoverPoly.current) st.onSelect?.(hoverPoly.current.properties);
+      }
+    };
+    const onMove = (ev) => {
+      if (raf) return;
+      const [mx, my] = local(ev);
+      raf = requestAnimationFrame(() => {
+        raf = 0;
+        const hit = ev.buttons ? null : pickAt(mx, my);
+        if (tip.current) {
+          tip.current.style.display = hit ? "block" : "none";
+          if (hit) {
+            tip.current.textContent = describe(hit.kind, hit.d);
+            tip.current.style.transform = `translate(${mx + 14}px, ${my - 10}px)`;
+          }
+        }
+        el.style.cursor = hit || hoverPoly.current ? "pointer" : "grab";
+      });
+    };
+    el.addEventListener("pointerdown", onDown);
+    el.addEventListener("pointerup", onUp);
+    el.addEventListener("pointermove", onMove);
+
     import("globe.gl").then(({ default: Globe }) => {
-      if (disposed || !ref.current) return;
-      const g = Globe()(ref.current)
+      if (disposed || !el) return;
+      const g = Globe()(el)
         .backgroundColor("rgba(0,0,0,0)")
         .globeImageUrl("https://unpkg.com/three-globe@2.41.12/example/img/earth-night.jpg")
         .bumpImageUrl("https://unpkg.com/three-globe@2.41.12/example/img/earth-topology.png")
@@ -178,28 +188,20 @@ export default function WorldGlobe({ countries, flights, ships, sats, quakes, la
         .polygonAltitude(0.006)
         .polygonSideColor(() => "rgba(0,0,0,0)")
         .polygonStrokeColor(() => "rgba(255,255,255,0.18)")
-        .polygonLabel((d) => `<b>${d.properties.ADMIN}</b>`)
+        .polygonLabel(() => "")
         .onPolygonHover((d) => {
-          g.polygonAltitude((p) => (p === d ? 0.025 : 0.006));
-          if (ref.current) ref.current.style.cursor = d ? "pointer" : "grab";
+          hoverPoly.current = d;
+          g.polygonAltitude((p) => (p === d ? 0.012 : 0.006));
         })
-        .onPolygonClick((d, ev) => handleClick(ev, d.properties))
-        .onGlobeClick((_, ev) => handleClick(ev, null))
-        .particleLat("lat")
-        .particleLng("lng")
-        .particleAltitude((d) => Math.min(5, d.alt / EARTH_KM))
-        .particlesSize((list) => SAT_GROUPS[list[0]?.group]?.size || 1.4)
-        .particlesSizeAttenuation(false)
-        .particlesColor((list) => SAT_GROUPS[list[0]?.group]?.color || "#7dd3fc")
         .pathPoints("pts")
         .pathPointLat((p) => p[0])
         .pathPointLng((p) => p[1])
         .pathPointAlt((p) => p[2])
-        .pathColor((d) => (d.hot ? "#ffffff" : d.color))
-        .pathStroke((d) => (d.hot ? 1.2 : null))
+        .pathColor(() => "rgba(255,255,255,0.85)")
+        .pathStroke(1.2)
         .pathTransitionDuration(0)
         .arcColor(() => ["#fbbf24", "#ffffff"])
-        .arcStroke(0.5)
+        .arcStroke(0.6)
         .arcDashLength(0.4)
         .arcDashGap(0.15)
         .arcDashAnimateTime(2500)
@@ -210,100 +212,167 @@ export default function WorldGlobe({ countries, flights, ships, sats, quakes, la
         .ringRepeatPeriod((d) => (d.pick ? 900 : 1400))
         .htmlElementsData([])
         .htmlElement((d) => {
-          const el = document.createElement("div");
-          el.innerHTML = `<div style="transform:translate(-50%,-140%);font:700 10px ui-monospace,monospace;color:#fff;background:rgba(0,0,0,.65);border:1px solid rgba(255,255,255,.35);padding:2px 6px;border-radius:6px;white-space:nowrap">${d.label}</div>`;
-          return el;
+          const div = document.createElement("div");
+          div.innerHTML = `<div style="transform:translate(-50%,-160%);font:700 10px ui-monospace,monospace;color:#fff;background:rgba(0,0,0,.7);border:1px solid rgba(255,255,255,.4);padding:2px 6px;border-radius:6px;white-space:nowrap">${d.label}</div>`;
+          return div;
         });
-      g.controls().autoRotate = true;
-      g.controls().autoRotateSpeed = 0.35;
+      const controls = g.controls();
+      controls.autoRotate = true;
+      controls.autoRotateSpeed = 0.35;
+      controls.zoomSpeed = 0.8;
+      // Premier geste : le globe arrête de tourner pour de bon.
+      controls.addEventListener("start", () => { controls.autoRotate = false; });
+      controls.addEventListener("change", () => orientAll());
       g.pointOfView({ lat: 30, lng: -40, altitude: 2.3 });
-      fleets.current = { planes: makeFleet(PLANE, 1.1, "#fbbf24"), ships: makeFleet(SHIP, 0.9, "#34d399") };
-      g.scene().add(fleets.current.planes, fleets.current.ships);
+      meshes.current = { planes: makeMesh(PLANE, 1.1, "#fbbf24", 8000), ships: makeMesh(SHIP, 1, "#ffffff", 6000), sats: {} };
+      g.scene().add(meshes.current.planes, meshes.current.ships);
       globe.current = g;
-      const fit = () => ref.current && g.width(ref.current.clientWidth).height(ref.current.clientHeight);
+      const fit = () => g.width(el.clientWidth).height(el.clientHeight);
       fit();
       ro = new ResizeObserver(fit);
-      ro.observe(ref.current);
+      ro.observe(el);
       if (state.current.countries) g.polygonsData(state.current.countries);
-      draw();
+      drawSats();
       placeAll();
+      decorate();
     });
     return () => {
       disposed = true;
       ro?.disconnect();
+      el.removeEventListener("pointerdown", onDown);
+      el.removeEventListener("pointerup", onUp);
+      el.removeEventListener("pointermove", onMove);
       globe.current?._destructor?.();
       globe.current = null;
-      if (ref.current) ref.current.innerHTML = "";
+      el.innerHTML = "";
     };
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, []);
 
-  // Satellites : TLE → orbites, repositionnés toutes les 2-3 s.
-  useEffect(() => {
-    satRecs.current = (sats || []).map((s) => {
-      try { return { name: s.name, group: s.group, station: s.group === "stations", rec: satellite.twoline2satrec(s.l1, s.l2) }; } catch { return null; }
-    }).filter(Boolean);
-    orbits.current = constellationOrbits(satRecs.current, new Date());
-    draw();
-    const id = setInterval(draw, satRecs.current.length > 4000 ? 3000 : 2000);
-    return () => clearInterval(id);
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [sats]);
+  function satMesh(group) {
+    const m = meshes.current;
+    if (!m.sats[group]) {
+      m.sats[group] = makeMesh(SAT, SAT_GROUPS[group]?.size || 2, SAT_GROUPS[group]?.color || "#7dd3fc", 12000);
+      globe.current.scene().add(m.sats[group]);
+    }
+    return m.sats[group];
+  }
 
-  function draw() {
+  function orientAll() {
     const g = globe.current;
-    if (!g) return;
-    const { quakes: qk, layers: ly, accent: ac, selected: sel, picked: pk } = state.current;
-    const satPts = ly.sats ? satPositions(satRecs.current, new Date()) : [];
-    satNow.current = satPts;
+    const m = meshes.current;
+    if (!g || !m) return;
+    const zoom = 2.2 * Math.max(0.35, Math.min(1.4, g.pointOfView().altitude / 2.3));
+    const pk = state.current.picked;
+    for (const [group, mesh] of Object.entries(m.sats)) {
+      const pos = satPos.current[group] || [];
+      orientSats(mesh, pos, g.camera(), zoom * (pk?.kind === "sat" && pk.group === group ? 1.4 : 1));
+    }
+  }
+
+  // Satellites : positions recalculées toutes les 2-3 s ; si l'un est choisi, sa
+  // famille ressort et les autres s'effacent.
+  function drawSats() {
+    const g = globe.current;
+    const m = meshes.current;
+    if (!g || !m) return;
+    const { layers: ly, picked: pk } = state.current;
+    const now = new Date();
+    const gmst = satellite.gstime(now);
     const byGroup = {};
-    for (const s of satPts) (byGroup[s.group] ||= []).push(s);
-    g.particlesData(Object.values(byGroup));
-
-    // Satellite choisi : suivi en direct + orbite en surbrillance.
-    const pickedSat = pk?.kind === "sat" ? satPts.find((s) => s.name === pk.name) : null;
-    const labels = satPts.filter((s) => s.name.startsWith("ISS")).slice(0, 1).map((s) => ({ ...s, label: `🛰 ${s.name}` }));
-    if (pickedSat && !pickedSat.name.startsWith("ISS")) labels.push({ ...pickedSat, label: `🛰 ${pickedSat.name}` });
-    if (pk && pk.kind !== "sat") labels.push({ ...pk, alt: pk.kind === "flight" ? 0.03 * EARTH_KM : 0.01 * EARTH_KM, label: pk.kind === "flight" ? `✈ ${pk.call || pk.id}` : `🚢 ${pk.name || pk.id}` });
-    g.htmlElementsData(labels);
-    g.htmlAltitude((d) => Math.min(5, d.alt / EARTH_KM));
-
-    const paths = ly.sats && ly.orbits ? [...orbits.current] : [];
-    if (pickedSat) for (const pts of splitPath(orbitPath(pickedSat.rec, new Date()))) paths.push({ hot: true, pts });
-    g.pathsData(paths);
-
-    const rings = ly.quakes ? [...(qk || [])] : [];
-    if (pk && pk.kind !== "sat") rings.push({ lat: pk.lat, lng: pk.lng, pick: true });
-    g.ringsData(rings);
-    g.polygonCapColor((p) => (sel && p.properties.ADMIN === sel.ADMIN ? `${ac}aa` : "rgba(255,255,255,0.03)"));
+    const hitList = [];
+    if (ly.sats) {
+      for (const s of satRecs.current) {
+        const p = propagate(s.rec, now, gmst);
+        if (!p) continue;
+        const alt = Math.min(6, p.alt / EARTH_KM);
+        const { x, y, z } = g.getCoords(p.lat, p.lng, alt);
+        const d = { ...s, lat: p.lat, lng: p.lng, alt: p.alt };
+        (byGroup[s.group] ||= []).push([x, y, z, d]);
+        hitList.push([x, y, z, d]);
+      }
+    }
+    satPos.current = byGroup;
+    hits.current.sat = hitList;
+    for (const group of new Set([...Object.keys(byGroup), ...Object.keys(m.sats)])) {
+      const mesh = satMesh(group);
+      const focus = pk?.kind === "sat";
+      const mine = focus && pk.group === group;
+      mesh.material.color.set(mine ? "#ffffff" : SAT_GROUPS[group]?.color || "#7dd3fc");
+      mesh.material.opacity = focus && !mine ? 0.15 : 0.95;
+    }
+    orientAll();
+    // Le satellite choisi suit sa course.
+    if (pk?.kind === "sat") {
+      const cur = hitList.find(([, , , d]) => d.name === pk.name)?.[3];
+      if (cur) state.current.pickedNow = cur;
+    }
+    decorate();
   }
 
   function placeAll() {
     const g = globe.current;
-    const f = fleets.current;
-    if (!g || !f) return;
+    const m = meshes.current;
+    if (!g || !m) return;
     const { flights: fl, ships: sh, layers: ly } = state.current;
-    placeFleet(g, f.planes, ly.flights ? fl || [] : [], 0.012);
-    placeFleet(g, f.ships, ly.ships ? sh || [] : [], 0.004);
+    hits.current.flight = placeFleet(g, m.planes, ly.flights ? fl || [] : [], PLANE_ALT);
+    hits.current.ship = placeFleet(g, m.ships, ly.ships ? sh || [] : [], SHIP_ALT, (d) => SHIP_TYPES[d.cat]?.color || SHIP_TYPES.other.color);
+  }
+
+  // Éléments liés à la sélection : étiquette, anneau, trajet, orbite.
+  function decorate() {
+    const g = globe.current;
+    if (!g) return;
+    const { quakes: qk, layers: ly, accent: ac, selected: sel, picked: pk, route: rt, pickedNow } = state.current;
+    const labels = [];
+    const rings = ly.quakes ? [...(qk || [])] : [];
+    let paths = [];
+    if (pk?.kind === "sat") {
+      const cur = pickedNow?.name === pk.name ? pickedNow : null;
+      if (cur) {
+        labels.push({ lat: cur.lat, lng: cur.lng, alt: cur.alt, label: `🛰 ${cur.name}` });
+        paths = orbitPaths(cur.rec, new Date());
+      }
+    } else if (pk) {
+      labels.push({ lat: pk.lat, lng: pk.lng, alt: (pk.kind === "flight" ? 0.03 : 0.012) * EARTH_KM, label: describe(pk.kind, pk) });
+      rings.push({ lat: pk.lat, lng: pk.lng, pick: true });
+    }
+    g.htmlElementsData(labels);
+    g.htmlAltitude((d) => Math.min(6, d.alt / EARTH_KM));
+    g.pathsData(paths);
+    g.ringsData(rings);
+    g.arcsData(rt ? [rt] : []);
+    g.polygonCapColor((p) => (sel && p.properties.ADMIN === sel.ADMIN ? `${ac}66` : "rgba(255,255,255,0.03)"));
   }
 
   useEffect(() => {
+    satRecs.current = (sats || []).map((s) => {
+      try { return { name: s.name, group: s.group, rec: satellite.twoline2satrec(s.l1, s.l2) }; } catch { return null; }
+    }).filter(Boolean);
+    drawSats();
+    const id = setInterval(drawSats, satRecs.current.length > 4000 ? 3000 : 1500);
+    return () => clearInterval(id);
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [sats]);
+  useEffect(() => {
     if (countries && globe.current) globe.current.polygonsData(countries);
   }, [countries]);
-  useEffect(draw, [quakes, layers, accent, selected, picked]);
-  // Avions et bateaux : repositionnés seulement quand leurs données changent.
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   useEffect(placeAll, [flights, ships, layers]);
   useEffect(() => {
-    const g = globe.current;
-    if (!g) return;
-    g.arcsData(route ? [route] : []);
-    g.controls().autoRotate = !selected && !picked;
-  }, [route, picked, selected]);
+    drawSats();
+    // Une sélection arrête la rotation automatique.
+    if (globe.current && (picked || selected)) globe.current.controls().autoRotate = false;
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [picked, layers, quakes, accent, selected, route]);
   useEffect(() => {
-    if (!globe.current) return;
-    globe.current.controls().autoRotate = !selected;
-    if (selected?.LABEL_Y != null) globe.current.pointOfView({ lat: selected.LABEL_Y, lng: selected.LABEL_X, altitude: 1.6 }, 1200);
+    if (selected?.LABEL_Y != null && globe.current) globe.current.pointOfView({ lat: selected.LABEL_Y, lng: selected.LABEL_X, altitude: 1.4 }, 1200);
   }, [selected]);
 
-  return <div ref={ref} className="h-full w-full cursor-grab" />;
+  return (
+    <div className="relative h-full w-full">
+      <div ref={ref} className="h-full w-full cursor-grab" />
+      <div ref={tip} className="pointer-events-none absolute left-0 top-0 z-10 hidden whitespace-nowrap rounded-md border border-white/25 bg-black/80 px-2 py-1 font-mono text-[11px] font-bold text-white" />
+    </div>
+  );
 }
