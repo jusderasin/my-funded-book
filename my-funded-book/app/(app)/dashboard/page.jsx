@@ -5,6 +5,7 @@ import { useMemo, useState } from "react";
 import { ArrowUpRight, ChevronLeft, ChevronRight, Sparkles } from "lucide-react";
 import { Area } from "@/components/charts";
 import WeeklyReportCard from "@/components/WeeklyReportCard";
+import { RoutineToday } from "@/components/Routine";
 import { useBook } from "@/components/BookProvider";
 import { EmptyState, ProgressBar } from "@/components/prism/TerminalPrimitives";
 import { fmtMoney, fmtR, frDate } from "@/lib/format";
@@ -119,6 +120,7 @@ export default function DashboardPage() {
   return (
     <main className="min-h-full px-4 py-8 sm:px-8 sm:py-12">
       <div className="mx-auto max-w-[1180px] space-y-14">
+        {!demo && <RoutineToday />}
         <section>
           <SectionHead eyebrow={T.s1} title={T.title} intro={T.intro} />
           <div className="mt-6 flex flex-wrap items-center gap-2">

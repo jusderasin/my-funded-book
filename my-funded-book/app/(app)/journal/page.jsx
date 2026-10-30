@@ -26,6 +26,8 @@ import { createClient } from "@/lib/supabase/client";
 import { uploadFile } from "@/lib/upload";
 import { fmtMoney, frDate } from "@/lib/format";
 import { dayGrade, parseVoiceRecap } from "@/lib/behaviors";
+import { KIND_COLORS, isOffRoutine, kindLabel, readRoutine, routineEnabled, routineSummary, ruleFor } from "@/lib/routine";
+import { RoutineToday } from "@/components/Routine";
 
 /* ------------------------------------------------------------------ */
 /* Dates — toujours en heure locale (jamais new Date("YYYY-MM-DD"))    */
@@ -303,6 +305,13 @@ export default function JournalPage() {
     return p > 0 ? "win" : "loss";
   };
 
+  /* ------------------------------ Routine ------------------------------ */
+  const routine = useMemo(() => readRoutine(profile), [profile]);
+  const hasRoutine = routineEnabled(routine);
+  const accountsById = useMemo(() => new Map(accounts.map((a) => [a.id, a])), [accounts]);
+  const offRoutine = (t) => hasRoutine && isOffRoutine(t, accountsById, routine);
+  const OffBadge = () => <span className="rounded border border-amber-400/60 px-1.5 text-[9px] font-bold text-amber-300">{lang === "en" ? "OFF-ROUTINE" : "HORS ROUTINE"}</span>;
+
   /* ------------------------------ Données ------------------------------ */
   const dayTrades = useMemo(() => scopedTrades.filter((t) => t.date === date), [scopedTrades, date]);
 
@@ -337,8 +346,9 @@ export default function JournalPage() {
       wr: list.length ? (wins / list.length) * 100 : 0,
       days: days.length,
       best: sorted[0], worst: sorted[sorted.length - 1],
+      routine: routineSummary(list, accounts, routine),
     };
-  }, [scopedTrades, pnlByDay, viewMonth, beThreshold]);
+  }, [scopedTrades, pnlByDay, viewMonth, beThreshold, accounts, routine]);
 
   const history = useMemo(() => {
     const [ws, we] = weekBounds(date);
@@ -551,20 +561,31 @@ export default function JournalPage() {
               const p = pnlByDay[iso];
               const selectedDay = iso === date;
               const future = iso > today;
+              const rule = hasRoutine ? ruleFor(routine, iso) : null;
               const tone = p === undefined ? "" : p > 0 ? `${WIN_BG} text-prism-win` : p < 0 ? "bg-[rgba(239,68,68,0.12)] text-prism-loss" : "text-prism-muted";
               return (
                 <button
                   key={iso}
                   type="button"
                   onClick={() => { pickDate(iso); setCalOpen(false); }}
-                  title={p !== undefined ? fmtMoney(p, true) : undefined}
-                  className={`aspect-square rounded-[4px] border font-mono text-xs transition ${selectedDay ? "border-prism-accent bg-prism-accentDim text-prism-accent" : `border-prism-line hover:border-prism-line2 ${tone}`} ${future ? "opacity-25" : ""}`}
+                  title={[p !== undefined ? fmtMoney(p, true) : "", rule ? `${kindLabel(rule.kind, lang)}${rule.note ? ` · ${rule.note}` : ""}` : ""].filter(Boolean).join(" — ") || undefined}
+                  className={`relative aspect-square overflow-hidden rounded-[4px] border font-mono text-xs transition ${selectedDay ? "border-prism-accent bg-prism-accentDim text-prism-accent" : `border-prism-line hover:border-prism-line2 ${tone}`} ${future ? "opacity-25" : ""}`}
                 >
                   {Number(iso.slice(-2))}
+                  {rule && <span className={`absolute inset-x-1 bottom-0.5 rounded-full ${rule.exception ? "h-[3px]" : "h-[2px]"}`} style={{ background: KIND_COLORS[rule.kind] }} />}
                 </button>
               );
             })}
           </div>
+
+          <div className="mt-4"><RoutineToday date={date} compact /></div>
+          {hasRoutine && monthStats.count > 0 && (
+            <dl className="mt-4 space-y-2 font-mono text-[11px]">
+              <p className="mb-2 text-[10px] font-semibold tracking-[.18em] text-prism-muted">{lang === "en" ? "ROUTINE THIS MONTH" : "ROUTINE CE MOIS"}</p>
+              <Row label={lang === "en" ? "In routine" : "Dans la routine"} value={`${monthStats.routine.inCount} · ${fmtMoney(monthStats.routine.inPnl, true)}`} tone={monthStats.routine.inPnl >= 0 ? "text-prism-win" : "text-prism-loss"} />
+              <Row label={lang === "en" ? "Off routine" : "Hors routine"} value={`${monthStats.routine.outCount} · ${fmtMoney(monthStats.routine.outPnl, true)}`} tone={monthStats.routine.outCount ? (monthStats.routine.outPnl >= 0 ? "text-prism-win" : "text-prism-loss") : ""} />
+            </dl>
+          )}
 
           <div className="mt-5 border-t border-prism-line pt-5">
             {monthStats.count < 5 ? (
@@ -688,6 +709,9 @@ export default function JournalPage() {
                     {accounts.map((account) => <option key={account.id} value={account.id}>{account.note || account.firm}</option>)}
                   </select>
                 </Field>
+                {offRoutine({ date, account_id: f.account_id }) && (
+                  <p className="mt-1.5 flex items-center gap-1.5 text-[11px] text-amber-300"><AlertCircle className="h-3.5 w-3.5" />{(() => { const r = ruleFor(routine, date); return r.kind === "off" ? (lang === "en" ? "Rest day in your routine." : "Jour off dans ta routine.") : `${lang === "en" ? "Your routine plans" : "Ta routine prévoit"} : ${kindLabel(r.kind, lang)}.`; })()}</p>
+                )}
               </div>
               {showFull && (
                 <div className="mt-4 grid grid-cols-2 gap-3">
@@ -940,6 +964,7 @@ export default function JournalPage() {
                       </div>
                       <div className="mt-1.5 flex flex-wrap gap-1">
                         {(t.tags || []).includes(MISSED_TAG) && <span className="rounded border border-amber-400/60 px-1.5 text-[9px] font-bold text-amber-300">{lang === "en" ? "MISSED" : "RATÉ"}</span>}
+                        {offRoutine(t) && <OffBadge />}
                         {needsReview(t) && <span className="rounded border border-prism-accent/50 px-1.5 text-[9px] font-bold text-prism-accent">{lang === "en" ? "TO REVIEW" : "À REVOIR"}</span>}
                         {(t.tags || []).filter((tg) => tg !== MISSED_TAG).slice(0, 4).map((tg) => <span key={tg} className={`rounded border px-1.5 text-[9px] ${isMistakeTag(tg) ? "border-prism-loss/50 text-prism-loss" : "border-prism-line text-prism-muted"}`}>{tg}</span>)}
                       </div>
@@ -981,7 +1006,7 @@ export default function JournalPage() {
                         <td className={`px-2 font-bold ${classify(t) === "be" ? "text-prism-muted" : p > 0 ? "text-prism-win" : "text-prism-loss"}`}>{fmtMoney(p, true)} {t.outcome && <span className="ml-1 rounded border border-current px-1 text-[8px]">{t.outcome}</span>}</td>
                         <td className="px-2">{Number(t.r) ? Number(t.r).toFixed(2) : "—"}</td>
                         <td className="max-w-[140px] truncate px-2">{t.setup || "—"}</td>
-                        <td className="max-w-[160px] px-2"><div className="flex flex-wrap gap-1">{(t.tags || []).includes(MISSED_TAG) && <span className="rounded border border-amber-400/60 px-1.5 text-[9px] font-bold text-amber-300">{lang === "en" ? "MISSED" : "RATÉ"}</span>}{needsReview(t) && <span className="rounded border border-prism-accent/50 px-1.5 text-[9px] font-bold text-prism-accent">{lang === "en" ? "REVIEW" : "À REVOIR"}</span>}{(t.tags || []).filter((tg) => tg !== MISSED_TAG).slice(0, 3).map((tg) => <span key={tg} className={`rounded border px-1.5 text-[9px] ${isMistakeTag(tg) ? "border-prism-loss/50 text-prism-loss" : "border-prism-line"}`}>{tg}</span>)}{!(t.tags || []).length && !needsReview(t) && "—"}</div></td>
+                        <td className="max-w-[160px] px-2"><div className="flex flex-wrap gap-1">{(t.tags || []).includes(MISSED_TAG) && <span className="rounded border border-amber-400/60 px-1.5 text-[9px] font-bold text-amber-300">{lang === "en" ? "MISSED" : "RATÉ"}</span>}{offRoutine(t) && <OffBadge />}{needsReview(t) && <span className="rounded border border-prism-accent/50 px-1.5 text-[9px] font-bold text-prism-accent">{lang === "en" ? "REVIEW" : "À REVOIR"}</span>}{(t.tags || []).filter((tg) => tg !== MISSED_TAG).slice(0, 3).map((tg) => <span key={tg} className={`rounded border px-1.5 text-[9px] ${isMistakeTag(tg) ? "border-prism-loss/50 text-prism-loss" : "border-prism-line"}`}>{tg}</span>)}{!(t.tags || []).length && !needsReview(t) && !offRoutine(t) && "—"}</div></td>
                         <td className="px-2">
                           <div className="flex gap-1">{[t.screenshot_url, t.screenshot_url_2].filter(Boolean).map((url, index) => <button key={url} type="button" onClick={(ev) => { ev.stopPropagation(); openShots(t, index); }}><img src={url} alt="" className="h-7 w-10 rounded object-cover" /></button>)}{!t.screenshot_url && !t.screenshot_url_2 && "-"}</div>
                         </td>
