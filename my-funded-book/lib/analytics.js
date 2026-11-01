@@ -181,21 +181,60 @@ export function sharpe(trades) {
   return sd ? (m / sd) * Math.sqrt(252) : 0;
 }
 
-// Terrain de stabilité : espérance glissante (en R) pour plusieurs horizons × temps.
+// Terrain de stabilité : métrique glissante pour plusieurs horizons × temps.
+// equity = P&L net ($) sur la fenêtre, cumR = R cumulé sur la fenêtre,
+// dd = pire drawdown ($, ≤ 0) à l'intérieur de la fenêtre, exp = espérance (R).
 export const HORIZONS = [5, 10, 20, 40];
-export function stabilitySurface(rows, cols = 40) {
+const windowValue = (w, metric) => {
+  if (metric === "equity") return w.reduce((s, x) => s + x.pnl, 0);
+  if (metric === "cumR") return w.reduce((s, x) => s + x.r, 0);
+  if (metric === "dd") { let c = 0; let pk = 0; let m = 0; w.forEach((x) => { c += x.pnl; pk = Math.max(pk, c); m = Math.min(m, c - pk); }); return m; }
+  return w.reduce((s, x) => s + x.r, 0) / w.length;
+};
+export function stabilitySurface(rows, metric = "exp", cols = 40) {
   const n = rows.length;
   if (n < 6) return null;
   const step = Math.max(1, n / cols);
   const xs = [];
   for (let k = 0; k < Math.min(cols, n); k++) xs.push(Math.min(n - 1, Math.round(k * step)));
-  const z = HORIZONS.map((h) => xs.map((i) => {
-    const w = rows.slice(Math.max(0, i - h + 1), i + 1);
-    return w.reduce((s, x) => s + x.r, 0) / w.length;
-  }));
-  const amp = Math.max(0.5, ...z.flat().map(Math.abs));
+  const z = HORIZONS.map((h) => xs.map((i) => windowValue(rows.slice(Math.max(0, i - h + 1), i + 1), metric)));
+  const floor = metric === "equity" || metric === "dd" ? 1 : 0.5;
+  const amp = Math.max(floor, ...z.flat().map(Math.abs));
   return { xs, z, amp };
 }
+
+// Compass Score : six sous-scores 0-100 et une note globale.
+export function compassScore(trades, lang = "fr") {
+  const en = lang === "en";
+  const list = (trades || []).filter((t) => t && t.date);
+  if (list.length < 3) return null;
+  const sorted = chrono(list);
+  const pnls = sorted.map(pnlOf);
+  const wins = pnls.filter((v) => v > 0); const losses = pnls.filter((v) => v < 0);
+  const gp = wins.reduce((a, b) => a + b, 0); const gl = Math.abs(losses.reduce((a, b) => a + b, 0));
+  const net = gp - gl;
+  let c = 0; let pk = 0; let mdd = 0;
+  pnls.forEach((v) => { c += v; pk = Math.max(pk, c); mdd = Math.min(mdd, c - pk); });
+  const byDay = {};
+  sorted.forEach((t) => { byDay[t.date] = (byDay[t.date] || 0) + pnlOf(t); });
+  const days = Object.values(byDay);
+  const wr = (wins.length / pnls.length) * 100;
+  const pf = gl ? gp / gl : gp ? 10 : 0;
+  const avgW = wins.length ? gp / wins.length : 0; const avgL = losses.length ? gl / losses.length : 0;
+  const wl = avgL ? avgW / avgL : avgW ? 3 : 0;
+  const rf = mdd ? net / -mdd : net > 0 ? 5 : 0;
+  const clamp = (v) => Math.round(Math.max(0, Math.min(100, v)));
+  const parts = [
+    { key: "wr", label: en ? "Win rate" : "Win rate", value: `${wr.toFixed(0)}%`, score: clamp((wr / 65) * 100) },
+    { key: "dd", label: en ? "Max drawdown" : "Drawdown max", value: fmtShort(mdd), score: clamp(100 * (1 - -mdd / Math.max(1, gp))) },
+    { key: "cons", label: en ? "Consistency" : "Régularité", value: `${days.filter((v) => v > 0).length}/${days.length} j`, score: clamp(((days.filter((v) => v > 0).length / days.length) / 0.7) * 100) },
+    { key: "pf", label: "Profit factor", value: pf.toFixed(2), score: clamp((pf / 2.5) * 100) },
+    { key: "wl", label: en ? "Avg win/loss" : "Gain/perte moy.", value: wl.toFixed(2), score: clamp((wl / 2) * 100) },
+    { key: "rf", label: en ? "Recovery factor" : "Recovery factor", value: rf.toFixed(2), score: clamp((rf / 3) * 100) },
+  ];
+  return { score: Math.round(parts.reduce((s, p) => s + p.score, 0) / parts.length), parts, n: pnls.length };
+}
+const fmtShort = (v) => `${v < 0 ? "-" : ""}$${Math.abs(Math.round(v)).toLocaleString("fr-FR")}`;
 
 // Détecteurs anti-overfit / robustesse, à partir des lignes de l'Equity Lab.
 export function detectors(rows, lang = "fr") {

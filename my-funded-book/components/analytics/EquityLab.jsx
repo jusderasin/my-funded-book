@@ -78,11 +78,13 @@ function Chart2D({ rows, metric, onInspect, inspected, en }) {
 }
 
 // ---------- Terrain 3D de stabilité ----------
-function Terrain3D({ rows, en }) {
+function Terrain3D({ rows, metric, en }) {
   const [tilt, setTilt] = useState(1);
-  const surf = useMemo(() => stabilitySurface(rows), [rows]);
+  const surf = useMemo(() => stabilitySurface(rows, metric), [rows, metric]);
   if (!surf) return <div className="grid h-[300px] place-items-center text-xs text-prism-muted">{en ? "At least 6 trades needed." : "Il faut au moins 6 trades."}</div>;
   const { z, amp, xs } = surf;
+  const money = metric === "equity" || metric === "dd";
+  const what = metric === "equity" ? ["rolling net P&L", "P&L net glissant"] : metric === "dd" ? ["worst drawdown in window", "pire drawdown de la fenêtre"] : ["rolling cumulative R", "R cumulé glissant"];
   const cols = xs.length; const nr = z.length;
   const dxC = 640 / Math.max(1, cols - 1) * 0.92, dyC = 2.2 * tilt, dxR = -46, dyR = 34 * tilt, Hh = 90;
   const ox = 230, oy = 70;
@@ -97,7 +99,7 @@ function Terrain3D({ rows, en }) {
   return (
     <div>
       <div className="mb-1 flex items-center justify-between font-mono text-[10px] text-prism-muted2">
-        <span>{en ? "Stability terrain · rolling expectancy over 5 / 10 / 20 / 40 trades" : "Terrain de stabilité · espérance glissante sur 5 / 10 / 20 / 40 trades"} · ±{amp.toFixed(1)}R</span>
+        <span>{en ? `Stability terrain · ${what[0]} over 5 / 10 / 20 / 40 trades` : `Terrain de stabilité · ${what[1]} sur 5 / 10 / 20 / 40 trades`} · ±{money ? fmtMoney(amp) : `${amp.toFixed(1)}R`}</span>
         <label className="flex items-center gap-2">{en ? "TILT" : "INCLINAISON"}<input type="range" min="0.5" max="1.6" step="0.05" value={tilt} onChange={(e) => setTilt(Number(e.target.value))} className="w-20 accent-[var(--prism-text)]" /></label>
       </div>
       <svg viewBox="0 0 900 300" className="h-auto w-full">
@@ -212,7 +214,7 @@ export default function EquityLab({ rows, lang = "fr" }) {
           <button type="button" onClick={() => setWin([0, rows.length - 1])} className="h-8 rounded-md border border-prism-line px-2.5 text-[11px] text-prism-muted hover:text-prism-text">↺</button>
         </div>
         <div className="rounded-lg border border-prism-line bg-prism-surface p-2" onMouseLeave={() => setInspected(null)}>
-          {view === "2d" ? <Chart2D rows={visible} metric={metric} inspected={inspected} onInspect={setInspected} en={en} /> : <Terrain3D rows={visible} en={en} />}
+          {view === "2d" ? <Chart2D rows={visible} metric={metric} inspected={inspected} onInspect={setInspected} en={en} /> : <Terrain3D rows={visible} metric={metric} en={en} />}
         </div>
         <div className="rounded-lg border border-prism-line bg-prism-surface p-3" onMouseLeave={() => setInspected(null)}>
           <p className="mb-2 flex flex-wrap items-center gap-3 font-mono text-[10px] tracking-[.1em] text-prism-muted">
