@@ -4,12 +4,12 @@ import { useMemo, useState } from "react";
 import { Cpu, Play } from "lucide-react";
 import { useBook } from "@/components/BookProvider";
 import { Radar } from "@/components/charts";
-import { Heat3D } from "@/components/analytics/charts";
+import CompassScore from "@/components/analytics/CompassScore";
 import EquityLab from "@/components/analytics/EquityLab";
 import { AskPanel, BehaviorPanel, ComparePanel } from "@/components/analytics/KovaPanels";
 import MonthlyWrapped from "@/components/analytics/MonthlyWrapped";
 import TradeCard from "@/components/analytics/TradeCard";
-import { bestWindow, drawdownCurve, equityLab, heatGrid, monthlyRecap, monthsOf, rDistribution, sharpe } from "@/lib/analytics";
+import { bestWindow, drawdownCurve, equityLab, monthlyRecap, monthsOf, rDistribution, sharpe } from "@/lib/analytics";
 import { computeStats } from "@/lib/stats";
 import { fmtMoney } from "@/lib/format";
 
@@ -69,7 +69,6 @@ export default function AnalyticsPage() {
 
   const startBalance = account ? Number(account.size) || 0 : 0;
   const lab = useMemo(() => equityLab(trades, startBalance), [trades, startBalance]);
-  const grid = useMemo(() => heatGrid(trades), [trades]);
   const dist = useMemo(() => rDistribution(trades), [trades]);
   const dd = useMemo(() => drawdownCurve(trades, startBalance), [trades, startBalance]);
   const windows = useMemo(() => bestWindow(trades), [trades]);
@@ -166,8 +165,8 @@ export default function AnalyticsPage() {
 
         {/* Modules */}
         <div className="grid gap-5 lg:grid-cols-5">
-          <Panel title={en ? "P&L TERRAIN" : "TERRAIN DU P&L"} sub={en ? "Day × hour of entry. Height = size of the result." : "Jour × heure d'entrée. Hauteur = taille du résultat."} className="lg:col-span-3">
-            {grid.counted ? <Heat3D grid={grid} lang={lang} /> : <Empty text={en ? "Add entry times to your trades." : "Renseigne l'heure d'entrée de tes trades."} />}
+          <Panel title="COMPASS SCORE" sub={en ? "Six pillars of your trading scored 0 to 100." : "Six piliers de ton trading notés de 0 à 100."} className="lg:col-span-3">
+            <CompassScore trades={trades} lang={lang} />
           </Panel>
           <Panel title={en ? "TRADER PROFILE" : "PROFIL DU TRADER"} sub={en ? "Six axes scored 0 to 100." : "Six axes notés de 0 à 100."} className="lg:col-span-2">
             {trades.length ? <Radar axes={stats.axes} /> : <Empty text="—" />}
