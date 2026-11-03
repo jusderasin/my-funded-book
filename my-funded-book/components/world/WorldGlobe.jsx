@@ -98,11 +98,24 @@ export function satDetails(s) {
   return { kind: "sat", name: s.name, group: s.group, family: satFamily(s.name), lat: s.lat, lng: s.lng, altKm: Math.round(s.alt), speedKms: v, periodMin: (2 * Math.PI) / s.rec.no, inclination: (s.rec.inclo * 180) / Math.PI, norad: s.rec.satnum };
 }
 
+// Modes de vision façon « God's Eye View » : filtre appliqué au rendu du globe.
+export const VIEW_MODES = {
+  normal: { label: "NORMAL", filter: "none" },
+  nvg: { label: "NIGHT VISION", filter: "grayscale(1) brightness(1.5) contrast(1.25) sepia(1) hue-rotate(55deg) saturate(3.5)" },
+  flir: { label: "FLIR", filter: "grayscale(1) invert(1) contrast(1.6) brightness(1.1)" },
+  crt: { label: "CRT", filter: "saturate(1.4) contrast(1.15) hue-rotate(-8deg)" },
+};
+const MAX_TAGS = 40;
+const fmtDeg = (v, pos, neg) => `${Math.abs(v).toFixed(2)}°${v >= 0 ? pos : neg}`;
+
 const describe = (k, d) => (k === "flight" ? `✈ ${d.call || d.id}${airlineName(d.call) ? ` · ${airlineName(d.call)}` : ""}` : k === "ship" ? `🚢 ${d.name || d.id}` : `🛰 ${d.name}`);
 
-export default function WorldGlobe({ countries, flights, ships, sats, quakes, layers, accent, selected, onSelect, picked, onPick, route }) {
+export default function WorldGlobe({ countries, flights, ships, sats, quakes, layers, accent, selected, onSelect, picked, onPick, route, mode = "normal" }) {
   const ref = useRef(null);
   const tip = useRef(null);
+  const hud = useRef(null);
+  const tags = useRef([]);
+  const tagTimer = useRef(0);
   const globe = useRef(null);
   const meshes = useRef(null);
   const hits = useRef({ flight: [], ship: [], sat: [] });
@@ -181,7 +194,7 @@ export default function WorldGlobe({ countries, flights, ships, sats, quakes, la
       if (disposed || !el) return;
       const g = Globe()(el)
         .backgroundColor("rgba(0,0,0,0)")
-        .globeImageUrl("https://unpkg.com/three-globe@2.41.12/example/img/earth-night.jpg")
+        .globeImageUrl("https://unpkg.com/three-globe@2.41.12/example/img/earth-blue-marble.jpg")
         .bumpImageUrl("https://unpkg.com/three-globe@2.41.12/example/img/earth-topology.png")
         .showAtmosphere(true)
         .atmosphereAltitude(0.18)
@@ -213,16 +226,29 @@ export default function WorldGlobe({ countries, flights, ships, sats, quakes, la
         .htmlElementsData([])
         .htmlElement((d) => {
           const div = document.createElement("div");
-          div.innerHTML = `<div style="transform:translate(-50%,-160%);font:700 10px ui-monospace,monospace;color:#fff;background:rgba(0,0,0,.7);border:1px solid rgba(255,255,255,.4);padding:2px 6px;border-radius:6px;white-space:nowrap">${d.label}</div>`;
+          const inner = document.createElement("div");
+          inner.textContent = d.label;
+          // Étiquettes d'indicatif : petites, sans fond, reliées par un trait.
+          inner.style.cssText = d.tag
+            ? "transform:translate(6px,-130%);font:600 8.5px ui-monospace,monospace;color:#fde68a;border-left:1px solid rgba(253,230,138,.7);padding:0 0 0 3px;white-space:nowrap;letter-spacing:.04em;text-shadow:0 0 3px #000"
+            : "transform:translate(-50%,-160%);font:700 10px ui-monospace,monospace;color:#fff;background:rgba(0,0,0,.7);border:1px solid rgba(255,255,255,.4);padding:2px 6px;border-radius:6px;white-space:nowrap";
+          div.appendChild(inner);
           return div;
         });
+      // Couche de nuages qui tourne doucement au-dessus de la Terre.
+      new THREE.TextureLoader().load("https://unpkg.com/globe.gl@2.41.4/example/clouds/clouds.png", (tex) => {
+        if (disposed) return;
+        const clouds = new THREE.Mesh(new THREE.SphereGeometry(g.getGlobeRadius() * 1.006, 75, 75), new THREE.MeshPhongMaterial({ map: tex, transparent: true, opacity: 0.55, depthWrite: false }));
+        g.scene().add(clouds);
+        (function spin() { if (disposed) return; clouds.rotation.y += 0.00012; requestAnimationFrame(spin); })();
+      });
       const controls = g.controls();
       controls.autoRotate = true;
       controls.autoRotateSpeed = 0.35;
       controls.zoomSpeed = 0.8;
       // Premier geste : le globe arrête de tourner pour de bon.
       controls.addEventListener("start", () => { controls.autoRotate = false; });
-      controls.addEventListener("change", () => orientAll());
+      controls.addEventListener("change", () => { orientAll(); updateHud(); scheduleTags(); });
       g.pointOfView({ lat: 30, lng: -40, altitude: 2.3 });
       meshes.current = { planes: makeMesh(PLANE, 1.1, "#fbbf24", 8000), ships: makeMesh(SHIP, 1, "#ffffff", 6000), sats: {} };
       g.scene().add(meshes.current.planes, meshes.current.ships);
@@ -236,8 +262,11 @@ export default function WorldGlobe({ countries, flights, ships, sats, quakes, la
       placeAll();
       decorate();
     });
+    const clock = setInterval(updateHud, 1000);
     return () => {
       disposed = true;
+      clearInterval(clock);
+      clearTimeout(tagTimer.current);
       ro?.disconnect();
       el.removeEventListener("pointerdown", onDown);
       el.removeEventListener("pointerup", onUp);
@@ -317,6 +346,37 @@ export default function WorldGlobe({ countries, flights, ships, sats, quakes, la
     const { flights: fl, ships: sh, layers: ly } = state.current;
     hits.current.flight = placeFleet(g, m.planes, ly.flights ? fl || [] : [], PLANE_ALT);
     hits.current.ship = placeFleet(g, m.ships, ly.ships ? sh || [] : [], SHIP_ALT, (d) => SHIP_TYPES[d.cat]?.color || SHIP_TYPES.other.color);
+    scheduleTags();
+  }
+
+  // Bandeau de coordonnées : centre de la vue, altitude caméra, heure UTC.
+  function updateHud() {
+    const g = globe.current;
+    if (!g || !hud.current) return;
+    const { lat, lng, altitude } = g.pointOfView();
+    hud.current.textContent = `${fmtDeg(lat, "N", "S")}  ${fmtDeg(((lng + 540) % 360) - 180, "E", "W")}  ·  ALT ${Math.round(altitude * EARTH_KM).toLocaleString("fr-FR")} KM  ·  ${new Date().toISOString().slice(11, 19)} UTC`;
+  }
+
+  // Indicatifs des avions les plus proches du centre de l'écran, côté visible.
+  function scheduleTags() {
+    clearTimeout(tagTimer.current);
+    tagTimer.current = setTimeout(() => {
+      const g = globe.current;
+      if (!g || !ref.current) return;
+      const cam = g.camera();
+      const r2 = g.getGlobeRadius() ** 2;
+      const p = new THREE.Vector3();
+      const zoomedIn = g.pointOfView().altitude < 1.6;
+      const list = !zoomedIn || !state.current.layers.flights ? [] : hits.current.flight
+        .filter(([x, y, z]) => x * cam.position.x + y * cam.position.y + z * cam.position.z >= r2)
+        .map(([x, y, z, d]) => { p.set(x, y, z).project(cam); return [Math.hypot(p.x, p.y), d]; })
+        .filter(([dist]) => dist < 0.85)
+        .sort((a, b) => a[0] - b[0])
+        .slice(0, MAX_TAGS)
+        .map(([, d]) => ({ lat: d.lat, lng: d.lng, alt: PLANE_ALT * EARTH_KM, label: d.call || d.id, tag: true }));
+      tags.current = list;
+      decorate();
+    }, 250);
   }
 
   // Éléments liés à la sélection : étiquette, anneau, trajet, orbite.
@@ -324,7 +384,7 @@ export default function WorldGlobe({ countries, flights, ships, sats, quakes, la
     const g = globe.current;
     if (!g) return;
     const { quakes: qk, layers: ly, accent: ac, selected: sel, picked: pk, route: rt, pickedNow } = state.current;
-    const labels = [];
+    const labels = pk?.kind === "flight" ? tags.current.filter((t) => t.label !== (pk.call || pk.id)) : [...tags.current];
     const rings = ly.quakes ? [...(qk || [])] : [];
     let paths = [];
     if (pk?.kind === "sat") {
@@ -371,7 +431,16 @@ export default function WorldGlobe({ countries, flights, ships, sats, quakes, la
 
   return (
     <div className="relative h-full w-full">
-      <div ref={ref} className="h-full w-full cursor-grab" />
+      <div ref={ref} className="h-full w-full cursor-grab" style={{ filter: VIEW_MODES[mode]?.filter || "none" }} />
+      {/* HUD : coins de visée, réticule, balayage CRT et bandeau de coordonnées. */}
+      <div className="pointer-events-none absolute inset-0">
+        {mode !== "normal" && <div className="absolute inset-0" style={{ background: "repeating-linear-gradient(0deg, rgba(0,0,0,.28) 0 1px, transparent 1px 3px)", mixBlendMode: "multiply" }} />}
+        {mode === "crt" && <div className="absolute inset-0" style={{ background: "radial-gradient(ellipse at center, transparent 55%, rgba(0,0,0,.65))" }} />}
+        {["left-4 top-14 border-l border-t", "right-4 top-14 border-r border-t", "left-4 bottom-12 border-b border-l", "right-4 bottom-12 border-b border-r"].map((c) => <span key={c} className={`absolute h-6 w-6 border-white/45 ${c}`} />)}
+        <span className="absolute left-1/2 top-1/2 h-7 w-px -translate-x-1/2 -translate-y-1/2 bg-white/35" />
+        <span className="absolute left-1/2 top-1/2 h-px w-7 -translate-x-1/2 -translate-y-1/2 bg-white/35" />
+        <p ref={hud} className="absolute bottom-3 right-3 rounded bg-black/55 px-2 py-1 font-mono text-[10px] tracking-wider text-white/80 backdrop-blur" />
+      </div>
       <div ref={tip} className="pointer-events-none absolute left-0 top-0 z-10 hidden whitespace-nowrap rounded-md border border-white/25 bg-black/80 px-2 py-1 font-mono text-[11px] font-bold text-white" />
     </div>
   );

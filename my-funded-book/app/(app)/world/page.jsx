@@ -28,7 +28,10 @@ const CHANNELS = [
   { id: "UCknLrEdhRCp1aegoMqRaCZg", name: "DW News", tag: "Monde" },
 ];
 
-const Flag = ({ iso }) => (iso && iso.length === 2
+// Modes de vision du globe (filtres définis dans WorldGlobe).
+const VIEW_MODES = [["normal", "NORMAL"], ["nvg", "NVG"], ["flir", "FLIR"], ["crt", "CRT"]];
+
+const Flag =({ iso }) => (iso && iso.length === 2
   ? <img src={`https://flagcdn.com/w80/${iso.toLowerCase()}.png`} alt="" className="h-9 w-[54px] rounded-md border border-prism-line object-cover" />
   : <Globe2 className="h-9 w-9 text-prism-accent" />);
 const ago = (d, en) => {
@@ -78,6 +81,7 @@ export default function WorldPage() {
   const [channel, setChannel] = useState(CHANNELS[0].id);
   const [accent, setAccent] = useState("#c6f432");
   const [updated, setUpdated] = useState(null);
+  const [mode, setMode] = useState("normal");
 
   useEffect(() => {
     const v = getComputedStyle(document.documentElement).getPropertyValue("--prism-accent").trim();
@@ -169,7 +173,7 @@ export default function WorldPage() {
       <div className="grid gap-4 xl:grid-cols-[minmax(0,1fr)_400px]">
         <div className="min-w-0 space-y-4">
         <section className="term-panel relative h-[460px] overflow-hidden sm:h-[640px]" style={{ background: "radial-gradient(circle at 50% 45%, color-mix(in srgb, var(--prism-accent) 7%, transparent), transparent 60%), var(--prism-bg)" }}>
-          <WorldGlobe countries={countries} flights={shownFlights} ships={shownShips} sats={sats} quakes={quakes} layers={layers} accent={accent} selected={selected} onSelect={setSelected} picked={picked} onPick={setPicked} route={arc} />
+          <WorldGlobe countries={countries} flights={shownFlights} ships={shownShips} sats={sats} quakes={quakes} layers={layers} accent={accent} selected={selected} onSelect={setSelected} picked={picked} onPick={setPicked} route={arc} mode={mode} />
           {picked && <PickedCard item={picked} route={route} en={en} onClose={() => setPicked(null)} />}
           <div className="absolute left-3 top-3 flex flex-wrap gap-1.5">
             {toggles.map(([k, Icon, label, n]) => (
@@ -183,8 +187,14 @@ export default function WorldPage() {
             <p className="absolute left-3 top-14 max-w-[300px] rounded-lg bg-black/60 px-3 py-2 text-[10.5px] leading-4 text-white/75 backdrop-blur">{en ? "Ships need a free aisstream.io key (AISSTREAM_API_KEY on Vercel)." : "Les bateaux demandent une clé gratuite aisstream.io (AISSTREAM_API_KEY sur Vercel)."}</p>
           )}
           <p className="pointer-events-none absolute bottom-3 left-3 rounded-lg bg-black/55 px-3 py-1.5 text-[10.5px] text-white/75 backdrop-blur">{en ? "Hover then click a plane, ship or satellite · drag to rotate · wheel to zoom" : "Survole puis clique un avion, un bateau ou un satellite · glisse pour tourner · molette pour zoomer"}</p>
+          <div className="absolute right-3 top-3 flex gap-1 rounded-lg border border-white/15 bg-black/50 p-1 backdrop-blur">
+            {VIEW_MODES.map(([k, label]) => (
+              <button key={k} type="button" onClick={() => setMode(k)}
+                className={`h-6 rounded-md px-2 font-mono text-[10px] font-bold tracking-wider ${mode === k ? "bg-prism-accent text-black" : "text-white/60 hover:text-white"}`}>{label}</button>
+            ))}
+          </div>
           {selected && (
-            <button type="button" onClick={() => setSelected(null)} className="absolute right-3 top-3 inline-flex h-8 items-center gap-1.5 rounded-lg border border-white/15 bg-black/50 px-2.5 text-[11px] font-bold text-white backdrop-blur hover:border-prism-accent">
+            <button type="button" onClick={() => setSelected(null)} className="absolute right-3 top-12 inline-flex h-8 items-center gap-1.5 rounded-lg border border-white/15 bg-black/50 px-2.5 text-[11px] font-bold text-white backdrop-blur hover:border-prism-accent">
               <X className="h-3.5 w-3.5" />{en ? "Whole world" : "Monde entier"}
             </button>
           )}
