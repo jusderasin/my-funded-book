@@ -28,6 +28,53 @@ function icon(draw, size = 32) {
 const poly = (x, pts, fill) => { x.beginPath(); pts.forEach(([a, b], i) => (i ? x.lineTo(a, b) : x.moveTo(a, b))); x.closePath(); x.fillStyle = fill; x.fill(); };
 const PLANE_PTS = (r) => [[0, -r], [r * 0.12, -r * 0.6], [r * 0.12, -r * 0.2], [r, r * 0.15], [r, r * 0.3], [r * 0.12, r * 0.15], [r * 0.1, r * 0.6], [r * 0.4, r * 0.85], [r * 0.4, r * 0.95], [0, r * 0.85], [-r * 0.4, r * 0.95], [-r * 0.4, r * 0.85], [-r * 0.1, r * 0.6], [-r * 0.12, r * 0.15], [-r, r * 0.3], [-r, r * 0.15], [-r * 0.12, -r * 0.2], [-r * 0.12, -r * 0.6]];
 
+// Station spatiale : halo, panneaux solaires dégradés, poutre et modules.
+function stationIcon(tint) {
+  return icon((x, r) => {
+    const halo = x.createRadialGradient(0, 0, 0, 0, 0, r);
+    halo.addColorStop(0, `${tint}66`);
+    halo.addColorStop(1, `${tint}00`);
+    x.fillStyle = halo;
+    x.fillRect(-r, -r, 2 * r, 2 * r);
+    const panel = x.createLinearGradient(0, -r * 0.4, 0, r * 0.4);
+    panel.addColorStop(0, "#1e3a8a");
+    panel.addColorStop(0.5, "#60a5fa");
+    panel.addColorStop(1, "#1e3a8a");
+    for (const sx of [-1, 1]) for (const sy of [-1, 1]) {
+      x.fillStyle = panel;
+      x.fillRect(sx > 0 ? r * 0.38 : -r * 0.88, sy > 0 ? r * 0.08 : -r * 0.42, r * 0.5, r * 0.34);
+      x.strokeStyle = "#cbd5e1";
+      x.lineWidth = 1;
+      x.strokeRect(sx > 0 ? r * 0.38 : -r * 0.88, sy > 0 ? r * 0.08 : -r * 0.42, r * 0.5, r * 0.34);
+    }
+    x.fillStyle = "#e2e8f0";
+    x.fillRect(-r * 0.9, -r * 0.04, r * 1.8, r * 0.08);
+    x.fillRect(-r * 0.12, -r * 0.3, r * 0.24, r * 0.6);
+    x.fillStyle = tint;
+    x.beginPath();
+    x.arc(0, 0, r * 0.1, 0, 7);
+    x.fill();
+  }, 64);
+}
+
+// Pays contenant un point (lat/lng), d'après le GeoJSON.
+function inRing(ring, lng, lat) {
+  let ins = false;
+  for (let i = 0, j = ring.length - 1; i < ring.length; j = i++) {
+    const [xi, yi] = ring[i];
+    const [xj, yj] = ring[j];
+    if (yi > lat !== yj > lat && lng < ((xj - xi) * (lat - yi)) / (yj - yi) + xi) ins = !ins;
+  }
+  return ins;
+}
+function countryAt(list, lat, lng) {
+  return (list || []).find((f) => {
+    const g = f.geometry;
+    const polys = g?.type === "Polygon" ? [g.coordinates] : g?.type === "MultiPolygon" ? g.coordinates : [];
+    return polys.some((p) => inRing(p[0], lng, lat));
+  });
+}
+
 // Shaders des modes de vision (post-traitement plein écran).
 const SHADERS = {
   nvg: `uniform sampler2D colorTexture; in vec2 v_textureCoordinates;
@@ -113,10 +160,15 @@ export default function WorldGlobe({ countries, flights, ships, sats, cams, quak
         baseLayer: Cesium.ImageryLayer.fromProviderAsync(Cesium.ArcGisMapServerImageryProvider.fromUrl("https://services.arcgisonline.com/ArcGIS/rest/services/World_Imagery/MapServer")),
         animation: false, timeline: false, baseLayerPicker: false, geocoder: false, homeButton: false, sceneModePicker: false,
         navigationHelpButton: false, fullscreenButton: false, infoBox: false, selectionIndicator: false, creditContainer: document.createElement("div"),
-        requestRenderMode: false,
+        // Rendu seulement quand quelque chose bouge (caméra, flux) : gros gain de CPU / GPU.
+        requestRenderMode: true, maximumRenderTimeChange: Infinity,
       });
       view.current = v;
       const scene = v.scene;
+      // L'imagerie s'arrête vers 85° : sans couleur de fond, les pôles font un trou noir.
+      scene.globe.baseColor = Cesium.Color.fromCssColorString("#dfe7ec");
+      // Frontières et noms de lieux en couche d'images (bien plus léger que 250 polygones).
+      v.imageryLayers.add(Cesium.ImageryLayer.fromProviderAsync(Cesium.ArcGisMapServerImageryProvider.fromUrl("https://services.arcgisonline.com/ArcGIS/rest/services/Reference/World_Boundaries_and_Places/MapServer")));
       scene.globe.enableLighting = false;
       scene.skyAtmosphere.show = true;
       scene.globe.showGroundAtmosphere = true;
@@ -137,7 +189,9 @@ export default function WorldGlobe({ countries, flights, ships, sats, cams, quak
         plane: icon((x, r) => poly(x, PLANE_PTS(r * 0.9), "#fbbf24")),
         ship: icon((x, r) => poly(x, [[0, -r * 0.9], [r * 0.35, -r * 0.35], [r * 0.35, r * 0.85], [-r * 0.35, r * 0.85], [-r * 0.35, -r * 0.35]], "#ffffff")),
         sat: icon((x, r) => { x.fillStyle = "#fff"; x.fillRect(-r * 0.2, -r * 0.2, r * 0.4, r * 0.4); x.fillRect(-r * 0.95, -r * 0.12, r * 0.6, r * 0.24); x.fillRect(r * 0.35, -r * 0.12, r * 0.6, r * 0.24); }),
-        station: icon((x, r) => { x.fillStyle = "#fff"; x.fillRect(-r * 0.95, -r * 0.45, r * 0.5, r * 0.9); x.fillRect(r * 0.45, -r * 0.45, r * 0.5, r * 0.9); x.fillRect(-r * 0.45, -r * 0.06, r * 0.9, r * 0.12); x.fillRect(-r * 0.15, -r * 0.3, r * 0.3, r * 0.6); }, 48),
+        station: stationIcon("#38bdf8"),
+        tiangong: stationIcon("#f87171"),
+        quake: icon((x, r) => { x.strokeStyle = "#ef4444"; x.lineWidth = 2.5; x.beginPath(); x.arc(0, 0, r * 0.85, 0, 7); x.stroke(); x.fillStyle = "rgba(239,68,68,.35)"; x.beginPath(); x.arc(0, 0, r * 0.45, 0, 7); x.fill(); }),
         cam: icon((x, r) => { x.fillStyle = "#22d3ee"; x.fillRect(-r * 0.6, -r * 0.35, r * 0.9, r * 0.7); poly(x, [[r * 0.3, -r * 0.15], [r * 0.85, -r * 0.45], [r * 0.85, r * 0.45], [r * 0.3, r * 0.15]], "#22d3ee"); }, 24),
       };
       const mk = () => {
@@ -161,13 +215,17 @@ export default function WorldGlobe({ countries, flights, ships, sats, cams, quak
       const stop = () => { spin = false; };
       ["pointerdown", "wheel"].forEach((e) => ref.current.addEventListener(e, stop, { passive: true }));
       let last = performance.now();
-      scene.preRender.addEventListener(() => {
+      const turn = () => {
+        if (disposed || !spin) return;
         const now = performance.now();
-        const dt = (now - last) / 1000;
+        v.camera.rotate(Cesium.Cartesian3.UNIT_Z, -((now - last) / 1000) * 0.03);
         last = now;
-        if (spin) v.camera.rotate(Cesium.Cartesian3.UNIT_Z, -dt * 0.03);
-        moveFleets(dt);
-      });
+        scene.requestRender();
+        requestAnimationFrame(turn);
+      };
+      requestAnimationFrame(turn);
+      // Indicatifs recalculés quand la caméra s'arrête (seulement ceux à l'écran).
+      v.camera.moveEnd.addEventListener(() => tagFlights());
 
       // Survol et clic.
       const handler = new Cesium.ScreenSpaceEventHandler(scene.canvas);
@@ -181,7 +239,7 @@ export default function WorldGlobe({ countries, flights, ships, sats, cams, quak
             tip.current.style.transform = `translate(${m.endPosition.x + 14}px, ${m.endPosition.y - 10}px)`;
           }
         }
-        ref.current.style.cursor = d || hit?.id?.properties?.ADMIN ? "pointer" : "grab";
+        ref.current.style.cursor = d ? "pointer" : "grab";
       }, Cesium.ScreenSpaceEventType.MOUSE_MOVE);
       handler.setInputAction((c) => {
         const hit = scene.pick(c.position);
@@ -192,15 +250,26 @@ export default function WorldGlobe({ countries, flights, ships, sats, cams, quak
           return;
         }
         st.onPick?.(null);
-        const props = hit?.id?.properties;
-        if (props?.ADMIN) st.onSelect?.(Object.fromEntries(props.propertyNames.map((k) => [k, props[k].getValue()])));
+        const at = v.camera.pickEllipsoid(c.position);
+        if (!at) return;
+        const g2 = Cesium.Cartographic.fromCartesian(at);
+        const f = countryAt(st.countries, Cesium.Math.toDegrees(g2.latitude), Cesium.Math.toDegrees(g2.longitude));
+        if (f) st.onSelect?.(f.properties);
       }, Cesium.ScreenSpaceEventType.LEFT_CLICK);
 
       const fit = () => v.resize();
       ro = new ResizeObserver(fit);
       ro.observe(ref.current);
-      clock = setInterval(() => { updateHud(); drawSats(); }, 1000);
-      drawCountries();
+      // Une seule mise à jour par seconde : avions, bateaux, satellites, HUD.
+      let tick = performance.now();
+      clock = setInterval(() => {
+        const now = performance.now();
+        moveFleets((now - tick) / 1000);
+        tick = now;
+        drawSats();
+        updateHud();
+        scene.requestRender();
+      }, 1000);
       placeFleet("planes", "flight");
       placeFleet("ships", "ship");
       placeCams();
@@ -258,7 +327,7 @@ export default function WorldGlobe({ countries, flights, ships, sats, cams, quak
     tagFlights();
   }
 
-  // Les avions et bateaux avancent à chaque image entre deux mises à jour du flux.
+  // Les avions et bateaux avancent chaque seconde entre deux mises à jour du flux.
   function moveFleets(dt) {
     const Cs = C.current;
     const c = col.current;
@@ -273,14 +342,20 @@ export default function WorldGlobe({ countries, flights, ships, sats, cams, quak
     }
   }
 
-  // Indicatifs : visibles seulement de près (sinon illisible).
+  // Indicatifs : seulement de près et pour les avions à l'écran (120 max), plus l'avion choisi.
   function tagFlights() {
     const Cs = C.current;
     const c = col.current;
-    if (!Cs || !c) return;
+    const v = view.current;
+    if (!Cs || !c || !v) return;
     c.labels.removeAll();
+    c.planes.items.forEach((it) => { it.label = null; });
     const pk = state.current.picked;
-    for (const it of c.planes.items) {
+    const close = v.camera.positionCartographic.height < 2.5e6;
+    const rect = close ? v.camera.computeViewRectangle() : null;
+    const on = (it) => rect && Cs.Rectangle.contains(rect, Cs.Cartographic.fromDegrees(it.lng, it.lat));
+    const list = c.planes.items.filter((it) => (pk?.kind === "flight" && pk.id === it.d.id) || on(it)).slice(0, 120);
+    for (const it of list) {
       const mine = pk?.kind === "flight" && pk.id === it.d.id;
       it.label = c.labels.add({
         position: it.b.position,
@@ -289,9 +364,9 @@ export default function WorldGlobe({ countries, flights, ships, sats, cams, quak
         fillColor: Cs.Color.fromCssColorString(mine ? "#ffffff" : "#fde68a"),
         outlineColor: Cs.Color.BLACK, outlineWidth: 3, style: Cs.LabelStyle.FILL_AND_OUTLINE,
         pixelOffset: new Cs.Cartesian2(10, -10), horizontalOrigin: Cs.HorizontalOrigin.LEFT,
-        distanceDisplayCondition: mine ? undefined : new Cs.DistanceDisplayCondition(0, 2.5e6),
       });
     }
+    v.scene.requestRender();
   }
 
   function placeCams() {
@@ -320,7 +395,7 @@ export default function WorldGlobe({ countries, flights, ships, sats, cams, quak
       k.b.removeAll();
       k.items = list.map((s) => {
         const station = STATIONS.test(s.name);
-        const b = k.b.add({ image: station ? col.current.icons.station : col.current.icons.sat, scale: station ? 0.9 : 0.32 * (SAT_GROUPS[s.group]?.size || 2) / 2, color: Cs.Color.fromCssColorString(station ? "#ffffff" : SAT_GROUPS[s.group]?.color || "#7dd3fc") });
+        const b = k.b.add({ image: station ? (/^ISS/.test(s.name) ? col.current.icons.station : col.current.icons.tiangong) : col.current.icons.sat, scale: station ? 0.85 : 0.32 * (SAT_GROUPS[s.group]?.size || 2) / 2, color: Cs.Color.fromCssColorString(station ? "#ffffff" : SAT_GROUPS[s.group]?.color || "#7dd3fc") });
         b.gev = { kind: "sat", d: s };
         return { b, s, station };
       });
@@ -351,7 +426,11 @@ export default function WorldGlobe({ countries, flights, ships, sats, cams, quak
     for (const it of wanted) {
       if (!it.b.show) continue;
       const lid = `${it.s.name}|label`;
-      const lab = ents.getById(lid) || ents.add({ id: lid, label: { text: it.s.name.replace(/ \(.*\)/, ""), font: "700 12px ui-monospace, monospace", fillColor: Cs.Color.WHITE, outlineColor: Cs.Color.BLACK, outlineWidth: 3, style: Cs.LabelStyle.FILL_AND_OUTLINE, pixelOffset: new Cs.Cartesian2(16, -16), horizontalOrigin: Cs.HorizontalOrigin.LEFT } });
+      // Badge façon HUD : nom lisible + couleur de la station (bleu ISS, rouge Tiangong).
+      const iss = /^ISS/.test(it.s.name);
+      const text = it.station ? (iss ? "ISS · STATION SPATIALE INTERNATIONALE" : "TIANGONG · STATION CHINOISE") : it.s.name.replace(/ \(.*\)/, "");
+      const tint = Cs.Color.fromCssColorString(it.station ? (iss ? "#38bdf8" : "#f87171") : "#ffffff");
+      const lab = ents.getById(lid) || ents.add({ id: lid, label: { text, font: "700 11px ui-monospace, monospace", fillColor: Cs.Color.WHITE, showBackground: true, backgroundColor: tint.withAlpha(0.35), backgroundPadding: new Cs.Cartesian2(6, 4), pixelOffset: new Cs.Cartesian2(26, -18), horizontalOrigin: Cs.HorizontalOrigin.LEFT, disableDepthTestDistance: Number.POSITIVE_INFINITY } });
       lab.position = it.b.position;
       const oid = `${it.s.name}|orbit`;
       if (!ents.getById(oid)) {
@@ -363,57 +442,60 @@ export default function WorldGlobe({ countries, flights, ships, sats, cams, quak
           const p = propagate(it.s.rec, when, satellite.gstime(now));
           if (p) pts.push(Cs.Cartesian3.fromDegrees(p.lng, p.lat, p.alt * 1000));
         }
-        ents.add({ id: oid, polyline: { positions: pts, width: it.station ? 1.5 : 2, material: Cs.Color.WHITE.withAlpha(it.station ? 0.45 : 0.85), arcType: Cs.ArcType.NONE } });
+        ents.add({ id: oid, polyline: { positions: pts, width: it.station ? 3 : 2, material: it.station ? new Cs.PolylineGlowMaterialProperty({ color: tint.withAlpha(0.7), glowPower: 0.25 }) : Cs.Color.WHITE.withAlpha(0.85), arcType: Cs.ArcType.NONE } });
       }
     }
   }
 
-  async function drawCountries() {
-    const Cs = C.current;
-    const v = view.current;
-    const list = state.current.countries;
-    if (!Cs || !v || !list || col.current.countries) return;
-    const ds = await Cs.GeoJsonDataSource.load({ type: "FeatureCollection", features: list }, { stroke: Cs.Color.WHITE.withAlpha(0.35), fill: Cs.Color.WHITE.withAlpha(0.01), strokeWidth: 1, clampToGround: false });
-    if (!view.current) return;
-    ds.entities.values.forEach((e) => { if (e.polygon) { e.polygon.outline = true; e.polygon.outlineColor = Cs.Color.WHITE.withAlpha(0.3); e.polygon.height = 0; } });
-    col.current.countries = ds;
-    v.dataSources.add(ds);
-    decorate();
-  }
-
-  // Éléments liés à la sélection : pays, séismes, trajet de l'avion choisi.
+  // Éléments liés à la sélection : pays choisi, séismes, trajet de l'avion choisi.
   function decorate() {
     const Cs = C.current;
     const c = col.current;
-    if (!Cs || !c) return;
-    const { quakes: qk, layers: ly, accent: ac, selected: sel, picked: pk, route: rt } = state.current;
-    c.countries?.entities.values.forEach((e) => {
-      if (!e.polygon) return;
-      const mine = sel && e.properties?.ADMIN?.getValue() === sel.ADMIN;
-      e.polygon.material = Cs.Color.fromCssColorString(mine ? ac : "#ffffff").withAlpha(mine ? 0.35 : 0.01);
-    });
+    const v = view.current;
+    if (!Cs || !c || !v) return;
+    const { countries: list, quakes: qk, layers: ly, accent: ac, selected: sel, picked: pk, route: rt } = state.current;
+    // Seul le pays choisi est dessiné (contour + voile de la couleur d'accent).
+    const key = sel?.ADMIN || "";
+    if (c.countriesKey !== key) {
+    c.countriesKey = key;
+    if (c.countries) { v.dataSources.remove(c.countries, true); c.countries = null; }
+    const feat = sel && (list || []).find((f) => f.properties.ADMIN === sel.ADMIN);
+    if (feat) {
+      Cs.GeoJsonDataSource.load(feat, { stroke: Cs.Color.fromCssColorString(ac), fill: Cs.Color.fromCssColorString(ac).withAlpha(0.3), strokeWidth: 2, clampToGround: true }).then((ds) => {
+        if (!view.current || state.current.selected?.ADMIN !== sel.ADMIN) return;
+        c.countries = ds;
+        v.dataSources.add(ds);
+        v.scene.requestRender();
+      });
+    }
+    }
     c.quakes.entities.removeAll();
     if (ly.quakes) {
       for (const q of qk || []) {
-        const r = 20_000 + q.mag * 25_000;
-        const t0 = Date.now() + Math.random() * 1400;
-        c.quakes.entities.add({
-          position: Cs.Cartesian3.fromDegrees(q.lng, q.lat),
-          ellipse: {
-            semiMajorAxis: new Cs.CallbackProperty(() => r * (0.2 + (((Date.now() - t0) % 1400) / 1400) * 0.8), false),
-            semiMinorAxis: new Cs.CallbackProperty(() => r * (0.2 + (((Date.now() - t0) % 1400) / 1400) * 0.8), false),
-            material: new Cs.ColorMaterialProperty(new Cs.CallbackProperty(() => Cs.Color.RED.withAlpha(0.5 * (1 - ((Date.now() - t0) % 1400) / 1400)), false)),
-            height: 0,
-          },
-        });
+        c.quakes.entities.add({ position: Cs.Cartesian3.fromDegrees(q.lng, q.lat), billboard: { image: c.icons.quake, scale: 0.4 + q.mag * 0.18, disableDepthTestDistance: 0 } });
       }
     }
-    if (rt) {
-      c.quakes.entities.add({ polyline: { positions: Cs.Cartesian3.fromDegreesArray([rt.startLng, rt.startLat, rt.endLng, rt.endLat]), width: 2, arcType: Cs.ArcType.GEODESIC, material: new Cs.PolylineDashMaterialProperty({ color: Cs.Color.fromCssColorString("#fbbf24") }) } });
+    // Avion choisi : trajet parcouru (plein) et restant (pointillés), à son altitude.
+    const plane = pk?.kind === "flight" && c.planes.items.find((it) => it.d.id === pk.id);
+    if (plane) {
+      const h = Math.max(3000, plane.altM);
+      const here = new Cs.CallbackProperty(() => Cs.Cartesian3.fromDegrees(plane.lng, plane.lat, h), false);
+      const amber = Cs.Color.fromCssColorString("#fbbf24");
+      if (rt) {
+        const from = Cs.Cartesian3.fromDegrees(rt.startLng, rt.startLat, 0);
+        const to = Cs.Cartesian3.fromDegrees(rt.endLng, rt.endLat, 0);
+        c.quakes.entities.add({ polyline: { positions: new Cs.CallbackProperty(() => [from, here.getValue()], false), width: 6, arcType: Cs.ArcType.GEODESIC, material: new Cs.PolylineGlowMaterialProperty({ color: amber, glowPower: 0.3 }) } });
+        c.quakes.entities.add({ polyline: { positions: new Cs.CallbackProperty(() => [here.getValue(), to], false), width: 2, arcType: Cs.ArcType.GEODESIC, material: new Cs.PolylineDashMaterialProperty({ color: Cs.Color.WHITE.withAlpha(0.8), dashLength: 18 }) } });
+        for (const [pos, name] of [[from, "DÉPART"], [to, "ARRIVÉE"]]) {
+          c.quakes.entities.add({ position: pos, point: { pixelSize: 8, color: amber, outlineColor: Cs.Color.BLACK, outlineWidth: 2, disableDepthTestDistance: Number.POSITIVE_INFINITY }, label: { text: name, font: "700 10px ui-monospace, monospace", fillColor: amber, outlineColor: Cs.Color.BLACK, outlineWidth: 3, style: Cs.LabelStyle.FILL_AND_OUTLINE, pixelOffset: new Cs.Cartesian2(0, -14), disableDepthTestDistance: Number.POSITIVE_INFINITY } });
+        }
+      } else {
+        // Route inconnue : on montre où il va, 1 h devant lui, au cap actuel.
+        const [la, lo] = advance(plane.lat, plane.lng, Number(plane.d.heading) || 0, plane.kmh || 800);
+        c.quakes.entities.add({ polyline: { positions: new Cs.CallbackProperty(() => [here.getValue(), Cs.Cartesian3.fromDegrees(lo, la, h)], false), width: 2, arcType: Cs.ArcType.GEODESIC, material: new Cs.PolylineDashMaterialProperty({ color: amber, dashLength: 18 }) } });
+      }
     }
-    if (pk && pk.kind !== "sat") {
-      c.quakes.entities.add({ position: Cs.Cartesian3.fromDegrees(pk.lng, pk.lat), ellipse: { semiMajorAxis: 40_000, semiMinorAxis: 40_000, material: Cs.Color.WHITE.withAlpha(0.15), outline: true, outlineColor: Cs.Color.WHITE, height: 0 } });
-    }
+    v.scene.requestRender();
   }
 
   function applyMode(m) {
@@ -433,15 +515,15 @@ export default function WorldGlobe({ countries, flights, ships, sats, cams, quak
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [sats]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { drawCountries(); }, [countries]);
+  useEffect(() => { decorate(); }, [countries]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { placeFleet("planes", "flight"); }, [flights, layers]);
+  useEffect(() => { placeFleet("planes", "flight"); decorate(); view.current?.scene.requestRender(); }, [flights, layers]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { placeFleet("ships", "ship"); }, [ships, layers]);
+  useEffect(() => { placeFleet("ships", "ship"); view.current?.scene.requestRender(); }, [ships, layers]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { placeCams(); }, [cams, layers]);
+  useEffect(() => { placeCams(); view.current?.scene.requestRender(); }, [cams, layers]);
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  useEffect(() => { applyMode(mode); }, [mode]);
+  useEffect(() => { applyMode(mode); view.current?.scene.requestRender(); }, [mode]);
   useEffect(() => {
     drawSats();
     tagFlights();
