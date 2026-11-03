@@ -2,7 +2,8 @@
 
 // Fiche de l'avion, du bateau ou du satellite cliqué sur le globe.
 
-import { Plane, Satellite, Ship, X } from "lucide-react";
+import { useEffect, useState } from "react";
+import { Cctv, Plane, Satellite, Ship, X } from "lucide-react";
 import { SAT_GROUPS, SHIP_TYPES, airlineName } from "@/lib/worldCatalog";
 
 const km = (a, b) => {
@@ -118,8 +119,24 @@ function Sat({ s, en }) {
   );
 }
 
+// Caméra publique : dernière image, rafraîchie toutes les 10 s.
+function Cam({ c, en }) {
+  const [t, setT] = useState(() => Date.now());
+  useEffect(() => {
+    const id = setInterval(() => setT(Date.now()), 10_000);
+    return () => clearInterval(id);
+  }, []);
+  return (
+    <>
+      <p className="text-[11px] text-white/60">{c.city} · {en ? "public camera" : "caméra publique"}</p>
+      <img src={`${c.img}${c.img.includes("?") ? "&" : "?"}t=${t}`} alt={c.name} className="mt-2 aspect-video w-full rounded-md border border-white/10 bg-black object-cover" />
+      <p className="mt-1.5 text-[10px] text-white/45">{en ? "Live frame, refreshed every 10 s." : "Image en direct, rafraîchie toutes les 10 s."}</p>
+    </>
+  );
+}
+
 export default function PickedCard({ item, route, en, onClose }) {
-  const Icon = item.kind === "flight" ? Plane : item.kind === "ship" ? Ship : Satellite;
+  const Icon = item.kind === "flight" ? Plane : item.kind === "ship" ? Ship : item.kind === "cam" ? Cctv : Satellite;
   const title = item.kind === "flight" ? route?.flight || item.call || item.id : item.name || item.id;
   return (
     <div className="absolute right-3 top-14 z-10 w-[290px] max-w-[calc(100%-1.5rem)] rounded-xl border border-white/15 bg-black/75 p-3 text-white shadow-2xl backdrop-blur">
@@ -133,6 +150,7 @@ export default function PickedCard({ item, route, en, onClose }) {
       {item.kind === "flight" && <Flight f={item} route={route} en={en} />}
       {item.kind === "ship" && <Vessel s={item} en={en} />}
       {item.kind === "sat" && <Sat s={item} en={en} />}
+      {item.kind === "cam" && <Cam key={item.id} c={item} en={en} />}
     </div>
   );
 }
